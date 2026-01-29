@@ -2,18 +2,28 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import {
     Clock, Calendar, Award, AlertCircle,
-    Flame, BarChart3, TrendingUp, Play, CheckCircle
+    Flame, BarChart3, TrendingUp, Play, CheckCircle, User, Edit2, Save, X
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import LoadingScreen from '../components/Shared/LoadingScreen';
 
 const Profile = () => {
+    const { user: authUser, setAuth } = useAuth();
+    const [profile, setProfile] = useState({ name: '', username: '', email: '' });
     const [analytics, setAnalytics] = useState(null);
     const [schedules, setSchedules] = useState({
         upcoming: [],
         missed: [],
         completed: []
     });
+    const [preferences, setPreferences] = useState({
+        dailyStudyTime: { start: '18:00', end: '20:00' },
+        videosPerDay: 3,
+        maxWatchTimePerDay: 120
+    });
     const [activeTab, setActiveTab] = useState('completed');
     const [loading, setLoading] = useState(true);
+    const [prefMessage, setPrefMessage] = useState('');
 
     useEffect(() => {
         fetchProfileData();
@@ -21,11 +31,12 @@ const Profile = () => {
 
     const fetchProfileData = async () => {
         try {
-            const [analyticsRes, upcomingRes, missedRes, completedRes] = await Promise.all([
+            const [analyticsRes, upcomingRes, missedRes, completedRes, prefsRes] = await Promise.all([
                 api.get('/schedules/analytics'),
                 api.get('/schedules/upcoming'),
                 api.get('/schedules/missed'),
-                api.get('/schedules/completed')
+                api.get('/schedules/completed'),
+                api.get('/users/preferences')
             ]);
 
             setAnalytics(analyticsRes.data);
@@ -34,10 +45,45 @@ const Profile = () => {
                 missed: missedRes.data,
                 completed: completedRes.data
             });
+            if (prefsRes.data) {
+                setPreferences(prefsRes.data);
+            }
+
+            // Sync auth user data to local profile state
+            if (authUser) {
+                setProfile({
+                    name: authUser.name || '',
+                    username: authUser.username || '',
+                    email: authUser.email || ''
+                });
+            }
         } catch (err) {
             console.error('Error fetching profile data:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUpdateProfile = async () => {
+        try {
+            const res = await api.put('/users/profile', profile);
+            setAuth({ user: res.data });
+            setPrefMessage('Profile updated successfully!');
+            setIsEditing(false);
+            setTimeout(() => setPrefMessage(''), 3000);
+        } catch (err) {
+            alert(err.response?.data?.msg || 'Error updating profile');
+        }
+    };
+
+    const handleUpdatePreferences = async () => {
+        try {
+            await api.put('/users/preferences', preferences);
+            setPrefMessage('Preferences saved successfully!');
+            setTimeout(() => setPrefMessage(''), 3000);
+        } catch (err) {
+            console.error('Error updating preferences:', err);
+            setPrefMessage('Failed to save preferences.');
         }
     };
 
@@ -87,14 +133,59 @@ const Profile = () => {
         );
     };
 
-    if (loading) return <div style={{ textAlign: 'center', padding: '5rem' }}>Loading Profile...</div>;
+    const [isEditing, setIsEditing] = useState(false);
+
+    if (loading) return <LoadingScreen message="Analyzing your progress..." />;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
 
+            {/* Profile Overview */}
+            <div className="glass" style={{ padding: '2.5rem', borderRadius: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+                    <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 'bold' }}>
+                        {(profile.username?.[0] || profile.name?.[0])?.toUpperCase()}
+                    </div>
+                    <div>
+                        {!isEditing ? (
+                            <>
+                                <h1 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '0.25rem' }}>{profile.name}</h1>
+                                <p style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '1.1rem', marginBottom: '0.5rem' }}>@{profile.username}</p>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{profile.email}</p>
+                            </>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Full Name</label>
+                                    <input type="text" value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} className="input-glass" style={{ width: '300px' }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Username</label>
+                                    <input type="text" value={profile.username} onChange={e => setProfile({ ...profile, username: e.target.value })} className="input-glass" style={{ width: '300px' }} />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div>
+                    {!isEditing ? (
+                        <button onClick={() => setIsEditing(true)} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.75rem 1.25rem' }}>
+                            <Edit2 size={16} /> Edit Profile
+                        </button>
+                    ) : (
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <button onClick={() => setIsEditing(false)} className="btn-secondary" style={{ padding: '0.75rem' }}> <X size={18} /> </button>
+                            <button onClick={handleUpdateProfile} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.75rem 1.25rem' }}>
+                                <Save size={16} /> Save Changes
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {/* Analytics Header */}
             <div>
-                <h1 style={{ fontSize: '2.4rem', fontWeight: '800', marginBottom: '2rem', letterSpacing: '-1px' }}>Learning Insights</h1>
+                <h1 style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: '1.5rem', letterSpacing: '-0.5px' }}>Performance Metrics</h1>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
                     <div className="glass" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                         <div style={{ width: '48px', height: '48px', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '14px', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -133,6 +224,64 @@ const Profile = () => {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Study Preferences */}
+            <div className="glass" style={{ padding: '2rem', borderRadius: '24px' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '1.5rem' }}>Study Preferences</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Daily Study Time</label>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                            <input
+                                type="time"
+                                value={preferences.dailyStudyTime.start}
+                                onChange={(e) => setPreferences({ ...preferences, dailyStudyTime: { ...preferences.dailyStudyTime, start: e.target.value } })}
+                                className="input-glass"
+                                style={{ flex: 1 }}
+                            />
+                            <span>to</span>
+                            <input
+                                type="time"
+                                value={preferences.dailyStudyTime.end}
+                                onChange={(e) => setPreferences({ ...preferences, dailyStudyTime: { ...preferences.dailyStudyTime, end: e.target.value } })}
+                                className="input-glass"
+                                style={{ flex: 1 }}
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Max Videos Per Day</label>
+                        <input
+                            type="number"
+                            min="1"
+                            value={preferences.videosPerDay}
+                            onChange={(e) => setPreferences({ ...preferences, videosPerDay: parseInt(e.target.value) })}
+                            className="input-glass"
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Max Watch Time Per Day (minutes)</label>
+                        <input
+                            type="number"
+                            min="15"
+                            step="15"
+                            value={preferences.maxWatchTimePerDay}
+                            onChange={(e) => setPreferences({ ...preferences, maxWatchTimePerDay: parseInt(e.target.value) })}
+                            className="input-glass"
+                        />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                        <button onClick={handleUpdatePreferences} className="btn-primary" style={{ width: '100%' }}>
+                            Save Preferences
+                        </button>
+                    </div>
+                </div>
+                {prefMessage && (
+                    <p style={{ marginTop: '1rem', color: prefMessage.includes('success') ? '#10b981' : '#ef4444', fontSize: '0.9rem', fontWeight: '600' }}>
+                        {prefMessage}
+                    </p>
+                )}
             </div>
 
             {/* Task History Tabs */}

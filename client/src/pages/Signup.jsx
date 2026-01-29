@@ -5,6 +5,7 @@ import { Youtube, Mail, Lock, User } from 'lucide-react';
 
 const Signup = () => {
     const [name, setName] = useState('');
+    const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -14,7 +15,7 @@ const Signup = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await register(name, email, password);
+            await register(name, username, email, password);
             navigate('/');
         } catch (err) {
             setError(err.response?.data?.msg || 'Failed to sign up');
@@ -44,6 +45,19 @@ const Signup = () => {
                             style={{ paddingLeft: '3rem' }}
                             value={name}
                             onChange={(e) => setName(e.target.value)}
+                            required
+                        />
+                    </div>
+
+                    <div style={{ position: 'relative' }}>
+                        <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                            type="text"
+                            placeholder="Username"
+                            className="input-glass"
+                            style={{ paddingLeft: '3rem' }}
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
                             required
                         />
                     </div>

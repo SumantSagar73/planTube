@@ -115,12 +115,20 @@ exports.importPlaylist = async (req, res) => {
 
         // Case 1: Playlist
         if (playlistId) {
-            let playlist = await Playlist.findOne({ userId: req.user.id, playlistId });
-            if (playlist) return res.status(400).json({ msg: 'Playlist already imported' });
+            let query = { playlistId };
+            if (req.user) query.userId = req.user.id;
+            else query.userId = { $exists: false };
+
+            let playlist = await Playlist.findOne(query);
+            if (playlist && req.user) return res.status(400).json({ msg: 'Playlist already imported' });
+            if (playlist) {
+                const videos = await Video.find({ playlistId: playlist._id }).sort('position');
+                return res.json({ playlist, videos });
+            }
 
             const data = await fetchPlaylistData(playlistId);
             playlist = new Playlist({
-                userId: req.user.id,
+                userId: req.user?.id,
                 playlistTitle: data.playlistTitle,
                 playlistId,
                 thumbnail: data.thumbnail,
@@ -137,10 +145,14 @@ exports.importPlaylist = async (req, res) => {
             const cleanVideoId = videoId.includes('/') ? videoId.split('/').pop() : videoId;
 
             // Look for a "Single Videos" playlist container or create one
-            let container = await Playlist.findOne({ userId: req.user.id, playlistId: 'SINGLES' });
+            let query = { playlistId: 'SINGLES' };
+            if (req.user) query.userId = req.user.id;
+            else query.userId = { $exists: false };
+
+            let container = await Playlist.findOne(query);
             if (!container) {
                 container = new Playlist({
-                    userId: req.user.id,
+                    userId: req.user?.id,
                     playlistTitle: 'Single Lectures',
                     playlistId: 'SINGLES',
                     thumbnail: 'https://images.unsplash.com/photo-1611162617474-53a479261899?auto=format&fit=crop&q=80&w=400',
@@ -176,6 +188,48 @@ exports.togglePin = async (req, res) => {
         playlist.isPinned = !playlist.isPinned;
         await playlist.save();
         res.json(playlist);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+};
+
+exports.getPlaylistById = async (req, res) => {
+    try {
+        const playlist = await Playlist.findById(req.params.id);
+        if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
+
+        if (!req.user) {
+            return res.json(playlist);
+        }
+
+        // If owner, allow access
+        if (playlist.userId && playlist.userId.toString() === req.user.id) {
+            return res.json(playlist);
+        }
+
+        // If generic/guest playlist (no userId), allow access
+        if (!playlist.userId) {
+            return res.json(playlist);
+        }
+
+        // If not owner, check if shared in any of user's groups
+        const Group = require('../models/Group');
+        const GroupPlaylist = require('../models/GroupPlaylist');
+
+        const userGroups = await Group.find({ members: req.user.id }).select('_id');
+        const groupIds = userGroups.map(g => g._id);
+
+        const isShared = await GroupPlaylist.findOne({
+            playlistId: playlist._id,
+            groupId: { $in: groupIds }
+        });
+
+        if (isShared) {
+            return res.json(playlist);
+        }
+
+        return res.status(403).json({ msg: 'Access denied' });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');

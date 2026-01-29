@@ -4,7 +4,7 @@ const playlistSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
+        required: false,
     },
     playlistTitle: {
         type: String,
@@ -20,6 +20,10 @@ const playlistSchema = new mongoose.Schema({
     isPinned: {
         type: Boolean,
         default: false
+    },
+    goal: {
+        targetDate: Date,
+        createdAt: Date
     }
 }, { timestamps: true });
 

@@ -4,11 +4,13 @@ import {
     Plus, Play, CheckCircle, Clock,
     Youtube, Flame, ChevronRight, Target, Calendar as CalendarIcon,
     ChevronLeft, Pin, PinOff, Trash2, RefreshCw,
-    ChevronRight as ChevronRightIcon
+    ChevronRight as ChevronRightIcon, Library
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Shared/Modal';
 import DeleteConfirmation from '../components/Shared/DeleteConfirmation';
+import LoadingScreen from '../components/Shared/LoadingScreen';
 
 const MiniCalendar = ({ history, streak }) => {
     const [viewDate, setViewDate] = useState(new Date());
@@ -55,7 +57,7 @@ const MiniCalendar = ({ history, streak }) => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', textAlign: 'center' }}>
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                {['s', 'm', 't', 'w', 'th', 'f', 'sa'].map((d, i) => (
                     <span key={i} style={{ fontSize: '0.55rem', fontWeight: '800', color: 'rgba(255,255,255,0.1)', marginBottom: '2px' }}>{d}</span>
                 ))}
                 {getDays().map((date, i) => {
@@ -89,29 +91,42 @@ const Dashboard = () => {
     const [todayTasks, setTodayTasks] = useState([]);
     const [analytics, setAnalytics] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [dataLoading, setDataLoading] = useState(true);
     const [error, setError] = useState('');
 
     const [syncingIds, setSyncingIds] = useState(new Set());
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, playlistId: null, playlistTitle: '' });
     const [syncResultModal, setSyncResultModal] = useState({ isOpen: false, message: '' });
 
+    const { user } = useAuth();
+
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [user]);
 
     const fetchData = async () => {
         try {
-            const [playlistsRes, todayRes, analyticsRes] = await Promise.all([
-                api.get('/playlists'),
-                api.get('/schedules/today'),
-                api.get('/schedules/analytics')
-            ]);
+            if (user) {
+                const [playlistsRes, todayRes, analyticsRes] = await Promise.all([
+                    api.get('/playlists'),
+                    api.get('/schedules/today'),
+                    api.get('/schedules/analytics')
+                ]);
 
-            setPlaylists(playlistsRes.data);
-            setTodayTasks(todayRes.data);
-            setAnalytics(analyticsRes.data);
+                setPlaylists(playlistsRes.data);
+                setTodayTasks(todayRes.data);
+                setAnalytics(analyticsRes.data);
+            } else {
+                // Guest mode: fetch from localStorage
+                const localPlaylists = JSON.parse(localStorage.getItem('guestPlaylists') || '[]');
+                setPlaylists(localPlaylists);
+                setTodayTasks([]);
+                setAnalytics(null);
+            }
         } catch (err) {
             console.error('Error fetching dashboard data:', err);
+        } finally {
+            setDataLoading(false);
         }
     };
 
@@ -120,7 +135,18 @@ const Dashboard = () => {
         setLoading(true);
         setError('');
         try {
-            await api.post('/playlists/import', { playlistUrl });
+            const res = await api.post('/playlists/import', { playlistUrl });
+            const imported = res.data.playlist;
+
+            if (!user) {
+                // Save to localStorage in guest mode
+                const localPlaylists = JSON.parse(localStorage.getItem('guestPlaylists') || '[]');
+                if (!localPlaylists.find(p => p.playlistId === imported.playlistId)) {
+                    localPlaylists.push(imported);
+                    localStorage.setItem('guestPlaylists', JSON.stringify(localPlaylists));
+                }
+            }
+
             setPlaylistUrl('');
             fetchData();
         } catch (err) {
@@ -182,6 +208,8 @@ const Dashboard = () => {
 
     const pendingToday = todayTasks.filter(t => t.status !== 'completed');
 
+    if (dataLoading) return <LoadingScreen message="Curating your library..." />;
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem', paddingBottom: '5rem' }}>
 
@@ -190,11 +218,33 @@ const Dashboard = () => {
 
                 {/* Main Content (Left): Library */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+
+                    {!user && (
+                        <div style={{
+                            background: 'rgba(99, 102, 241, 0.05)',
+                            border: '1px solid rgba(99, 102, 241, 0.2)',
+                            padding: '1rem 1.5rem',
+                            borderRadius: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            marginBottom: '-1rem'
+                        }}>
+                            <div style={{ pading: '0.5rem', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.2)', color: 'var(--primary)' }}>
+                                <Library size={20} />
+                            </div>
+                            <div>
+                                <p style={{ fontSize: '0.9rem', fontWeight: '800', color: 'white', marginBottom: '0.1rem' }}>Guest Mode Active</p>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Playlists are stored locally in your browser. <Link to="/login" style={{ color: 'var(--primary)', textDecoration: 'none' }}>Sign in</Link> to sync across devices.</p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Focal Header */}
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
                             <h1 style={{ fontSize: '2.8rem', fontWeight: '900', letterSpacing: '-1.5px', lineHeight: 1 }}>Focus</h1>
-                            {pendingToday.length > 0 && (
+                            {user && pendingToday.length > 0 && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(99, 102, 241, 0.1)', padding: '0.35rem 0.85rem', borderRadius: '12px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
                                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', boxShadow: '0 0 8px var(--primary)' }}></div>
                                     <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary)' }}>{pendingToday.length} Pending</span>
@@ -294,68 +344,70 @@ const Dashboard = () => {
                 {/* Sidebar (Right): Agenda & Tracker */}
                 <aside style={{ position: 'sticky', top: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
-                    {/* Today's Agenda (Back to Sidebar) */}
-                    <div className="glass" style={{ padding: '1.5rem', borderRadius: '28px', border: '1px solid var(--glass-border)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                            <h3 style={{ fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                <Target size={18} style={{ color: 'var(--primary)' }} /> Daily Agenda
-                            </h3>
-                            <span style={{ fontSize: '0.75rem', fontWeight: '900', color: 'var(--primary)', padding: '0.2rem 0.6rem', background: 'rgba(99,102,241,0.1)', borderRadius: '8px' }}>
-                                {pendingToday.length}
-                            </span>
-                        </div>
-
-                        {todayTasks.length === 0 ? (
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>No tasks for today.</p>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                                {todayTasks.map(task => {
-                                    const isComp = task.status === 'completed';
-                                    return (
-                                        <div key={task._id} style={{
-                                            padding: '1rem', borderRadius: '20px', background: isComp ? 'rgba(34, 197, 94, 0.05)' : 'rgba(255,255,255,0.03)',
-                                            border: isComp ? '1px solid rgba(34,197,94,0.1)' : '1px solid var(--glass-border)',
-                                            display: 'flex', gap: '0.85rem', alignItems: 'center', opacity: isComp ? 0.6 : 1,
-                                            transition: 'all 0.3s'
-                                        }}>
-                                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: isComp ? '#16a34a' : 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.75rem', fontWeight: '900', flexShrink: 0 }}>
-                                                {isComp ? <CheckCircle size={16} /> : (task.videoId?.position + 1)}
-                                            </div>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isComp ? 'var(--text-muted)' : 'inherit' }}>{task.videoId?.title}</p>
-                                                {!isComp ? (
-                                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                                        <a href={`https://www.youtube.com/watch?v=${task.videoId?.videoId}`} target="_blank" rel="noreferrer" className="btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>Watch</a>
-                                                        <button onClick={() => handleMarkComplete(task._id)} className="btn-primary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>Done</button>
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ marginTop: '0.5rem' }}>
-                                                        <button
-                                                            onClick={async () => {
-                                                                try {
-                                                                    await api.put(`/schedules/${task._id}`, { status: 'pending' });
-                                                                    fetchData();
-                                                                } catch (e) {
-                                                                    console.error(e);
-                                                                }
-                                                            }}
-                                                            style={{
-                                                                background: 'rgba(255,255,255,0.1)', border: 'none', color: 'var(--text-muted)',
-                                                                padding: '0.2rem 0.6rem', borderRadius: '8px', fontSize: '0.7rem',
-                                                                cursor: 'pointer', fontWeight: '600'
-                                                            }}
-                                                        >
-                                                            Undo
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                    {/* Today's Agenda (Back to Sidebar) - Only for Logged In */}
+                    {user && (
+                        <div className="glass" style={{ padding: '1.5rem', borderRadius: '28px', border: '1px solid var(--glass-border)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                                <h3 style={{ fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <Target size={18} style={{ color: 'var(--primary)' }} /> Daily Agenda
+                                </h3>
+                                <span style={{ fontSize: '0.75rem', fontWeight: '900', color: 'var(--primary)', padding: '0.2rem 0.6rem', background: 'rgba(99,102,241,0.1)', borderRadius: '8px' }}>
+                                    {pendingToday.length}
+                                </span>
                             </div>
-                        )}
-                    </div>
+
+                            {todayTasks.length === 0 ? (
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>No tasks for today.</p>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                                    {todayTasks.map(task => {
+                                        const isComp = task.status === 'completed';
+                                        return (
+                                            <div key={task._id} style={{
+                                                padding: '1rem', borderRadius: '20px', background: isComp ? 'rgba(34, 197, 94, 0.05)' : 'rgba(255,255,255,0.03)',
+                                                border: isComp ? '1px solid rgba(34,197,94,0.1)' : '1px solid var(--glass-border)',
+                                                display: 'flex', gap: '0.85rem', alignItems: 'center', opacity: isComp ? 0.6 : 1,
+                                                transition: 'all 0.3s'
+                                            }}>
+                                                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: isComp ? '#16a34a' : 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.75rem', fontWeight: '900', flexShrink: 0 }}>
+                                                    {isComp ? <CheckCircle size={16} /> : (task.videoId?.position + 1)}
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ fontSize: '0.9rem', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isComp ? 'var(--text-muted)' : 'inherit' }}>{task.videoId?.title}</p>
+                                                    {!isComp ? (
+                                                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                            <a href={`https://www.youtube.com/watch?v=${task.videoId?.videoId}`} target="_blank" rel="noreferrer" className="btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>Watch</a>
+                                                            <button onClick={() => handleMarkComplete(task._id)} className="btn-primary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>Done</button>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ marginTop: '0.5rem' }}>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await api.put(`/schedules/${task._id}`, { status: 'pending' });
+                                                                        fetchData();
+                                                                    } catch (e) {
+                                                                        console.error(e);
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    background: 'rgba(255,255,255,0.1)', border: 'none', color: 'var(--text-muted)',
+                                                                    padding: '0.2rem 0.6rem', borderRadius: '8px', fontSize: '0.7rem',
+                                                                    cursor: 'pointer', fontWeight: '600'
+                                                                }}
+                                                            >
+                                                                Undo
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Import Launcher */}
                     <div className="glass" style={{ padding: '1.5rem', borderRadius: '28px' }}>
@@ -368,11 +420,13 @@ const Dashboard = () => {
                         </form>
                     </div>
 
-                    {/* Enhanced Tracker */}
-                    <MiniCalendar
-                        history={analytics?.completionHistory}
-                        streak={analytics?.streak || 0}
-                    />
+                    {/* Enhanced Tracker - Only for Logged In */}
+                    {user && (
+                        <MiniCalendar
+                            history={analytics?.completionHistory}
+                            streak={analytics?.streak || 0}
+                        />
+                    )}
                 </aside>
             </div>
 

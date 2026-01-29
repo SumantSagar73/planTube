@@ -29,6 +29,15 @@ app.use('/api/playlists', require('./routes/playlist'));
 // Schedule Routes
 app.use('/api/schedules', require('./routes/schedule'));
 
+// User Routes
+app.use('/api/users', require('./routes/user'));
+
+// Video Routes
+app.use('/api/videos', require('./routes/video'));
+
+// Group Routes
+app.use('/api/groups', require('./routes/group'));
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

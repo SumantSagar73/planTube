@@ -11,10 +11,27 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  username: {
+    type: String,
+    required: true,
+    unique: true,
+  },
   password: {
     type: String,
     required: true,
   },
+  isGuest: {
+    type: Boolean,
+    default: false
+  },
+  preferences: {
+    dailyStudyTime: {
+      start: { type: String, default: '18:00' },
+      end: { type: String, default: '20:00' }
+    },
+    videosPerDay: { type: Number, default: 3 },
+    maxWatchTimePerDay: { type: Number, default: 120 } // minutes
+  }
 }, { timestamps: true });
 
 userSchema.pre('save', async function () {

@@ -2,14 +2,14 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
 exports.register = async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, username, email, password } = req.body;
     try {
-        let user = await User.findOne({ email });
+        let user = await User.findOne({ $or: [{ email }, { username }] });
         if (user) {
-            return res.status(400).json({ msg: 'User already exists' });
+            return res.status(400).json({ msg: 'User with this email or username already exists' });
         }
 
-        user = new User({ name, email, password });
+        user = new User({ name, username, email, password });
         await user.save();
 
         const payload = {
@@ -21,7 +21,7 @@ exports.register = async (req, res) => {
                 console.error('JWT Sign Error:', err.message);
                 return res.status(500).json({ msg: 'JWT Error: ' + err.message });
             }
-            res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+            res.json({ token, user: { id: user.id, name: user.name, username: user.username, email: user.email } });
         });
     } catch (err) {
         console.error('Register Error:', err);
@@ -30,9 +30,11 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-    const { email, password } = req.body;
+    const { identifier, password } = req.body; // identifier can be email or username
     try {
-        let user = await User.findOne({ email });
+        let user = await User.findOne({
+            $or: [{ email: identifier }, { username: identifier }]
+        });
         if (!user) {
             return res.status(400).json({ msg: 'Invalid Credentials' });
         }
@@ -51,7 +53,7 @@ exports.login = async (req, res) => {
                 console.error('JWT Sign Error:', err.message);
                 return res.status(500).json({ msg: 'JWT Error: ' + err.message });
             }
-            res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+            res.json({ token, user: { id: user.id, name: user.name, username: user.username, email: user.email } });
         });
     } catch (err) {
         console.error('Login Error:', err);

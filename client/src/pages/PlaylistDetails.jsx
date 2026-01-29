@@ -1,11 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import {
     Calendar, ChevronLeft, ChevronRight, BarChart,
     CheckCircle, Plus, XCircle, Clock, Filter,
     ArrowUpDown, ListChecks, PlayCircle
 } from 'lucide-react';
+
+import { Link } from 'react-router-dom';
+import LoadingScreen from '../components/Shared/LoadingScreen';
 
 const PlaylistDetails = () => {
     const { id } = useParams();
@@ -76,25 +80,56 @@ const PlaylistDetails = () => {
         }
     }, [loading, videos, schedulesMap, hasScrolled]);
 
+    const { user } = useAuth();
+
     const fetchPlaylistData = async () => {
         try {
-            const [playlistRes, videosRes, progressRes, schedulesRes] = await Promise.all([
-                api.get('/playlists'),
-                api.get(`/playlists/${id}/videos`),
-                api.get(`/schedules/progress?playlistId=${id}`),
-                api.get(`/schedules/playlist/${id}`)
-            ]);
+            if (user) {
+                const [playlistRes, videosRes, progressRes, schedulesRes] = await Promise.all([
+                    api.get('/playlists'),
+                    api.get(`/playlists/${id}/videos`),
+                    api.get(`/schedules/progress?playlistId=${id}`),
+                    api.get(`/schedules/playlist/${id}`)
+                ]);
 
-            const currentPlaylist = playlistRes.data.find(p => p._id === id);
-            setPlaylist(currentPlaylist);
-            setVideos(videosRes.data);
-            setProgress(progressRes.data);
+                const currentPlaylist = playlistRes.data.find(p => p._id === id);
+                setPlaylist(currentPlaylist);
+                setVideos(videosRes.data || []);
+                setProgress(progressRes.data);
 
-            const sMap = {};
-            schedulesRes.data.forEach(s => {
-                sMap[s.videoId] = s;
-            });
-            setSchedulesMap(sMap);
+                const sMap = {};
+                (schedulesRes.data || []).forEach(s => {
+                    sMap[s.videoId] = s;
+                });
+                setSchedulesMap(sMap);
+            } else {
+                // Guest mode
+                const [playlistRes, videosRes] = await Promise.all([
+                    api.get(`/playlists/${id}`),
+                    api.get(`/playlists/${id}/videos`)
+                ]);
+                setPlaylist(playlistRes.data);
+                const vds = videosRes.data || [];
+                setVideos(vds);
+
+                // Get local progress
+                const localWatched = JSON.parse(localStorage.getItem('guestWatched') || '{}');
+                const sMap = {};
+                let completedCount = 0;
+
+                vds.forEach(v => {
+                    if (localWatched[v._id]) {
+                        sMap[v._id] = { status: 'completed', videoId: v._id };
+                        completedCount++;
+                    }
+                });
+                setSchedulesMap(sMap);
+                setProgress({
+                    completed: completedCount,
+                    total: vds.length,
+                    percent: vds.length > 0 ? (completedCount / vds.length) * 100 : 0
+                });
+            }
         } catch (err) {
             console.error('Error fetching playlist details:', err);
         } finally {
@@ -142,20 +177,48 @@ const PlaylistDetails = () => {
 
     const handleToggleCompletion = async (videoId) => {
         try {
-            const existing = schedulesMap[videoId];
-            if (existing) {
-                const newStatus = existing.status === 'completed' ? 'pending' : 'completed';
-                const res = await api.put(`/schedules/${existing._id}`, { status: newStatus });
-                setSchedulesMap(prev => ({ ...prev, [videoId]: res.data }));
+            if (user) {
+                const existing = schedulesMap[videoId];
+                if (existing) {
+                    const newStatus = existing.status === 'completed' ? 'pending' : 'completed';
+                    const res = await api.put(`/schedules/${existing._id}`, { status: newStatus });
+                    setSchedulesMap(prev => ({ ...prev, [videoId]: res.data }));
+                } else {
+                    const res = await api.post('/schedules', {
+                        videoId,
+                        scheduledDate: null,
+                        status: 'completed'
+                    });
+                    setSchedulesMap(prev => ({ ...prev, [videoId]: res.data }));
+                }
+                updateProgress();
             } else {
-                const res = await api.post('/schedules', {
-                    videoId,
-                    scheduledDate: null,
-                    status: 'completed'
+                // Guest mode: toggle in localStorage
+                const localWatched = JSON.parse(localStorage.getItem('guestWatched') || '{}');
+                if (localWatched[videoId]) {
+                    delete localWatched[videoId];
+                } else {
+                    localWatched[videoId] = true;
+                }
+                localStorage.setItem('guestWatched', JSON.stringify(localWatched));
+
+                // Update state
+                const newSMap = { ...schedulesMap };
+                if (localWatched[videoId]) {
+                    newSMap[videoId] = { status: 'completed', videoId };
+                } else {
+                    delete newSMap[videoId];
+                }
+                setSchedulesMap(newSMap);
+
+                // Update progress state
+                const completedCount = Object.keys(localWatched).filter(vid => videos.some(v => v._id === vid)).length;
+                setProgress({
+                    completed: completedCount,
+                    total: videos.length,
+                    percent: videos.length > 0 ? (completedCount / videos.length) * 100 : 0
                 });
-                setSchedulesMap(prev => ({ ...prev, [videoId]: res.data }));
             }
-            updateProgress();
         } catch (err) {
             console.error('Error toggling completion:', err);
         }
@@ -251,9 +314,9 @@ const PlaylistDetails = () => {
         return s && s.scheduledDate && s.scheduledDate.split('T')[0] === activeDate;
     });
 
-    if (loading) return <div style={{ textAlign: 'center', padding: '5rem' }}>Loading Playlist...</div>;
+    if (loading) return <LoadingScreen message="Assembling your curriculum..." />;
 
-    const weekdayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    const weekdayNames = ['s', 'm', 't', 'w', 'th', 'f', 'sa'];
 
     return (
         <div style={{ paddingBottom: '5rem' }}>
@@ -297,6 +360,29 @@ const PlaylistDetails = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Guest Banner */}
+            {!user && (
+                <div style={{
+                    background: 'rgba(99, 102, 241, 0.1)',
+                    border: '1px solid rgba(99, 102, 241, 0.2)',
+                    padding: '1.2rem',
+                    borderRadius: '20px',
+                    marginBottom: '2.5rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backdropFilter: 'blur(10px)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+                        <div style={{ fontSize: '1.8rem' }}>👋</div>
+                        <div>
+                            <p style={{ fontWeight: '800', fontSize: '1.1rem', marginBottom: '0.2rem', color: 'white' }}>Welcome to Guest Mode!</p>
+                            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>Your progress is saved locally. <Link to="/signup" style={{ color: 'var(--primary)', fontWeight: '800', textDecoration: 'none', borderBottom: '1px solid var(--primary)' }}>Create an account</Link> to sync across devices.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Content Multi-Column Layout */}
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: '2.5rem', alignItems: 'start' }}>
@@ -359,7 +445,7 @@ const PlaylistDetails = () => {
                                         <div style={{ fontSize: '1.2rem', fontWeight: '900', color: isCompleted ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.03)', width: '30px', textAlign: 'center' }}>
                                             {(video.position + 1).toString().padStart(2, '0')}
                                         </div>
-                                        <img src={video.thumbnail} alt="" style={{ width: '120px', height: '68px', borderRadius: '10px', objectFit: 'cover' }} />
+                                        {video.thumbnail && <img src={video.thumbnail} alt="" style={{ width: '120px', height: '68px', borderRadius: '10px', objectFit: 'cover' }} />}
                                         <div style={{ flex: 1 }}>
                                             <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', fontWeight: '700', color: isCompleted ? '#86efac' : 'inherit' }}>{video.title}</h3>
                                             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -376,12 +462,14 @@ const PlaylistDetails = () => {
                                     </a>
 
                                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                        {!isPlanned ? (
-                                            <button onClick={() => handleQuickSchedule(video._id)} className="btn-secondary" style={{ padding: '0.5rem 1.2rem', borderRadius: '10px' }}>
-                                                Plan
-                                            </button>
-                                        ) : (
-                                            <button onClick={() => handleRemoveSchedule(video._id)} style={{ background: 'none', color: 'var(--danger)', opacity: 0.5, cursor: 'pointer' }} title="Remove from plan"><XCircle size={22} /></button>
+                                        {user && (
+                                            !isPlanned ? (
+                                                <button onClick={() => handleQuickSchedule(video._id)} className="btn-secondary" style={{ padding: '0.5rem 1.2rem', borderRadius: '10px' }}>
+                                                    Plan
+                                                </button>
+                                            ) : (
+                                                <button onClick={() => handleRemoveSchedule(video._id)} style={{ background: 'none', color: 'var(--danger)', opacity: 0.5, cursor: 'pointer' }} title="Remove from plan"><XCircle size={22} /></button>
+                                            )
                                         )}
 
                                         <button
@@ -403,98 +491,102 @@ const PlaylistDetails = () => {
                     </div>
                 </div>
 
-                {/* Sidebar: Planner & Agenda */}
-                <aside style={{ position: 'sticky', top: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Sidebar: Planner & Agenda (Only for Logged-in Users) */}
+                {user && (
+                    <aside style={{ position: 'sticky', top: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
-                    {/* Calendar Design (Retained/Fine-tuned) */}
-                    <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                            <div>
-                                <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Study Planner</span>
-                                <h2 style={{ fontSize: '1.2rem', fontWeight: '800' }}>{viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
-                            </div>
-                            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                                <button
-                                    onClick={handleGoToToday}
-                                    className="btn-secondary"
-                                    style={{ padding: '0.35rem 0.75rem', fontSize: '0.7rem', fontWeight: '800', borderRadius: '8px' }}
-                                >
-                                    Today
-                                </button>
-                                <div style={{ display: 'flex', gap: '0.2rem' }}>
-                                    <button onClick={() => changeMonth(-1)} className="btn-secondary" style={{ padding: '0.35rem', borderRadius: '8px' }}><ChevronLeft size={16} /></button>
-                                    <button onClick={() => changeMonth(1)} className="btn-secondary" style={{ padding: '0.35rem', borderRadius: '8px' }}><ChevronRight size={16} /></button>
+                        {/* Calendar Design (Retained/Fine-tuned) */}
+                        <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                                <div>
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Study Planner</span>
+                                    <h2 style={{ fontSize: '1.2rem', fontWeight: '800' }}>{viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                    <button
+                                        onClick={handleGoToToday}
+                                        className="btn-secondary"
+                                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.7rem', fontWeight: '800', borderRadius: '8px' }}
+                                    >
+                                        Today
+                                    </button>
+                                    <div style={{ display: 'flex', gap: '0.2rem' }}>
+                                        <button onClick={() => changeMonth(-1)} className="btn-secondary" style={{ padding: '0.35rem', borderRadius: '8px' }}><ChevronLeft size={16} /></button>
+                                        <button onClick={() => changeMonth(1)} className="btn-secondary" style={{ padding: '0.35rem', borderRadius: '8px' }}><ChevronRight size={16} /></button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div style={{ gridTemplateColumns: 'repeat(7, 1fr)', display: 'grid', gap: '0.4rem', marginBottom: '0.75rem' }}>
-                            {weekdayNames.map(day => <div key={day} style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: '800', color: 'rgba(255,255,255,0.2)' }}>{day}</div>)}
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.4rem' }}>
-                            {getCalendarDays().map((d, i) => {
-                                const isToday = getTodayLocal() === d.full;
-                                const isActive = activeDate === d.full;
-                                return (
-                                    <button key={i} onClick={() => setActiveDate(d.full)} style={{
-                                        border: 'none', borderRadius: '10px', aspectRatio: '1/1', fontSize: '0.9rem', cursor: 'pointer',
-                                        background: isActive ? 'var(--primary)' : (isToday ? 'rgba(99, 102, 241, 0.1)' : 'transparent'),
-                                        color: isActive ? 'white' : (d.currentMonth ? 'var(--text-main)' : 'rgba(255,255,255,0.1)'),
-                                        border: isToday && !isActive ? '1px solid var(--primary)' : '1px solid transparent',
-                                        fontWeight: (isActive || isToday) ? '800' : '500'
-                                    }}>{d.day}</button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Daily Agenda */}
-                    <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                <Clock size={18} style={{ color: 'var(--primary)' }} /> Agenda
-                            </h3>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '800', padding: '0.3rem 0.8rem', background: 'rgba(99,102,241,0.1)', borderRadius: '12px' }}>
-                                {formatDate(activeDate)}
-                            </span>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            {plannedToday.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '2rem 1rem', opacity: 0.5 }}>
-                                    <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🍃</div>
-                                    <p style={{ fontSize: '0.8rem', fontWeight: '500' }}>No tasks for this day.</p>
-                                </div>
-                            ) : (
-                                plannedToday.map(video => {
-                                    const schedule = schedulesMap[video._id];
-                                    const isComp = schedule?.status === 'completed';
+                            <div style={{ gridTemplateColumns: 'repeat(7, 1fr)', display: 'grid', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                                {weekdayNames.map((day, i) => <div key={i} style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: '800', color: 'rgba(255,255,255,0.2)' }}>{day}</div>)}
+                            </div>
+                            <div style={{ gridTemplateColumns: 'repeat(7, 1fr)', display: 'grid', gap: '0.4rem' }}>
+                                {getCalendarDays().map((d, i) => {
+                                    const isToday = getTodayLocal() === d.full;
+                                    const isActive = activeDate === d.full;
                                     return (
-                                        <div key={video._id} style={{
-                                            padding: '0.8rem', fontSize: '0.85rem', display: 'flex', gap: '0.8rem', alignItems: 'center',
-                                            borderRadius: '16px', background: isComp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.03)',
-                                            border: isComp ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--glass-border)',
-                                            transition: 'all 0.3s'
-                                        }}>
-                                            <div style={{
-                                                width: '24px', height: '24px', borderRadius: '6px',
-                                                background: isComp ? '#16a34a' : 'var(--primary)',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                color: 'white', fontSize: '0.7rem', fontWeight: '900', flexShrink: 0
-                                            }}>
-                                                {isComp ? <CheckCircle size={14} /> : (video.position + 1)}
-                                            </div>
-                                            <div style={{ flex: 1 }}>
-                                                <p style={{ fontWeight: '700', lineHeight: '1.2', color: isComp ? '#86efac' : 'inherit' }}>{video.title}</p>
-                                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{video.duration}</span>
-                                            </div>
-                                        </div>
+                                        <button key={i} onClick={() => setActiveDate(d.full)} style={{
+                                            borderRadius: '10px', aspectRatio: '1/1', fontSize: '0.9rem', cursor: 'pointer',
+                                            background: isActive ? 'var(--primary)' : (isToday ? 'rgba(99, 102, 241, 0.1)' : 'transparent'),
+                                            color: isActive ? 'white' : (d.currentMonth ? 'var(--text-main)' : 'rgba(255,255,255,0.1)'),
+                                            border: isToday && !isActive ? '1px solid var(--primary)' : '1px solid transparent',
+                                            fontWeight: (isActive || isToday) ? '800' : '500'
+                                        }}>{d.day}</button>
                                     );
-                                })
-                            )}
+                                })}
+                            </div>
                         </div>
-                        {message && <div style={{ marginTop: '1.25rem', padding: '0.75rem', borderRadius: '12px', background: 'rgba(99,102,241,0.1)', fontSize: '0.8rem', color: 'white', textAlign: 'center', fontWeight: '700' }}>{message}</div>}
-                    </div>
-                </aside>
+
+                        {/* Daily Agenda */}
+                        <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <h3 style={{ fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <Clock size={18} style={{ color: 'var(--primary)' }} /> Agenda
+                                </h3>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '800', padding: '0.3rem 0.8rem', background: 'rgba(99,102,241,0.1)', borderRadius: '12px' }}>
+                                    {formatDate(activeDate)}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {plannedToday.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '2rem 1rem', opacity: 0.5 }}>
+                                        <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🍃</div>
+                                        <p style={{ fontSize: '0.8rem', fontWeight: '500' }}>No tasks for this day.</p>
+                                    </div>
+                                ) : (
+                                    plannedToday.map(video => {
+                                        const schedule = schedulesMap[video._id];
+                                        const isComp = schedule?.status === 'completed';
+                                        return (
+                                            <div key={video._id} style={{
+                                                padding: '0.8rem', fontSize: '0.85rem', display: 'flex', gap: '0.8rem', alignItems: 'center',
+                                                borderRadius: '16px', background: isComp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.03)',
+                                                border: isComp ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--glass-border)',
+                                                transition: 'all 0.3s'
+                                            }}>
+                                                <div style={{
+                                                    width: '24px', height: '24px', borderRadius: '6px',
+                                                    background: isComp ? '#16a34a' : 'var(--primary)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    color: 'white', fontSize: '0.7rem', fontWeight: '900', flexShrink: 0
+                                                }}>
+                                                    {isComp ? <CheckCircle size={14} /> : (video.position + 1)}
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <p style={{ fontWeight: '700', lineHeight: '1.2', color: isComp ? '#86efac' : 'inherit' }}>{video.title}</p>
+                                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{video.duration}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                            {message && <div style={{ marginTop: '1.25rem', padding: '0.75rem', borderRadius: '12px', background: 'rgba(99,102,241,0.1)', fontSize: '0.8rem', color: 'white', textAlign: 'center', fontWeight: '700' }}>{message}</div>}
+                        </div>
+                    </aside>
+                )}
             </div>
+
+
         </div>
     );
 };
