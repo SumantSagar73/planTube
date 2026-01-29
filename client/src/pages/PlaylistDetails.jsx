@@ -464,7 +464,17 @@ const PlaylistDetails = () => {
                                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                         {user && (
                                             !isPlanned ? (
-                                                <button onClick={() => handleQuickSchedule(video._id)} className="btn-secondary" style={{ padding: '0.5rem 1.2rem', borderRadius: '10px' }}>
+                                                <button
+                                                    onClick={() => handleQuickSchedule(video._id)}
+                                                    disabled={isCompleted}
+                                                    className="btn-secondary"
+                                                    style={{
+                                                        padding: '0.5rem 1.2rem',
+                                                        borderRadius: '10px',
+                                                        opacity: isCompleted ? 0.5 : 1,
+                                                        cursor: isCompleted ? 'not-allowed' : 'pointer'
+                                                    }}
+                                                >
                                                     Plan
                                                 </button>
                                             ) : (

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Users, UserPlus, Share2, ArrowLeft, MoreVertical, Trash2, LogOut, ExternalLink, Play, CheckCircle, Plus, BarChart, ArrowUp, ArrowDown } from 'lucide-react';
+import { Users, UserPlus, Share2, ArrowLeft, MoreVertical, Trash2, LogOut, ExternalLink, Play, CheckCircle, Plus, BarChart, ArrowUp, ArrowDown, Settings } from 'lucide-react';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import AlertModal from '../components/Shared/AlertModal';
 import ConfirmModal from '../components/Shared/ConfirmModal';
@@ -22,6 +22,11 @@ const GroupDetails = () => {
     const [showJoinModal, setShowJoinModal] = useState(false);
     const [joinEmail, setJoinEmail] = useState('');
     const [joinName, setJoinName] = useState('');
+
+    // Settings Modal State
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [editName, setEditName] = useState('');
+    const [editDescription, setEditDescription] = useState('');
 
     const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', success: false });
     const [confirmation, setConfirmation] = useState({
@@ -52,6 +57,8 @@ const GroupDetails = () => {
                 api.get(`/groups/${id}/playlists`)
             ]);
             setGroup(groupRes.data);
+            setEditName(groupRes.data.groupName);
+            setEditDescription(groupRes.data.description || '');
             setSharedPlaylists(playlistsRes.data || []);
 
             if (currentUser) {
@@ -62,6 +69,21 @@ const GroupDetails = () => {
         } catch (err) {
             console.error('Error fetching group data:', err);
             setLoading(false);
+        }
+    };
+
+    const handleUpdateGroup = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await api.put(`/groups/${id}`, {
+                groupName: editName,
+                description: editDescription
+            });
+            setGroup(res.data); // Update local state
+            showAlert('Success', 'Group details updated!', true);
+            setShowSettingsModal(false);
+        } catch (err) {
+            showAlert('Update Failed', err.response?.data?.msg || 'Error updating group');
         }
     };
 
@@ -218,7 +240,7 @@ const GroupDetails = () => {
     if (!group) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Group not found.</div>;
 
     return (
-        <div style={{ padding: '2rem 3vw', maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ padding: '2rem 3vw', maxWidth: '1600px', margin: '0 auto' }}>
             <button onClick={() => navigate('/groups')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
                 <ArrowLeft size={16} />
                 <span>Back to Groups</span>
@@ -241,7 +263,19 @@ const GroupDetails = () => {
                                 ) : (
                                     isOwner ? (
                                         <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                            <button onClick={handleDeleteGroup} className="btn-secondary" style={{ color: 'var(--danger)', padding: '0.6rem 1rem' }}>
+                                            <button
+                                                onClick={() => {
+                                                    setEditName(group.groupName);
+                                                    setEditDescription(group.description || '');
+                                                    setShowSettingsModal(true);
+                                                }}
+                                                className="btn-secondary"
+                                                style={{ padding: '0.6rem 1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                title="Group Settings"
+                                            >
+                                                <Settings size={18} />
+                                            </button>
+                                            <button onClick={handleDeleteGroup} className="btn-secondary" style={{ color: 'var(--danger)', padding: '0.6rem 1rem' }} title="Delete Group">
                                                 <Trash2 size={18} />
                                             </button>
                                         </div>
@@ -501,6 +535,44 @@ const GroupDetails = () => {
                             <div style={{ display: 'flex', gap: '0.75rem' }}>
                                 <button type="button" onClick={() => setShowJoinModal(false)} className="btn-secondary" style={{ flex: 1 }}>Cancel</button>
                                 <button type="submit" className="btn-primary" style={{ flex: 1 }}>Join Group</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Settings Modal */}
+            {showSettingsModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(8px)' }} onClick={() => setShowSettingsModal(false)}>
+                    <div className="glass" style={{ width: '450px', padding: '2rem', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
+                        <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '0.5rem' }}>Group Settings</h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Update your group's profile details.</p>
+                        <form onSubmit={handleUpdateGroup}>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Group Name</label>
+                                <input
+                                    required
+                                    type="text"
+                                    placeholder="e.g. Study Buddies"
+                                    className="input-glass"
+                                    style={{ width: '100%', padding: '0.8rem' }}
+                                    value={editName}
+                                    onChange={e => setEditName(e.target.value)}
+                                />
+                            </div>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Description</label>
+                                <textarea
+                                    placeholder="What is this group about?"
+                                    className="input-glass"
+                                    style={{ width: '100%', padding: '0.8rem', minHeight: '100px', resize: 'vertical' }}
+                                    value={editDescription}
+                                    onChange={e => setEditDescription(e.target.value)}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                <button type="button" onClick={() => setShowSettingsModal(false)} className="btn-secondary" style={{ flex: 1 }}>Cancel</button>
+                                <button type="submit" className="btn-primary" style={{ flex: 1 }}>Save Changes</button>
                             </div>
                         </form>
                     </div>

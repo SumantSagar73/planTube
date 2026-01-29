@@ -184,7 +184,7 @@ exports.getAnalytics = async (req, res) => {
 };
 
 exports.updateStatus = async (req, res) => {
-    const { status } = req.body;
+    const { status, scheduledDate, scheduledTime } = req.body;
     try {
         let schedule = await Schedule.findById(req.params.id);
         if (!schedule) return res.status(404).json({ msg: 'Schedule not found' });
@@ -193,7 +193,10 @@ exports.updateStatus = async (req, res) => {
             return res.status(401).json({ msg: 'User not authorized' });
         }
 
-        schedule.status = status;
+        if (status) schedule.status = status;
+        if (scheduledDate !== undefined) schedule.scheduledDate = scheduledDate;
+        if (scheduledTime !== undefined) schedule.scheduledTime = scheduledTime;
+
         await schedule.save();
         res.json(schedule);
     } catch (err) {
