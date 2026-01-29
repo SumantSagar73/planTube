@@ -14,11 +14,24 @@ import LoadingScreen from '../components/Shared/LoadingScreen';
 
 const MiniCalendar = ({ history, streak }) => {
     const [viewDate, setViewDate] = useState(new Date());
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    const completionSet = new Set(history || []);
-    const isTodayDone = completionSet.has(today.getTime());
+    // Convert history (raw ISO strings) to local YYYY-MM-DD set
+    const completionSet = new Set((history || []).map(dateStr => {
+        const d = new Date(dateStr);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }));
+
+    // Get today's local YYYY-MM-DD
+    const todayObj = new Date();
+    const tY = todayObj.getFullYear();
+    const tM = String(todayObj.getMonth() + 1).padStart(2, '0');
+    const tD = String(todayObj.getDate()).padStart(2, '0');
+    const todayStr = `${tY}-${tM}-${tD}`;
+
+    const isTodayDone = completionSet.has(todayStr);
 
     const getDays = () => {
         const year = viewDate.getFullYear();
@@ -44,11 +57,11 @@ const MiniCalendar = ({ history, streak }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <Flame
                         size={16}
-                        fill={isTodayDone ? "#f59e0b" : "none"}
-                        color={isTodayDone ? "#f59e0b" : "var(--text-muted)"}
-                        style={{ filter: isTodayDone ? 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.4))' : 'none', transition: 'all 0.3s' }}
+                        fill={streak > 0 ? "#f59e0b" : "none"}
+                        color={streak > 0 ? "#f59e0b" : "var(--text-muted)"}
+                        style={{ filter: streak > 0 ? 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.4))' : 'none', transition: 'all 0.3s' }}
                     />
-                    <span style={{ fontSize: '0.8rem', fontWeight: '800', color: isTodayDone ? '#f59e0b' : 'var(--text-muted)' }}>{streak} Day Streak</span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '800', color: streak > 0 ? '#f59e0b' : 'var(--text-muted)' }}>{streak} Day Streak</span>
                 </div>
                 <div style={{ display: 'flex', gap: '0.1rem' }}>
                     <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem' }}><ChevronLeft size={14} /></button>
@@ -62,20 +75,30 @@ const MiniCalendar = ({ history, streak }) => {
                 ))}
                 {getDays().map((date, i) => {
                     if (!date) return <div key={`empty-${i}`} />;
-                    const isCompleted = completionSet.has(date.getTime());
+
+                    // Format current cell date to YYYY-MM-DD
+                    // IMPORTANT: use local parts to avoid timezone shift when creating string from date obj
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const dateStr = `${year}-${month}-${day}`;
+
+                    const isCompleted = completionSet.has(dateStr);
 
                     return (
                         <div key={i} style={{
                             aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             fontSize: '0.65rem', fontWeight: '700', borderRadius: '6px',
-                            background: 'transparent',
+                            background: isCompleted ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
                             color: isCompleted ? '#f59e0b' : 'var(--text-muted)',
-                            position: 'relative'
+                            position: 'relative',
+                            border: isCompleted ? '1px solid rgba(245, 158, 11, 0.2)' : 'none'
                         }}>
-                            {isCompleted ? (
-                                <Flame size={14} fill="#f59e0b" color="#f59e0b" />
-                            ) : (
-                                date.getDate()
+                            {date.getDate()}
+                            {isCompleted && (
+                                <div style={{ position: 'absolute', bottom: '2px', display: 'flex', justifyContent: 'center', width: '100%' }}>
+                                    <Flame size={8} fill="#f59e0b" color="#f59e0b" />
+                                </div>
                             )}
                         </div>
                     );
