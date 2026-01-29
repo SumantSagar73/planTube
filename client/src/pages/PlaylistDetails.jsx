@@ -151,6 +151,12 @@ const PlaylistDetails = () => {
                 });
             }
             setSchedulesMap(prev => ({ ...prev, [videoId]: res.data }));
+
+            console.log('--- Quick Schedule Debug ---');
+            console.log('Active Date:', activeDate);
+            console.log('Response Scheduled Date:', res.data.scheduledDate);
+            console.log('Match?', res.data.scheduledDate?.split('T')[0] === activeDate);
+
             setMessage('Added to ' + formatDate(activeDate));
             setTimeout(() => setMessage(''), 3000);
             updateProgress();
