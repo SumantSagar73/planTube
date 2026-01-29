@@ -26,14 +26,15 @@ const PlaylistDetails = () => {
     const [filter, setFilter] = useState('all');
     const [sortBy, setSortBy] = useState('position');
     const [message, setMessage] = useState('');
+    const [hasScrolled, setHasScrolled] = useState(false);
 
     useEffect(() => {
         fetchPlaylistData();
     }, [id]);
 
-    // Auto-scroll logic: Today > Nearest Future > Start
+    // Auto-scroll logic: Today > Nearest Future > Start (only once on initial load)
     useEffect(() => {
-        if (!loading && videos.length > 0) {
+        if (!loading && videos.length > 0 && !hasScrolled) {
             const todayStr = getTodayLocal();
 
             // 1. Priority: Find video scheduled for Today
@@ -66,11 +67,14 @@ const PlaylistDetails = () => {
                     const el = document.getElementById(`video-${targetId}`);
                     if (el) {
                         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        setHasScrolled(true);
                     }
                 }, 500);
+            } else {
+                setHasScrolled(true);
             }
         }
-    }, [loading, videos, schedulesMap]);
+    }, [loading, videos, schedulesMap, hasScrolled]);
 
     const fetchPlaylistData = async () => {
         try {
@@ -350,7 +354,7 @@ const PlaylistDetails = () => {
                                     border: isCompleted ? '2px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--glass-border)',
                                     opacity: isCompleted ? 0.9 : 1,
                                     transition: 'all 0.3s ease'
-                                }}>
+                                }} onMouseEnter={(e) => !isCompleted && (e.currentTarget.style.borderColor = 'var(--primary)')} onMouseLeave={(e) => !isCompleted && (e.currentTarget.style.borderColor = 'var(--glass-border)')}>
                                     <a href={`https://www.youtube.com/watch?v=${video.videoId}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1, textDecoration: 'none', color: 'inherit' }}>
                                         <div style={{ fontSize: '1.2rem', fontWeight: '900', color: isCompleted ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.03)', width: '30px', textAlign: 'center' }}>
                                             {(video.position + 1).toString().padStart(2, '0')}

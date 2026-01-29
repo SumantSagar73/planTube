@@ -216,7 +216,7 @@ const Dashboard = () => {
                         ) : (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2rem' }}>
                                 {playlists.map(playlist => (
-                                    <div key={playlist._id} className="glass-hover" style={{ borderRadius: '32px', overflow: 'hidden', background: 'var(--bg-card)', border: playlist.isPinned ? '1px solid var(--primary)' : '1px solid var(--glass-border)', position: 'relative' }}>
+                                    <div key={playlist._id} className="glass-hover" style={{ borderRadius: '32px', overflow: 'hidden', background: 'var(--bg-card)', border: playlist.isPinned ? '1px solid var(--primary)' : '1px solid var(--glass-border)', position: 'relative', transition: 'all 0.3s ease' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseLeave={(e) => e.currentTarget.style.borderColor = playlist.isPinned ? 'var(--primary)' : 'var(--glass-border)'}>
                                         <Link to={`/playlist/${playlist._id}`} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
                                             <div style={{ position: 'relative' }}>
                                                 <img src={playlist.thumbnail} alt="" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover' }} />
