@@ -1,5 +1,4 @@
-import { createContext, useState, useContext, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 const AuthContext = createContext();
 
@@ -20,9 +19,7 @@ export const AuthProvider = ({ children }) => {
 
     const loadUser = async (token) => {
         try {
-            const res = await axios.get('/api/auth/me', {
-                headers: { 'x-auth-token': token }
-            });
+            const res = await api.get('/auth/me'); // Headers handled by interceptor
             setUser(res.data);
             setLoading(false);
         } catch (err) {
@@ -33,14 +30,14 @@ export const AuthProvider = ({ children }) => {
     };
 
     const login = async (identifier, password) => {
-        const res = await axios.post('/api/auth/login', { identifier, password });
+        const res = await api.post('/auth/login', { identifier, password });
         localStorage.setItem('token', res.data.token);
         setUser(res.data.user);
         return res.data;
     };
 
     const register = async (name, username, email, password) => {
-        const res = await axios.post('/api/auth/register', { name, username, email, password });
+        const res = await api.post('/auth/register', { name, username, email, password });
         localStorage.setItem('token', res.data.token);
         setUser(res.data.user);
         return res.data;
