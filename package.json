@@ -1,0 +1,19 @@
+{
+  "name": "plantube",
+  "version": "1.0.0",
+  "description": "PlanTube helps users turn YouTube playlists into scheduled learning plans.",
+  "main": "index.js",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "scripts": {
+    "install-all": "npm install && cd server && npm install && cd ../client && npm install",
+    "client": "cd client && npm run dev",
+    "server": "cd server && npm run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "start": "npm run server"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
