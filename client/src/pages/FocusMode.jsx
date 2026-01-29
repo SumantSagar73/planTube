@@ -2,15 +2,19 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { CheckCircle, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import Confetti from 'react-confetti';
+import { useWindowSize } from 'react-use';
 
 const FocusMode = () => {
     const { videoId } = useParams();
     const navigate = useNavigate();
+    const { width, height } = useWindowSize();
     const [video, setVideo] = useState(null);
     const [playlist, setPlaylist] = useState(null);
     const [allVideos, setAllVideos] = useState([]);
     const [schedule, setSchedule] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showConfetti, setShowConfetti] = useState(false);
 
     useEffect(() => {
         fetchVideoData();
@@ -43,6 +47,7 @@ const FocusMode = () => {
         if (!schedule) return;
         try {
             await api.put(`/schedules/${schedule._id}`, { status: 'completed' });
+            setShowConfetti(true);
             fetchVideoData();
         } catch (err) {
             console.error('Error marking complete:', err);
@@ -71,6 +76,16 @@ const FocusMode = () => {
 
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#000' }}>
+            {showConfetti && (
+                <Confetti
+                    width={width}
+                    height={height}
+                    recycle={false}
+                    numberOfPieces={500}
+                    onConfettiComplete={() => setShowConfetti(false)}
+                    style={{ position: 'fixed', top: 0, left: 0, zIndex: 100 }}
+                />
+            )}
             {/* Minimal Header */}
             <div style={{ padding: '1rem 2rem', background: 'rgba(15, 23, 42, 0.95)', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <button
