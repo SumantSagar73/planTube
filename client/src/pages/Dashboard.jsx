@@ -131,12 +131,17 @@ const Dashboard = () => {
         try {
             if (user) {
                 const [playlistsRes, todayRes, analyticsRes] = await Promise.all([
-                    api.get('/playlists'),
+                    api.get('/playlists/library'), // Use Unified Library to include Pinned Videos
                     api.get('/schedules/today'),
                     api.get('/schedules/analytics')
                 ]);
 
-                setPlaylists(playlistsRes.data);
+                // Filter for Pinned Items (Playlists & Videos)
+                // Filter out 'imported' type if it isn't pinned, but actually we want all pinned items
+                // getLibraryStats sorts by pinned, but returns all.
+                const pinnedItems = playlistsRes.data.filter(item => item.isPinned);
+                setPlaylists(pinnedItems);
+
                 setTodayTasks(todayRes.data);
                 setAnalytics(analyticsRes.data);
             } else {
@@ -188,9 +193,13 @@ const Dashboard = () => {
         }
     };
 
-    const handleTogglePin = async (playlistId) => {
+    const handleTogglePin = async (item) => {
         try {
-            await api.put(`/playlists/${playlistId}/pin`);
+            if (item.type === 'video') {
+                await api.put(`/videos/${item.dbId || item._id}/pin`);
+            } else {
+                await api.put(`/playlists/${item._id}/pin`);
+            }
             fetchData();
         } catch (err) {
             console.error('Error toggling pin:', err);
@@ -284,27 +293,40 @@ const Dashboard = () => {
                         </div>
                         {playlists.length === 0 ? (
                             <div className="glass" style={{ padding: '5rem', textAlign: 'center', borderRadius: '40px', border: '1px dashed var(--glass-border)', background: 'transparent' }}>
-                                <p style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>Library is currently empty.</p>
+                                <p style={{ fontSize: '1.1rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>No pinned playlists in Focus.</p>
+                                <Link to="/library" className="btn-primary" style={{ display: 'inline-block', padding: '0.6rem 1.2rem', textDecoration: 'none' }}>
+                                    Go to Library
+                                </Link>
                             </div>
                         ) : (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2rem' }}>
-                                {playlists.map(playlist => (
-                                    <div key={playlist._id} className="glass-hover" style={{ borderRadius: '32px', overflow: 'hidden', background: 'var(--bg-card)', border: playlist.isPinned ? '1px solid var(--primary)' : '1px solid var(--glass-border)', position: 'relative', transition: 'all 0.3s ease' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseLeave={(e) => e.currentTarget.style.borderColor = playlist.isPinned ? 'var(--primary)' : 'var(--glass-border)'}>
-                                        <Link to={`/playlist/${playlist._id}`} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
+                                {playlists.map(item => (
+                                    <div key={item._id} className="glass-hover" style={{ borderRadius: '32px', overflow: 'hidden', background: 'var(--bg-card)', border: item.isPinned ? '1px solid var(--primary)' : '1px solid var(--glass-border)', position: 'relative', transition: 'all 0.3s ease' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseLeave={(e) => e.currentTarget.style.borderColor = item.isPinned ? 'var(--primary)' : 'var(--glass-border)'}>
+                                        <Link
+                                            to={item.type === 'video' ? `/focus/${item._id}` : `/playlist/${item._id}`}
+                                            style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+                                        >
                                             <div style={{ position: 'relative' }}>
-                                                <img src={playlist.thumbnail} alt="" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover' }} />
-                                                {playlist.isPinned && (
+                                                <img src={item.thumbnail} alt="" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover' }} />
+                                                {item.isPinned && (
                                                     <div style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'var(--primary)', padding: '0.4rem', borderRadius: '50%', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
                                                         <Pin size={14} fill="white" color="white" />
                                                     </div>
                                                 )}
+                                                {item.type === 'video' && (
+                                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '0.6rem' }}>
+                                                        <Play size={28} fill="white" color="white" />
+                                                    </div>
+                                                )}
                                             </div>
                                             <div style={{ padding: '1.75rem' }}>
-                                                <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.75rem', lineHeight: '1.3', minHeight: '2.8rem' }}>{playlist.playlistTitle}</h3>
+                                                <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.75rem', lineHeight: '1.3', minHeight: '2.8rem' }}>{item.title || item.playlistTitle}</h3>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '600' }}>Curriculum</span>
+                                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                                                        {item.type === 'video' ? 'Single Video' : 'Curriculum'}
+                                                    </span>
                                                     <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <ChevronRight size={20} />
+                                                        {item.type === 'video' ? <Play size={16} /> : <ChevronRight size={20} />}
                                                     </div>
                                                 </div>
                                             </div>
@@ -313,23 +335,23 @@ const Dashboard = () => {
                                             <button
                                                 onClick={(e) => {
                                                     e.preventDefault();
-                                                    handleTogglePin(playlist._id);
+                                                    handleTogglePin(item);
                                                 }}
                                                 style={{
                                                     background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '12px',
                                                     padding: '0.5rem', cursor: 'pointer', color: 'white',
                                                     backdropFilter: 'blur(4px)', display: 'flex'
                                                 }}
-                                                title={playlist.isPinned ? "Unpin Playlist" : "Pin Playlist"}
+                                                title={item.isPinned ? "Unpin" : "Pin"}
                                             >
-                                                {playlist.isPinned ? <PinOff size={16} /> : <Pin size={16} />}
+                                                {item.isPinned ? <PinOff size={16} /> : <Pin size={16} />}
                                             </button>
 
-                                            {playlist.playlistId !== 'SINGLES' && (
+                                            {item.type !== 'video' && item.playlistId !== 'SINGLES' && (
                                                 <button
                                                     onClick={(e) => {
                                                         e.preventDefault();
-                                                        handleSyncPlaylist(playlist._id);
+                                                        handleSyncPlaylist(item._id);
                                                     }}
                                                     style={{
                                                         background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '12px',
@@ -338,21 +360,29 @@ const Dashboard = () => {
                                                     }}
                                                     title="Sync with YouTube"
                                                 >
-                                                    <RefreshCw size={16} className={syncingIds.has(playlist._id) ? "spin" : ""} />
+                                                    <RefreshCw size={16} className={syncingIds.has(item._id) ? "spin" : ""} />
                                                 </button>
                                             )}
 
                                             <button
                                                 onClick={(e) => {
                                                     e.preventDefault();
-                                                    setDeleteModal({ isOpen: true, playlistId: playlist._id, playlistTitle: playlist.playlistTitle });
+                                                    if (item.type === 'video') {
+                                                        // Maybe implement video delete later, for now just unpin or hide
+                                                        // Actually, we can assume this is delete from dashboard only (unpin really)
+                                                        // But let's keep delete functionality if needed
+                                                        // For now, let's just allow unpinning as the main action
+                                                        alert("To remove a video, unpin it or delete it from Library.");
+                                                    } else {
+                                                        setDeleteModal({ isOpen: true, playlistId: item._id, playlistTitle: item.title });
+                                                    }
                                                 }}
                                                 style={{
                                                     background: 'rgba(239, 68, 68, 0.8)', border: 'none', borderRadius: '12px',
                                                     padding: '0.5rem', cursor: 'pointer', color: 'white',
                                                     backdropFilter: 'blur(4px)', display: 'flex'
                                                 }}
-                                                title="Delete Playlist"
+                                                title="Delete"
                                             >
                                                 <Trash2 size={16} />
                                             </button>

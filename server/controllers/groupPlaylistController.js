@@ -4,10 +4,10 @@ const Playlist = require('../models/Playlist');
 const Schedule = require('../models/Schedule');
 const Video = require('../models/Video');
 
-// Share a playlist with a group
+// Share a playlist or video with a group
 exports.sharePlaylist = async (req, res) => {
     try {
-        const { groupId, playlistId } = req.body;
+        const { groupId, playlistId, videoId } = req.body;
 
         // Check if group exists and user is a member
         const group = await Group.findById(groupId);
@@ -16,27 +16,43 @@ exports.sharePlaylist = async (req, res) => {
             return res.status(403).json({ msg: 'You are not a member of this group' });
         }
 
-        // Check if playlist exists and user owns it
-        const playlist = await Playlist.findById(playlistId);
-        if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
-        if (playlist.userId.toString() !== req.user.id) {
-            return res.status(403).json({ msg: 'You can only share your own playlists' });
+        const sharedData = {
+            groupId,
+            sharedBy: req.user.id
+        };
+
+        if (playlistId) {
+            // Check if playlist exists and user owns it
+            const playlist = await Playlist.findById(playlistId);
+            if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
+            if (playlist.userId.toString() !== req.user.id) {
+                return res.status(403).json({ msg: 'You can only share your own playlists' });
+            }
+            sharedData.playlistId = playlistId;
+        } else if (videoId) {
+            // Check if video exists
+            const video = await Video.findById(videoId);
+            if (!video) return res.status(404).json({ msg: 'Video not found' });
+            // For videos, check if it belongs to a SINGLES playlist owned by user
+            const playlist = await Playlist.findById(video.playlistId);
+            if (playlist && playlist.userId && playlist.userId.toString() !== req.user.id) {
+                return res.status(403).json({ msg: 'You can only share your own videos' });
+            }
+            sharedData.videoId = videoId;
+        } else {
+            return res.status(400).json({ msg: 'Either playlistId or videoId is required' });
         }
 
-        // Create group playlist connection
-        const groupPlaylist = new GroupPlaylist({
-            groupId,
-            playlistId,
-            sharedBy: req.user.id
-        });
+        // Create group sharing connection
+        const groupPlaylist = new GroupPlaylist(sharedData);
 
         await groupPlaylist.save();
         res.json(groupPlaylist);
     } catch (err) {
         if (err.code === 11000) {
-            return res.status(400).json({ msg: 'Playlist already shared with this group' });
+            return res.status(400).json({ msg: 'This item is already shared with this group' });
         }
-        console.error('Share playlist error:', err.message);
+        console.error('Share error:', err.message);
         res.status(500).json({ msg: 'Server error' });
     }
 };
@@ -57,6 +73,7 @@ exports.getGroupPlaylists = async (req, res) => {
 
         const sharedPlaylists = await GroupPlaylist.find({ groupId })
             .populate('playlistId')
+            .populate('videoId')
             .populate('sharedBy', 'name')
             .sort({ priority: -1, sharedAt: -1 });
 
@@ -155,8 +172,11 @@ exports.unsharePlaylist = async (req, res) => {
     try {
         const { groupId, playlistId } = req.params;
 
-        const shared = await GroupPlaylist.findOne({ groupId, playlistId });
-        if (!shared) return res.status(404).json({ msg: 'Shared playlist not found' });
+        const shared = await GroupPlaylist.findOne({
+            groupId,
+            $or: [{ playlistId }, { videoId: playlistId }] // Reusing playlistId param as generic itemId
+        });
+        if (!shared) return res.status(404).json({ msg: 'Shared item not found' });
 
         const group = await Group.findById(groupId);
 
@@ -166,7 +186,7 @@ exports.unsharePlaylist = async (req, res) => {
         }
 
         await GroupPlaylist.deleteOne({ _id: shared._id });
-        res.json({ msg: 'Playlist removed from group' });
+        res.json({ msg: 'Item removed from group' });
     } catch (err) {
         console.error('Unshare error:', err.message);
         res.status(500).json({ msg: 'Server error' });

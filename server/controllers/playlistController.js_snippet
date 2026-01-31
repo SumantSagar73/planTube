@@ -1,0 +1,70 @@
+
+exports.getLibraryStats = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // 1. Fetch Imported Playlists (Standard)
+        const importedPlaylists = await Playlist.find({ userId }).sort({ isPinned: -1, createdAt: -1 });
+
+        // 2. Fetch Custom Playlists
+        const CustomPlaylist = require('../models/CustomPlaylist');
+        const customPlaylists = await CustomPlaylist.find({ creatorId: userId }).sort({ createdAt: -1 });
+
+        // 3. Get Video Counts for Imported
+        const importedIds = importedPlaylists.map(p => p._id);
+        const importedVideoCounts = await Video.aggregate([
+            { $match: { playlistId: { $in: importedIds } } },
+            { $group: { _id: '$playlistId', count: { $sum: 1 } } } 
+        ]);
+        const importedCountMap = {};
+        importedVideoCounts.forEach(c => importedCountMap[c._id.toString()] = c.count);
+
+        // 4. Get Video Counts for Custom
+        const CustomPlaylistVideo = require('../models/CustomPlaylistVideo');
+        const customIds = customPlaylists.map(p => p._id);
+        const customVideoCounts = await CustomPlaylistVideo.aggregate([
+            { $match: { playlistId: { $in: customIds } } },
+            { $group: { _id: '$playlistId', count: { $sum: 1 } } }
+        ]);
+        const customCountMap = {};
+        customVideoCounts.forEach(c => customCountMap[c._id.toString()] = c.count);
+
+
+        // 5. Merge and Format
+        const unifiedLibrary = [
+            ...importedPlaylists.map(p => ({
+                _id: p._id,
+                title: p.playlistTitle,
+                thumbnail: p.thumbnail,
+                type: 'imported',
+                isPinned: p.isPinned,
+                videoCount: importedCountMap[p._id.toString()] || 0,
+                createdAt: p.createdAt,
+                originalId: p._id 
+            })),
+            ...customPlaylists.map(p => ({
+                _id: p._id,
+                title: p.title,
+                thumbnail: 'https://images.unsplash.com/photo-1611162617474-53a479261899?auto=format&fit=crop&q=80&w=400',
+                type: 'custom',
+                isPinned: false, 
+                videoCount: customCountMap[p._id.toString()] || 0,
+                createdAt: p.createdAt,
+                originalId: p._id
+            }))
+        ];
+
+        // Sort: Pinned first, then Newest
+        unifiedLibrary.sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1;
+            if (!a.isPinned && b.isPinned) return 1;
+            return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+
+        res.json(unifiedLibrary);
+
+    } catch (err) {
+        console.error('Library Stats Error:', err);
+        res.status(500).send('Server Error');
+    }
+};

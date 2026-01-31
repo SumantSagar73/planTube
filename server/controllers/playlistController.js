@@ -3,17 +3,17 @@ const Video = require('../models/Video');
 const Schedule = require('../models/Schedule');
 const axios = require('axios');
 
+const { parseDuration, parseChapters } = require('../utils/videoUtils');
+
 const formatDuration = (isoDuration) => {
+    // Keep for legacy or display purposes if needed, strictly we might just use the seconds now
+    // But existing frontend might expect string. Let's keep consistent.
     const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
     if (!match) return '0:00';
-
     const hours = parseInt(match[1]) || 0;
     const minutes = parseInt(match[2]) || 0;
     const seconds = parseInt(match[3]) || 0;
-
-    if (hours > 0) {
-        return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
+    if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 };
 
@@ -32,12 +32,16 @@ const fetchSingleVideoData = async (videoId) => {
     if (!res.data.items.length) throw new Error('Video not found');
 
     const item = res.data.items[0];
+    const description = item.snippet.description || '';
+
     return {
         videoId: item.id,
         title: item.snippet.title,
         thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '',
         duration: formatDuration(item.contentDetails.duration),
-        position: 0
+        position: 0,
+        description,
+        chapters: parseChapters(description)
     };
 };
 
@@ -80,24 +84,36 @@ const fetchPlaylistData = async (playlistId) => {
 
         const detailsResponse = await axios.get(`https://www.googleapis.com/youtube/v3/videos`, {
             params: {
-                part: 'contentDetails',
+                part: 'snippet,contentDetails',
                 id: videoIds,
                 key: apiKey
             }
         });
 
-        const durationMap = {};
+        const detailsMap = {};
         detailsResponse.data.items.forEach(item => {
-            durationMap[item.id] = formatDuration(item.contentDetails.duration);
+            const desc = item.snippet.description || '';
+            detailsMap[item.id] = {
+                duration: formatDuration(item.contentDetails.duration),
+                description: desc,
+                chapters: parseChapters(desc)
+            };
         });
 
-        const mappedItems = items.map(item => ({
-            videoId: item.snippet.resourceId.videoId,
-            title: item.snippet.title,
-            thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '',
-            position: item.snippet.position,
-            duration: durationMap[item.snippet.resourceId.videoId] || '0:00'
-        }));
+        const mappedItems = items.map(item => {
+            const vid = item.snippet.resourceId.videoId;
+            const details = detailsMap[vid] || {};
+
+            return {
+                videoId: vid,
+                title: item.snippet.title,
+                thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '',
+                position: item.snippet.position,
+                duration: details.duration || '0:00',
+                description: details.description || '',
+                chapters: details.chapters || []
+            };
+        });
 
         videos = [...videos, ...mappedItems];
         nextPageToken = videoResponse.data.nextPageToken;
@@ -178,8 +194,6 @@ exports.importPlaylist = async (req, res) => {
     }
 };
 
-
-
 exports.togglePin = async (req, res) => {
     try {
         const playlist = await Playlist.findOne({ _id: req.params.id, userId: req.user.id });
@@ -196,42 +210,75 @@ exports.togglePin = async (req, res) => {
 
 exports.getPlaylistById = async (req, res) => {
     try {
+        // 1. Try finding in Imported Playlists (Legacy/Standard)
         const playlist = await Playlist.findById(req.params.id);
-        if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
 
-        if (!req.user) {
-            return res.json(playlist);
+        if (playlist) {
+            // --- Existing Logic for Imported Playlists ---
+            if (!req.user) {
+                return res.json(playlist);
+            }
+
+            // If owner, allow access
+            if (playlist.userId && playlist.userId.toString() === req.user.id) {
+                return res.json(playlist);
+            }
+
+            // If generic/guest playlist (no userId), allow access
+            if (!playlist.userId) {
+                return res.json(playlist);
+            }
+
+            // If not owner, check if shared in any of user's groups
+            const Group = require('../models/Group');
+            const GroupPlaylist = require('../models/GroupPlaylist');
+
+            const userGroups = await Group.find({ members: req.user.id }).select('_id');
+            const groupIds = userGroups.map(g => g._id);
+
+            const isShared = await GroupPlaylist.findOne({
+                playlistId: playlist._id,
+                groupId: { $in: groupIds }
+            });
+
+            if (isShared) {
+                return res.json(playlist);
+            }
+
+            return res.status(403).json({ msg: 'Access denied' });
+            // --- End Existing Logic ---
         }
 
-        // If owner, allow access
-        if (playlist.userId && playlist.userId.toString() === req.user.id) {
-            return res.json(playlist);
+        // 2. If not found, try Custom Playlists
+        const CustomPlaylist = require('../models/CustomPlaylist');
+        const CustomPlaylistVideo = require('../models/CustomPlaylistVideo');
+
+        const customPlaylist = await CustomPlaylist.findById(req.params.id)
+            .populate('creatorId', 'name');
+
+        if (!customPlaylist) {
+            return res.status(404).json({ msg: 'Playlist not found' });
         }
 
-        // If generic/guest playlist (no userId), allow access
-        if (!playlist.userId) {
-            return res.json(playlist);
+        // Access Control for Custom Playlist
+        // Visibility: 'private' (owner only) or 'link' (public)
+        if (customPlaylist.visibility === 'private') {
+            if (!req.user || (customPlaylist.creatorId._id || customPlaylist.creatorId).toString() !== req.user.id) {
+                return res.status(403).json({ msg: 'Access denied (Private)' });
+            }
         }
 
-        // If not owner, check if shared in any of user's groups
-        const Group = require('../models/Group');
-        const GroupPlaylist = require('../models/GroupPlaylist');
+        // Fetch videos for custom playlist (as requested in reqs: return playlist + videos)
+        const videos = await CustomPlaylistVideo.find({ playlistId: customPlaylist._id })
+            .sort('orderIndex');
 
-        const userGroups = await Group.find({ members: req.user.id }).select('_id');
-        const groupIds = userGroups.map(g => g._id);
+        return res.json({ playlist: customPlaylist, videos });
 
-        const isShared = await GroupPlaylist.findOne({
-            playlistId: playlist._id,
-            groupId: { $in: groupIds }
-        });
-
-        if (isShared) {
-            return res.json(playlist);
-        }
-
-        return res.status(403).json({ msg: 'Access denied' });
     } catch (err) {
         console.error(err.message);
+        if (err.kind === 'ObjectId') {
+            return res.status(404).json({ msg: 'Playlist not found' });
+        }
         res.status(500).send('Server error');
     }
 };
@@ -258,23 +305,31 @@ exports.getPlaylistVideos = async (req, res) => {
 
 exports.deletePlaylist = async (req, res) => {
     try {
+        // 1. Try Imported Playlist
         const playlist = await Playlist.findOne({ _id: req.params.id, userId: req.user.id });
-        if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
 
-        // 1. Find all videos in this playlist
-        const videos = await Video.find({ playlistId: playlist._id });
-        const videoIds = videos.map(v => v._id);
+        if (playlist) {
+            const videos = await Video.find({ playlistId: playlist._id });
+            const videoIds = videos.map(v => v._id);
+            await Schedule.deleteMany({ videoId: { $in: videoIds } });
+            await Video.deleteMany({ playlistId: playlist._id });
+            await Playlist.findByIdAndDelete(playlist._id);
+            return res.json({ msg: 'Playlist removed' });
+        }
 
-        // 2. Delete all schedules associated with these videos
-        await Schedule.deleteMany({ videoId: { $in: videoIds } });
+        // 2. Try Custom Playlist
+        const CustomPlaylist = require('../models/CustomPlaylist');
+        const CustomPlaylistVideo = require('../models/CustomPlaylistVideo');
 
-        // 3. Delete all videos
-        await Video.deleteMany({ playlistId: playlist._id });
+        const customPlaylist = await CustomPlaylist.findOne({ _id: req.params.id, creatorId: req.user.id });
 
-        // 4. Delete the playlist itself
-        await Playlist.findByIdAndDelete(playlist._id);
+        if (customPlaylist) {
+            await CustomPlaylistVideo.deleteMany({ playlistId: customPlaylist._id });
+            await CustomPlaylist.findByIdAndDelete(customPlaylist._id);
+            return res.json({ msg: 'Playlist removed' });
+        }
 
-        res.json({ msg: 'Playlist removed' });
+        return res.status(404).json({ msg: 'Playlist not found' });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
@@ -313,3 +368,92 @@ exports.syncPlaylist = async (req, res) => {
     }
 };
 
+exports.getLibraryStats = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // 1. Fetch Imported Playlists (Standard) - Exclude SINGLES container
+        const importedPlaylists = await Playlist.find({
+            userId,
+            playlistId: { $ne: 'SINGLES' }
+        }).sort({ isPinned: -1, createdAt: -1 });
+
+        // 1b. Fetch SINGLES Container & Videos
+        const singlesPlaylist = await Playlist.findOne({ userId, playlistId: 'SINGLES' });
+        let singleVideos = [];
+        if (singlesPlaylist) {
+            singleVideos = await Video.find({ playlistId: singlesPlaylist._id }).sort({ _id: -1 });
+        }
+
+        // 2. Fetch Custom Playlists
+        const CustomPlaylist = require('../models/CustomPlaylist');
+        const customPlaylists = await CustomPlaylist.find({ creatorId: userId }).sort({ createdAt: -1 });
+
+        // 3. Get Video Counts for Imported
+        const importedIds = importedPlaylists.map(p => p._id);
+        const importedVideoCounts = await Video.aggregate([
+            { $match: { playlistId: { $in: importedIds } } },
+            { $group: { _id: '$playlistId', count: { $sum: 1 } } }
+        ]);
+        const importedCountMap = {};
+        importedVideoCounts.forEach(c => importedCountMap[c._id.toString()] = c.count);
+
+        // 4. Get Video Counts for Custom
+        const CustomPlaylistVideo = require('../models/CustomPlaylistVideo');
+        const customIds = customPlaylists.map(p => p._id);
+        const customVideoCounts = await CustomPlaylistVideo.aggregate([
+            { $match: { playlistId: { $in: customIds } } },
+            { $group: { _id: '$playlistId', count: { $sum: 1 } } }
+        ]);
+        const customCountMap = {};
+        customVideoCounts.forEach(c => customCountMap[c._id.toString()] = c.count);
+
+        // 5. Merge and Format
+        const unifiedLibrary = [
+            ...importedPlaylists.map(p => ({
+                _id: p._id,
+                title: p.playlistTitle,
+                thumbnail: p.thumbnail,
+                type: 'imported',
+                isPinned: p.isPinned,
+                videoCount: importedCountMap[p._id.toString()] || 0,
+                createdAt: p.createdAt,
+                originalId: p._id
+            })),
+            ...customPlaylists.map(p => ({
+                _id: p._id,
+                title: p.title,
+                thumbnail: 'https://images.unsplash.com/photo-1611162617474-53a479261899?auto=format&fit=crop&q=80&w=400',
+                type: 'custom',
+                isPinned: false,
+                videoCount: customCountMap[p._id.toString()] || 0,
+                createdAt: p.createdAt,
+                originalId: p._id
+            })),
+            ...singleVideos.map(v => ({
+                _id: v.videoId, // Use YouTube ID for frontend routing if needed, or v._id for DB
+                dbId: v._id,
+                title: v.title,
+                thumbnail: v.thumbnail,
+                type: 'video',
+                isPinned: false,
+                videoCount: v.duration, // Reusing field for duration string
+                createdAt: v._id.getTimestamp(), // ObjectId has timestamp
+                originalId: v._id
+            }))
+        ];
+
+        // Sort: Pinned first, then Newest
+        unifiedLibrary.sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1;
+            if (!a.isPinned && b.isPinned) return 1;
+            return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+
+        res.json(unifiedLibrary);
+
+    } catch (err) {
+        console.error('Library Stats Error:', err);
+        res.status(500).send('Server Error');
+    }
+};

@@ -249,6 +249,7 @@ exports.updateStatus = async (req, res) => {
         if (status) schedule.status = status;
         if (scheduledDate !== undefined) schedule.scheduledDate = scheduledDate;
         if (scheduledTime !== undefined) schedule.scheduledTime = scheduledTime;
+        if (req.body.completedChapters !== undefined) schedule.completedChapters = req.body.completedChapters;
 
         await schedule.save();
         res.json(schedule);

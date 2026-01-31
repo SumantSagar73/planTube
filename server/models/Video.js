@@ -23,6 +23,18 @@ const videoSchema = new mongoose.Schema({
     position: {
         type: Number,
     },
+    isPinned: {
+        type: Boolean,
+        default: false
+    },
+    description: {
+        type: String
+    },
+    chapters: [{
+        title: String,
+        timestamp: String,
+        seconds: Number
+    }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Video', videoSchema);

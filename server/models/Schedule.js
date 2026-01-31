@@ -24,6 +24,10 @@ const scheduleSchema = new mongoose.Schema({
         enum: ['pending', 'completed'],
         default: 'pending',
     },
+    completedChapters: {
+        type: [Number], // Array of chapter indices
+        default: []
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Schedule', scheduleSchema);

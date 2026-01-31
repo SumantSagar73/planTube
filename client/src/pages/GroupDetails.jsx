@@ -129,37 +129,44 @@ const GroupDetails = () => {
         }
     };
 
-    const handleSharePlaylist = async (playlistId) => {
+    const handleShareItem = async (item) => {
         try {
-            await api.post(`/groups/${id}/playlists`, { groupId: id, playlistId });
+            const payload = { groupId: id };
+            if (item.type === 'video') {
+                payload.videoId = item.dbId || item._id;
+            } else {
+                payload.playlistId = item._id;
+            }
+
+            await api.post(`/groups/${id}/playlists`, payload);
             const res = await api.get(`/groups/${id}/playlists`);
             setSharedPlaylists(res.data);
             setShowSharePlaylist(false);
         } catch (err) {
-            showAlert('Share Failed', err.response?.data?.msg || 'Error sharing playlist');
+            showAlert('Share Failed', err.response?.data?.msg || 'Error sharing item');
         }
     };
 
-    const fetchUserPlaylists = async () => {
+    const fetchUserItems = async () => {
         try {
-            const res = await api.get('/playlists');
-            setUserPlaylists(res.data);
+            const res = await api.get('/playlists/library');
+            setUserPlaylists(res.data); // Renaming state implicitly or using old name
             setShowSharePlaylist(true);
         } catch (err) {
-            console.error('Error fetching user playlists:', err);
+            console.error('Error fetching user library:', err);
         }
     };
 
-    const handleUnshare = (playlistId) => {
+    const handleUnshare = (sharedId, title) => {
         triggerConfirm(
-            'Unshare Playlist?',
-            'Remove this playlist from the group?',
+            'Unshare Item?',
+            `Remove "${title}" from the group?`,
             async () => {
                 try {
-                    await api.delete(`/groups/${id}/playlists/${playlistId}`);
-                    setSharedPlaylists(prev => prev.filter(p => p.playlistId._id !== playlistId));
+                    await api.delete(`/groups/${id}/playlists/${sharedId}`);
+                    setSharedPlaylists(prev => prev.filter(p => (p.playlistId?._id === sharedId || p.videoId?._id === sharedId)));
                 } catch (err) {
-                    console.error('Error unsharing playlist:', err);
+                    console.error('Error unsharing item:', err);
                 }
             },
             true,
@@ -167,11 +174,12 @@ const GroupDetails = () => {
         );
     };
 
-    const handlePriorityUpdate = async (playlistId, newPriority) => {
+    const handlePriorityUpdate = async (sharedId, newPriority) => {
         try {
             // Optimistic update
             const updatedList = sharedPlaylists.map(p => {
-                if (p.playlistId._id === playlistId) {
+                const itemId = p.playlistId?._id || p.videoId?._id;
+                if (itemId === sharedId) {
                     return { ...p, priority: newPriority };
                 }
                 return p;
@@ -184,7 +192,7 @@ const GroupDetails = () => {
 
             setSharedPlaylists(updatedList);
 
-            await api.put(`/groups/${id}/playlists/${playlistId}/priority`, { priority: newPriority });
+            await api.put(`/groups/${id}/playlists/${sharedId}/priority`, { priority: newPriority });
         } catch (err) {
             console.error('Error updating priority:', err);
             fetchGroupData(); // Revert on error
@@ -306,11 +314,11 @@ const GroupDetails = () => {
 
                     <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                            <h2 style={{ fontSize: '1.5rem', fontWeight: '800' }}>Shared Playlists</h2>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: '800' }}>Shared Content</h2>
                             {!isGuestView && (
-                                <button onClick={fetchUserPlaylists} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem' }}>
+                                <button onClick={fetchUserItems} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem' }}>
                                     <Share2 size={18} />
-                                    <span>Share Playlist</span>
+                                    <span>Share Link</span>
                                 </button>
                             )}
                         </div>
@@ -322,74 +330,90 @@ const GroupDetails = () => {
                             </div>
                         ) : (
                             <div style={{ display: 'grid', gap: '1rem' }}>
-                                {sharedPlaylists.map((shared) => (
-                                    <div key={shared._id} className="glass glass-hover" style={{ padding: '1rem', borderRadius: '20px', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                                        <div style={{ position: 'relative', width: '160px', height: '90px', borderRadius: '12px', overflow: 'hidden' }}>
-                                            <img src={shared.playlistId.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0.4))' }}></div>
-                                        </div>
+                                {sharedPlaylists.map((shared) => {
+                                    const item = shared.playlistId || shared.videoId;
+                                    if (!item) return null;
+                                    const isVideo = !!shared.videoId;
+                                    const itemId = item._id;
+                                    const title = isVideo ? item.title : item.playlistTitle;
 
-                                        {/* Priority Controls */}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginRight: '0.5rem' }}>
-                                            {isOwner && (
-                                                <>
-                                                    <button
-                                                        onClick={() => handlePriorityUpdate(shared.playlistId._id, (shared.priority || 0) + 1)}
-                                                        className="btn-secondary"
-                                                        style={{ padding: '4px', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                        title="Increase Priority"
-                                                    >
-                                                        <ArrowUp size={14} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handlePriorityUpdate(shared.playlistId._id, (shared.priority || 0) - 1)}
-                                                        className="btn-secondary"
-                                                        style={{ padding: '4px', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                        title="Decrease Priority"
-                                                    >
-                                                        <ArrowDown size={14} />
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
-
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.25rem' }}>{shared.playlistId.playlistTitle}</h3>
-                                                {(shared.priority && shared.priority !== 0) ? (
-                                                    <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.5rem', borderRadius: '6px', background: 'var(--primary)', color: 'white', fontWeight: '700' }}>
-                                                        P{shared.priority}
-                                                    </span>
-                                                ) : null}
+                                    return (
+                                        <div key={shared._id} className="glass glass-hover" style={{ padding: '1rem', borderRadius: '20px', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                                            <div style={{ position: 'relative', width: '160px', height: '90px', borderRadius: '12px', overflow: 'hidden' }}>
+                                                <img src={item.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0.4))' }}></div>
+                                                {isVideo && (
+                                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '0.5rem' }}>
+                                                        <Play size={20} fill="white" color="white" />
+                                                    </div>
+                                                )}
                                             </div>
-                                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Shared by {shared.sharedBy.name} • {new Date(shared.sharedAt).toLocaleDateString()}</p>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                            {currentUser && (
-                                                addedPlaylists.has(shared.playlistId.playlistId) ? (
-                                                    <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: '700', padding: '0.5rem 1rem', background: 'rgba(16,185,129,0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                        <CheckCircle size={14} /> In Library
-                                                    </span>
-                                                ) : (
-                                                    <button onClick={() => handleAddToLibrary(shared)} className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <Plus size={16} /> Add to Library
+
+                                            {/* Priority Controls */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginRight: '0.5rem' }}>
+                                                {isOwner && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handlePriorityUpdate(itemId, (shared.priority || 0) + 1)}
+                                                            className="btn-secondary"
+                                                            style={{ padding: '4px', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                            title="Increase Priority"
+                                                        >
+                                                            <ArrowUp size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handlePriorityUpdate(itemId, (shared.priority || 0) - 1)}
+                                                            className="btn-secondary"
+                                                            style={{ padding: '4px', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                            title="Decrease Priority"
+                                                        >
+                                                            <ArrowDown size={14} />
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.25rem' }}>{title}</h3>
+                                                    {(shared.priority && shared.priority !== 0) ? (
+                                                        <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.5rem', borderRadius: '6px', background: 'var(--primary)', color: 'white', fontWeight: '700' }}>
+                                                            P{shared.priority}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Shared by {shared.sharedBy.name} • {new Date(shared.sharedAt).toLocaleDateString()}</p>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                                {currentUser && (
+                                                    isVideo ? null : (
+                                                        addedPlaylists.has(item.playlistId) ? (
+                                                            <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: '700', padding: '0.5rem 1rem', background: 'rgba(16,185,129,0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                                <CheckCircle size={14} /> In Library
+                                                            </span>
+                                                        ) : (
+                                                            <button onClick={() => handleAddToLibrary(shared)} className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                <Plus size={16} /> Add to Library
+                                                            </button>
+                                                        ))
+                                                )}
+                                                {!isVideo && (
+                                                    <Link to={`/groups/${id}/playlists/${itemId}`} className="btn-primary" style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <BarChart size={16} /> Progress
+                                                    </Link>
+                                                )}
+                                                <Link to={isVideo ? `/focus/${itemId}` : `/playlist/${itemId}`} className="btn-secondary" style={{ padding: '0.5rem', borderRadius: '10px' }} title={isVideo ? "Watch Video" : "Preview Playlist"}>
+                                                    <Play size={16} />
+                                                </Link>
+                                                {!isGuestView && (isOwner || shared.sharedBy._id === currentUser.id) && (
+                                                    <button onClick={() => handleUnshare(itemId, title)} className="btn-secondary" style={{ color: 'var(--danger)', padding: '0.6rem' }}>
+                                                        <Trash2 size={16} />
                                                     </button>
-                                                )
-                                            )}
-                                            <Link to={`/groups/${id}/playlists/${shared.playlistId._id}`} className="btn-primary" style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <BarChart size={16} /> Progress
-                                            </Link>
-                                            <Link to={`/playlist/${shared.playlistId._id}`} className="btn-secondary" style={{ padding: '0.5rem', borderRadius: '10px' }} title="Preview Playlist">
-                                                <Play size={16} />
-                                            </Link>
-                                            {!isGuestView && (isOwner || shared.sharedBy._id === currentUser.id) && (
-                                                <button onClick={() => handleUnshare(shared.playlistId._id)} className="btn-secondary" style={{ color: 'var(--danger)', padding: '0.6rem' }}>
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -490,27 +514,36 @@ const GroupDetails = () => {
                 </div>
             )}
 
-            {/* Share Playlist Modal */}
+            {/* Share Modal */}
             {showSharePlaylist && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(8px)' }} onClick={() => setShowSharePlaylist(false)}>
                     <div className="glass" style={{ width: '500px', padding: '2rem', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
-                        <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '1rem' }}>Share Playlist</h2>
+                        <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '1rem' }}>Share Content</h2>
                         <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'grid', gap: '0.75rem' }}>
                             {userPlaylists.length === 0 ? (
-                                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>You don't have any playlists to share.</p>
+                                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>Your library is empty.</p>
                             ) : (
-                                userPlaylists.map((playlist) => {
-                                    const alreadyShared = sharedPlaylists.some(p => p.playlistId._id === playlist._id);
+                                userPlaylists.map((item) => {
+                                    const itemId = item._id || item.dbId;
+                                    const alreadyShared = sharedPlaylists.some(p => (p.playlistId?._id === item._id || p.videoId?._id === item.dbId));
                                     return (
-                                        <div key={playlist._id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                                            <img src={playlist.thumbnail} alt="" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
+                                        <div key={item._id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                                            <div style={{ position: 'relative' }}>
+                                                <img src={item.thumbnail} alt="" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
+                                                {item.type === 'video' && (
+                                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', padding: '2px' }}>
+                                                        <Play size={10} fill="white" color="white" />
+                                                    </div>
+                                                )}
+                                            </div>
                                             <div style={{ flex: 1 }}>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: '600' }}>{playlist.playlistTitle}</p>
+                                                <p style={{ fontSize: '0.9rem', fontWeight: '600' }}>{item.title}</p>
+                                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{item.type}</span>
                                             </div>
                                             {alreadyShared ? (
-                                                <button disabled className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', opacity: 0.5 }}>Already Shared</button>
+                                                <button disabled className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', opacity: 0.5 }}>Shared</button>
                                             ) : (
-                                                <button onClick={() => handleSharePlaylist(playlist._id)} className="btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>Share</button>
+                                                <button onClick={() => handleShareItem(item)} className="btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>Share</button>
                                             )}
                                         </div>
                                     );

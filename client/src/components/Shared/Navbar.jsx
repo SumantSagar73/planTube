@@ -1,12 +1,43 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, Layout, Youtube, User, ChevronDown, Users, Library } from 'lucide-react';
+import api from '../../services/api';
+import { LogOut, Layout, Youtube, User, ChevronDown, Users, Library, ListMusic, Target, Link as LinkIcon, Plus } from 'lucide-react';
+import AlertModal from './AlertModal';
 
 const Navbar = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [showProfile, setShowProfile] = useState(false);
+    const [importUrl, setImportUrl] = useState('');
+    const [importing, setImporting] = useState(false);
+    const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', success: false });
+
+    const showAlert = (title, message, success = false) => {
+        setAlertState({ isOpen: true, title, message, success });
+    };
+
+    const handleQuickImport = async (e) => {
+        e.preventDefault();
+        if (!importUrl) return;
+
+        setImporting(true);
+        try {
+            const res = await api.post('/playlists/import', { playlistUrl: importUrl });
+            setImportUrl('');
+
+            if (res.data.video) {
+                navigate(`/focus/${res.data.video._id}`);
+            } else if (res.data.playlist) {
+                navigate(`/playlist/${res.data.playlist._id}`);
+            }
+        } catch (err) {
+            console.error(err);
+            showAlert('Import Failed', err.response?.data?.msg || 'Failed to import link');
+        } finally {
+            setImporting(false);
+        }
+    };
 
     const handleLogout = () => {
         logout();
@@ -15,15 +46,42 @@ const Navbar = () => {
 
     return (
         <nav className="glass" style={{ width: '100%', margin: '1rem 0', padding: '0.75rem 3vw', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 1000, position: 'relative' }}>
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+            {/* Left: Logo */}
+            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)', flexShrink: 0 }}>
                 <Youtube size={32} />
                 <span style={{ letterSpacing: '-0.5px' }}>PlanTube</span>
             </Link>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+            {/* Center: Quick Import */}
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'center', margin: '0 2rem' }}>
+                {user && (
+                    <form onSubmit={handleQuickImport} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '0.3rem 0.5rem', border: '1px solid var(--glass-border)', width: '100%', maxWidth: '500px' }}>
+                        <LinkIcon size={16} style={{ color: 'var(--text-muted)', marginRight: '0.5rem' }} />
+                        <input
+                            type="text"
+                            placeholder="Paste YouTube Link (Video or Playlist)..."
+                            value={importUrl}
+                            onChange={(e) => setImportUrl(e.target.value)}
+                            disabled={importing}
+                            style={{ background: 'none', border: 'none', color: 'white', fontSize: '0.85rem', width: '100%', outline: 'none' }}
+                        />
+                        <button type="submit" disabled={importing || !importUrl} style={{ background: 'var(--primary)', border: 'none', borderRadius: '8px', padding: '0.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'cursor', opacity: importUrl ? 1 : 0.5 }}>
+                            {importing ? <div className="spinner-small" /> : <Plus size={16} color="white" />}
+                        </button>
+                    </form>
+                )}
+            </div>
+
+            {/* Right: Navigation */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', flexShrink: 0 }}>
+                <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
+                    <Target size={18} />
+                    <span>Focus</span>
+                </Link>
+
                 <Link to="/library" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
                     <Library size={18} />
-                    <span>My Library</span>
+                    <span>Library</span>
                 </Link>
 
                 <Link to="/groups" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
@@ -74,6 +132,14 @@ const Navbar = () => {
                     </div>
                 )}
             </div>
+            {/* Modal */}
+            <AlertModal
+                isOpen={alertState.isOpen}
+                onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))}
+                title={alertState.title}
+                message={alertState.message}
+                success={alertState.success}
+            />
         </nav >
     );
 };

@@ -9,6 +9,10 @@ import FocusMode from './pages/FocusMode';
 import Groups from './pages/Groups';
 import GroupDetails from './pages/GroupDetails';
 import GroupPlaylistProgress from './pages/GroupPlaylistProgress';
+import MyPlaylists from './pages/MyPlaylists';
+import CustomPlaylistDetails from './pages/CustomPlaylistDetails';
+import PublicPlaylist from './pages/PublicPlaylist';
+import LibraryPage from './pages/Library';
 import Home from './pages/Home';
 import Navbar from './components/Shared/Navbar';
 import LoadingScreen from './components/Shared/LoadingScreen';
@@ -47,8 +51,23 @@ const AppRoutes = () => {
                                 <div className="container" style={{ paddingTop: '2rem' }}>
                                     <Routes>
                                         <Route path="/" element={user ? <Dashboard /> : <Home />} />
-                                        <Route path="/library" element={<Dashboard />} />
                                         <Route path="/playlist/:id" element={<PlaylistDetails />} />
+                                        <Route
+                                            path="/dashboard"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <Dashboard />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/library"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <LibraryPage />
+                                                </ProtectedRoute>
+                                            }
+                                        />
                                         <Route
                                             path="/profile"
                                             element={
@@ -60,8 +79,27 @@ const AppRoutes = () => {
                                         <Route path="/groups" element={<Groups />} />
                                         <Route path="/groups/:id" element={<GroupDetails />} />
                                         <Route path="/groups/:groupId/playlists/:playlistId" element={<GroupPlaylistProgress />} />
-                                        {/* Redirect /dashboard to /library for legacy compatibility if needed */}
-                                        <Route path="/dashboard" element={<Navigate to="/library" replace />} />
+
+                                        {/* Custom Playlists */}
+                                        <Route
+                                            path="/my-playlists"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <MyPlaylists />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/custom-playlist/:id"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <CustomPlaylistDetails />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route path="/shared-playlist/:id" element={<PublicPlaylist />} />
+
+
                                     </Routes>
                                 </div>
                             </>
