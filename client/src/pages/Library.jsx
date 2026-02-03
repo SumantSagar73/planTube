@@ -80,18 +80,25 @@ const Library = () => {
     const handleSync = async (e, item) => {
         e.preventDefault();
         e.stopPropagation();
-        if (item.type !== 'imported') return;
+
+        // Allow sync for imported playlists OR individual videos
+        if (item.type !== 'imported' && item.type !== 'video') return;
+
+        const isVideo = item.type === 'video';
+        const endpoint = isVideo
+            ? `/videos/${item.dbId || item._id}/sync`
+            : `/playlists/${item._id}/sync`;
 
         triggerConfirm(
-            'Resync Playlist?',
-            `Do you want to refresh "${item.title}" from YouTube? This will fetch any new videos.`,
+            `Resync ${isVideo ? 'Video' : 'Playlist'}?`,
+            `Do you want to refresh "${item.title}" from YouTube?`,
             async () => {
                 try {
-                    await api.put(`/playlists/${item._id}/sync`);
-                    showAlert('Sync Complete', 'Your playlist has been updated from YouTube!', true);
+                    await api.put(endpoint);
+                    showAlert('Sync Complete', 'Updated successfully!', true);
                     fetchLibrary();
                 } catch (err) {
-                    console.error('Failed to sync playlist', err);
+                    console.error('Failed to sync', err);
                     showAlert('Sync Failed', err.response?.data?.msg || err.message);
                 }
             }

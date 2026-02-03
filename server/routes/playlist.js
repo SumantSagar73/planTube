@@ -26,6 +26,7 @@ router.delete('/:playlistId/videos/:videoId', auth, customController.removeVideo
 // Existing Routes
 router.put('/:id/pin', auth, require('../controllers/playlistController').togglePin);
 router.put('/:id/sync', auth, require('../controllers/playlistController').syncPlaylist);
+router.put('/:id/videos/:videoId/sync', auth, require('../controllers/playlistController').syncVideo);
 router.delete('/:id', auth, require('../controllers/playlistController').deletePlaylist);
 router.get('/', auth, getUserPlaylists);
 router.get('/:id', optionalAuth, getPlaylistById);

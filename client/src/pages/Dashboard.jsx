@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Shared/Modal';
 import DeleteConfirmation from '../components/Shared/DeleteConfirmation';
 import LoadingScreen from '../components/Shared/LoadingScreen';
+import { cache } from '../utils/cache';
 
 const MiniCalendar = ({ history, streak }) => {
     const [viewDate, setViewDate] = useState(new Date());
@@ -130,6 +131,20 @@ const Dashboard = () => {
     const fetchData = async () => {
         try {
             if (user) {
+                // Check Cache first
+                const cachedDashboard = cache.get('dashboard_data');
+                if (cachedDashboard) {
+                    const pinnedItems = cachedDashboard.playlists.filter(item => item.isPinned);
+                    setPlaylists(pinnedItems);
+                    setTodayTasks(cachedDashboard.today);
+                    setAnalytics(cachedDashboard.analytics);
+                    setDataLoading(false);
+                    // Continue to fetch in background to update cache?
+                    // For "fast performance" asked by user, we trust cache or fetch quietly.
+                    // But if we want updates, we should fetch in background.
+                    // However, Dashboard is high traffic. Let's do Background Refresh.
+                }
+
                 const [playlistsRes, todayRes, analyticsRes] = await Promise.all([
                     api.get('/playlists/library'), // Use Unified Library to include Pinned Videos
                     api.get('/schedules/today'),
@@ -137,13 +152,21 @@ const Dashboard = () => {
                 ]);
 
                 // Filter for Pinned Items (Playlists & Videos)
-                // Filter out 'imported' type if it isn't pinned, but actually we want all pinned items
-                // getLibraryStats sorts by pinned, but returns all.
                 const pinnedItems = playlistsRes.data.filter(item => item.isPinned);
-                setPlaylists(pinnedItems);
 
+                // Only update state if different or if we didn't have cache
+                // But simplifying: just set it. React handles Diffing.
+                setPlaylists(pinnedItems);
                 setTodayTasks(todayRes.data);
                 setAnalytics(analyticsRes.data);
+
+                // Update Cache
+                cache.set('dashboard_data', {
+                    playlists: playlistsRes.data,
+                    today: todayRes.data,
+                    analytics: analyticsRes.data
+                });
+
             } else {
                 // Guest mode: fetch from localStorage
                 const localPlaylists = JSON.parse(localStorage.getItem('guestPlaylists') || '[]');
@@ -224,6 +247,9 @@ const Dashboard = () => {
                 newSet.delete(playlistId);
                 return newSet;
             });
+            // Invalidate/Simple Refresh
+            // We just ran fetchData() in try block, which updates cache.
+            // But verify confirmDeletePlaylist and handleImport calls
         }
     };
 

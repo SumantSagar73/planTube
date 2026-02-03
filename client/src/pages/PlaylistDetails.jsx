@@ -5,8 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import {
     Calendar, ChevronLeft, ChevronRight, BarChart,
     CheckCircle, Plus, XCircle, Clock, Filter,
-    ArrowUpDown, ListChecks, PlayCircle
+    ArrowUpDown, ListChecks, PlayCircle, RefreshCw
 } from 'lucide-react';
+import { cache } from '../utils/cache';
 
 import { Link } from 'react-router-dom';
 import LoadingScreen from '../components/Shared/LoadingScreen';
@@ -178,6 +179,25 @@ const PlaylistDetails = () => {
             updateProgress();
         } catch (err) {
             console.error('Error removing schedule:', err);
+        }
+    };
+
+    const handleSyncVideo = async (videoId) => {
+        try {
+            // 1. Call API
+            await api.put(`/playlists/${id}/videos/${videoId}/sync`);
+
+            // 2. Invalidate caches
+            cache.remove(`video_${videoId}`);
+            cache.remove(`playlist_${id}`); // Playlist metadata might change too if we cache it
+
+            // 3. Refresh UI
+            fetchPlaylistData();
+            setMessage('Synced successfully');
+            setTimeout(() => setMessage(''), 3000);
+        } catch (err) {
+            console.error('Sync failed', err);
+            setMessage('Sync failed: ' + (err.response?.data?.msg || err.message));
         }
     };
 
@@ -447,7 +467,7 @@ const PlaylistDetails = () => {
                                     opacity: isCompleted ? 0.9 : 1,
                                     transition: 'all 0.3s ease'
                                 }} onMouseEnter={(e) => !isCompleted && (e.currentTarget.style.borderColor = 'var(--primary)')} onMouseLeave={(e) => !isCompleted && (e.currentTarget.style.borderColor = 'var(--glass-border)')}>
-                                    <a href={`https://www.youtube.com/watch?v=${video.videoId}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1, textDecoration: 'none', color: 'inherit' }}>
+                                    <Link to={`/focus/${video._id}`} style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1, textDecoration: 'none', color: 'inherit' }}>
                                         <div style={{ fontSize: '1.2rem', fontWeight: '900', color: isCompleted ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.03)', width: '30px', textAlign: 'center' }}>
                                             {(video.position + 1).toString().padStart(2, '0')}
                                         </div>
@@ -465,9 +485,11 @@ const PlaylistDetails = () => {
                                                 )}
                                             </div>
                                         </div>
-                                    </a>
+                                    </Link>
 
                                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+
+
                                         {user && (
                                             !isPlanned ? (
                                                 <button

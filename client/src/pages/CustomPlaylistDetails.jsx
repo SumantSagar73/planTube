@@ -8,6 +8,7 @@ import {
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import AlertModal from '../components/Shared/AlertModal';
 import ConfirmModal from '../components/Shared/ConfirmModal';
+import { cache } from '../utils/cache';
 
 const CustomPlaylistDetails = () => {
     const { id } = useParams();
@@ -67,6 +68,11 @@ const CustomPlaylistDetails = () => {
     const handleSyncVideo = async (videoId) => {
         try {
             await api.put(`/playlists/${id}/videos/${videoId}/sync`);
+
+            // Invalidate Cache
+            cache.remove(`video_${videoId}`);
+            cache.remove(`playlist_${id}`);
+
             // Update local state
             fetchData(); // Easier to refetch to get all updated fields
             showAlert('Video Refreshed', 'Successfully updated video details from YouTube.', true);

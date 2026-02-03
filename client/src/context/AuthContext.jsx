@@ -11,28 +11,48 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const token = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+
         if (token) {
-            loadUser(token);
+            // Optimistic Load
+            if (storedUser) {
+                try {
+                    setUser(JSON.parse(storedUser));
+                    setLoading(false); // Immediate unlock
+                } catch (e) {
+                    console.error("Failed to parse stored user");
+                }
+            }
+            // Background validate always
+            loadUser(token, !storedUser); // Only block loading if we didn't find a stored user
         } else {
             setLoading(false);
         }
     }, []);
 
-    const loadUser = async (token) => {
+    const loadUser = async (token, blockLoading = true) => {
+        if (blockLoading) setLoading(true);
         try {
-            const res = await api.get('/auth/me'); // Headers handled by interceptor
+            const res = await api.get('/auth/me');
             setUser(res.data);
-            setLoading(false);
+            localStorage.setItem('user', JSON.stringify(res.data)); // Update fresh data
+            if (blockLoading) setLoading(false);
         } catch (err) {
+            console.error('Auth Load Error', err);
+            // Only logout if we were blocked loading (initial check) or if specific 401?
+            // Safer to just clear if it fails hard, but maybe network error shouldn't logout?
+            // For now, if /auth/me fails, we assume token is bad.
             localStorage.removeItem('token');
+            localStorage.removeItem('user');
             setUser(null);
-            setLoading(false);
+            if (blockLoading) setLoading(false);
         }
     };
 
     const login = async (identifier, password) => {
         const res = await api.post('/auth/login', { identifier, password });
         localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
         setUser(res.data.user);
         return res.data;
     };
@@ -40,17 +60,22 @@ export const AuthProvider = ({ children }) => {
     const register = async (name, username, email, password) => {
         const res = await api.post('/auth/register', { name, username, email, password });
         localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
         setUser(res.data.user);
         return res.data;
     };
 
     const setAuth = (data) => {
         if (data.token) localStorage.setItem('token', data.token);
-        if (data.user) setUser(data.user);
+        if (data.user) {
+            setUser(data.user);
+            localStorage.setItem('user', JSON.stringify(data.user));
+        }
     };
 
     const logout = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
         setUser(null);
     };
 

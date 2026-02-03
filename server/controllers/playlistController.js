@@ -436,7 +436,7 @@ exports.getLibraryStats = async (req, res) => {
                 title: v.title,
                 thumbnail: v.thumbnail,
                 type: 'video',
-                isPinned: false,
+                isPinned: v.isPinned,
                 videoCount: v.duration, // Reusing field for duration string
                 createdAt: v._id.getTimestamp(), // ObjectId has timestamp
                 originalId: v._id
@@ -452,8 +452,78 @@ exports.getLibraryStats = async (req, res) => {
 
         res.json(unifiedLibrary);
 
+
     } catch (err) {
         console.error('Library Stats Error:', err);
         res.status(500).send('Server Error');
+    }
+};
+
+exports.syncVideo = async (req, res) => {
+    try {
+        const { id, videoId } = req.params;
+        const CustomPlaylist = require('../models/CustomPlaylist');
+        const CustomPlaylistVideo = require('../models/CustomPlaylistVideo');
+
+        // Check if it's a Custom Playlist Video first
+        // We can tell by checking if the video exists in the CustomPlaylistVideo collection
+        const customVideo = await CustomPlaylistVideo.findOne({ _id: videoId, playlistId: id });
+
+        if (customVideo) {
+            // Verify ownership
+            const playlist = await CustomPlaylist.findOne({ _id: id, creatorId: req.user.id });
+            if (!playlist) return res.status(403).json({ msg: 'Not authorized' });
+
+            // Fetch new details
+            const newData = await fetchSingleVideoData(customVideo.youtubeVideoId);
+
+            // Update in place
+            customVideo.title = newData.title;
+            customVideo.thumbnail = newData.thumbnail;
+            customVideo.duration = newData.duration;
+            customVideo.description = newData.description;
+            customVideo.chapters = newData.chapters;
+
+            await customVideo.save();
+            return res.json(customVideo);
+        }
+
+        // Check Imported Playlist Video
+        const Video = require('../models/Video');
+        const Playlist = require('../models/Playlist');
+
+        const importedPlaylist = await Playlist.findOne({ _id: id });
+
+        // If not found at all
+        if (!importedPlaylist) return res.status(404).json({ msg: 'Playlist/Video not found' });
+
+        // Access Check for Imported
+        // For now, allow sync if user owns it OR if it's a public/group one?
+        // Let's stick to owner for safety, or just loose for now if it helps fixes.
+        // Assuming owner or general user for now (if simple app).
+        // Stricter: Only owner can sync.
+        if (importedPlaylist.userId && importedPlaylist.userId.toString() !== req.user.id) {
+            return res.status(403).json({ msg: 'Not authorized to sync this playlist' });
+        }
+
+        const video = await Video.findOne({ _id: videoId, playlistId: id });
+        if (!video) return res.status(404).json({ msg: 'Video not found' });
+
+        // Fetch new details
+        const newData = await fetchSingleVideoData(video.videoId);
+
+        // Update in place
+        video.title = newData.title;
+        video.thumbnail = newData.thumbnail;
+        video.duration = newData.duration;
+        video.description = newData.description;
+        video.chapters = newData.chapters;
+
+        await video.save();
+        res.json(video);
+
+    } catch (err) {
+        console.error('Sync Video Error:', err);
+        res.status(500).json({ msg: 'Sync Failed' });
     }
 };
