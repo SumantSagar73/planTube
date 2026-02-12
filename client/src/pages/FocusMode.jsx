@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { CheckCircle, ChevronLeft, ChevronRight, Clock, Map, AlignLeft, RefreshCw, List as ListIcon, Play } from 'lucide-react';
+import { CheckCircle, ChevronLeft, ChevronRight, Clock, Map, AlignLeft, RefreshCw, List as ListIcon, Play, XCircle } from 'lucide-react';
 import YouTube from 'react-youtube';
 import { cache } from '../utils/cache';
 
@@ -15,6 +15,7 @@ const FocusMode = () => {
     const [playlistSchedules, setPlaylistSchedules] = useState([]); // Store all schedules for the playlist
     const [initialLoading, setInitialLoading] = useState(true);
     const [videoLoading, setVideoLoading] = useState(false);
+    const [error, setError] = useState(null);
 
     // UI State
     const [showSidebar, setShowSidebar] = useState(true);
@@ -106,6 +107,7 @@ const FocusMode = () => {
             setVideoLoading(false);
         } catch (err) {
             console.error('Error fetching video data:', err);
+            setError(err.response?.data?.msg || err.message);
             setInitialLoading(false);
             setVideoLoading(false);
         }
@@ -229,7 +231,37 @@ const FocusMode = () => {
         }
     };
 
-    if (initialLoading) return <div style={{ textAlign: 'center', padding: '5rem', color: 'white' }}>Loading Focus Mode...</div>;
+    if (initialLoading) return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#09090b', color: 'white' }}>
+            <div style={{ textAlign: 'center' }}>
+                <RefreshCw className="spin" size={48} style={{ color: 'var(--primary)', marginBottom: '1rem' }} />
+                <p>Loading Focus Mode...</p>
+            </div>
+        </div>
+    );
+
+    if (error) return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '2rem', textAlign: 'center', background: '#09090b' }}>
+            <div className="glass" style={{ padding: '3rem', maxWidth: '400px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                <XCircle size={64} style={{ color: 'var(--danger)', marginBottom: '1rem', marginLeft: 'auto', marginRight: 'auto' }} />
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Content Unavailable</h2>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>{error}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <button
+                        onClick={() => { setError(null); fetchVideoData(); }}
+                        className="btn-primary"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}
+                    >
+                        <RefreshCw size={20} /> Try Again
+                    </button>
+                    <button onClick={() => navigate('/library')} className="btn-secondary" style={{ width: '100%' }}>
+                        Back to Library
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
     if (!video) return <div style={{ textAlign: 'center', padding: '5rem', color: 'white' }}>Video not found</div>;
 
     const currentIndex = allVideos.findIndex(v => v._id === videoId);

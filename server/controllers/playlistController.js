@@ -3,19 +3,7 @@ const Video = require('../models/Video');
 const Schedule = require('../models/Schedule');
 const axios = require('axios');
 
-const { parseDuration, parseChapters } = require('../utils/videoUtils');
-
-const formatDuration = (isoDuration) => {
-    // Keep for legacy or display purposes if needed, strictly we might just use the seconds now
-    // But existing frontend might expect string. Let's keep consistent.
-    const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-    if (!match) return '0:00';
-    const hours = parseInt(match[1]) || 0;
-    const minutes = parseInt(match[2]) || 0;
-    const seconds = parseInt(match[3]) || 0;
-    if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-};
+const { parseDuration, formatDuration, parseChapters } = require('../utils/videoUtils');
 
 const fetchSingleVideoData = async (videoId) => {
     const apiKey = process.env.YOUTUBE_API_KEY;
@@ -34,6 +22,7 @@ const fetchSingleVideoData = async (videoId) => {
     const item = res.data.items[0];
     const description = item.snippet.description || '';
 
+    const durationSecs = parseDuration(item.contentDetails.duration);
     return {
         videoId: item.id,
         title: item.snippet.title,
@@ -41,7 +30,7 @@ const fetchSingleVideoData = async (videoId) => {
         duration: formatDuration(item.contentDetails.duration),
         position: 0,
         description,
-        chapters: parseChapters(description)
+        chapters: parseChapters(description, durationSecs)
     };
 };
 
@@ -93,10 +82,11 @@ const fetchPlaylistData = async (playlistId) => {
         const detailsMap = {};
         detailsResponse.data.items.forEach(item => {
             const desc = item.snippet.description || '';
+            const durationSecs = parseDuration(item.contentDetails.duration);
             detailsMap[item.id] = {
                 duration: formatDuration(item.contentDetails.duration),
                 description: desc,
-                chapters: parseChapters(desc)
+                chapters: parseChapters(desc, durationSecs)
             };
         });
 
@@ -160,31 +150,30 @@ exports.importPlaylist = async (req, res) => {
         if (videoId && (playlistUrl.includes('youtube.com') || playlistUrl.includes('youtu.be'))) {
             const cleanVideoId = videoId.includes('/') ? videoId.split('/').pop() : videoId;
 
-            // Look for a "Single Videos" playlist container or create one
-            let query = { playlistId: 'SINGLES' };
-            if (req.user) query.userId = req.user.id;
-            else query.userId = { $exists: false };
+            const videoData = await fetchSingleVideoData(cleanVideoId);
 
-            let container = await Playlist.findOne(query);
-            if (!container) {
-                container = new Playlist({
-                    userId: req.user?.id,
-                    playlistTitle: 'Single Lectures',
-                    playlistId: 'SINGLES',
-                    thumbnail: 'https://images.unsplash.com/photo-1611162617474-53a479261899?auto=format&fit=crop&q=80&w=400',
-                });
-                await container.save();
+            // Check if already imported as a standalone video
+            let query = { playlistId: `VIDEO_${cleanVideoId}` };
+            if (req.user) query.userId = req.user.id;
+
+            let existingPlaylist = await Playlist.findOne(query);
+            if (existingPlaylist) {
+                const video = await Video.findOne({ playlistId: existingPlaylist._id });
+                return res.json({ playlist: existingPlaylist, video });
             }
 
-            // Check if video already exists in this container
-            const existing = await Video.findOne({ playlistId: container._id, videoId: cleanVideoId });
-            if (existing) return res.status(400).json({ msg: 'Video already in your Library' });
+            const playlist = new Playlist({
+                userId: req.user?.id,
+                playlistTitle: videoData.title,
+                playlistId: `VIDEO_${cleanVideoId}`,
+                thumbnail: videoData.thumbnail,
+            });
+            await playlist.save();
 
-            const videoData = await fetchSingleVideoData(cleanVideoId);
-            const video = new Video({ ...videoData, playlistId: container._id });
+            const video = new Video({ ...videoData, playlistId: playlist._id });
             await video.save();
 
-            return res.json({ playlist: container, video });
+            return res.json({ playlist, video });
         }
 
         res.status(400).json({ msg: 'Could not identify a YouTube Playlist or Video' });
@@ -341,27 +330,48 @@ exports.syncPlaylist = async (req, res) => {
         const playlist = await Playlist.findOne({ _id: req.params.id, userId: req.user.id });
         if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
 
-        // Cannot sync single video 'playlists' as they have no source ID
-        if (playlist.playlistId === 'SINGLES') {
-            return res.json({ msg: 'Synced', added: 0 });
+        // Handle standalone video 'playlists'
+        if (playlist.playlistId.startsWith('VIDEO_')) {
+            const video = await Video.findOne({ playlistId: playlist._id });
+            if (!video) return res.status(404).json({ msg: 'Video not found' });
+
+            const newData = await fetchSingleVideoData(video.videoId);
+            await Video.updateOne({ _id: video._id }, { $set: { ...newData } });
+
+            playlist.playlistTitle = newData.title;
+            playlist.thumbnail = newData.thumbnail;
+            await playlist.save();
+
+            return res.json({ msg: 'Synced Standalone Video', modified: 1, total: 1 });
         }
 
         // 1. Fetch latest from YouTube
         const latestData = await fetchPlaylistData(playlist.playlistId);
 
-        // 2. Get existing video IDs (YouTube IDs) in DB
-        const existingVideos = await Video.find({ playlistId: playlist._id });
-        const existingYoutubeIds = new Set(existingVideos.map(v => v.videoId));
+        // 2. Update Playlist Title & Thumbnail if changed
+        playlist.playlistTitle = latestData.playlistTitle;
+        playlist.thumbnail = latestData.thumbnail;
+        await playlist.save();
 
-        // 3. Filter for new videos
-        const newVideos = latestData.videos.filter(v => !existingYoutubeIds.has(v.videoId));
+        // 3. Prepare Bulk Operations for Videos
+        // This will update existing videos (refreshing title, description, duration, chapters)
+        // and insert new ones (upsert: true)
+        const ops = latestData.videos.map(v => ({
+            updateOne: {
+                filter: { playlistId: playlist._id, videoId: v.videoId },
+                update: { $set: { ...v, playlistId: playlist._id } },
+                upsert: true
+            }
+        }));
 
-        if (newVideos.length > 0) {
-            const videoDocs = newVideos.map(v => ({ ...v, playlistId: playlist._id }));
-            await Video.insertMany(videoDocs);
-        }
+        const result = await Video.bulkWrite(ops);
 
-        res.json({ msg: 'Synced', added: newVideos.length, total: existingVideos.length + newVideos.length });
+        res.json({
+            msg: 'Synced',
+            added: result.upsertedCount,
+            modified: result.modifiedCount,
+            total: latestData.videos.length
+        });
     } catch (err) {
         console.error('Sync Error:', err.message);
         res.status(500).json({ msg: 'Sync Failed: ' + err.message });
@@ -372,18 +382,10 @@ exports.getLibraryStats = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        // 1. Fetch Imported Playlists (Standard) - Exclude SINGLES container
+        // 1. Fetch All Imported Playlists (Standard & Standalone)
         const importedPlaylists = await Playlist.find({
-            userId,
-            playlistId: { $ne: 'SINGLES' }
+            userId
         }).sort({ isPinned: -1, createdAt: -1 });
-
-        // 1b. Fetch SINGLES Container & Videos
-        const singlesPlaylist = await Playlist.findOne({ userId, playlistId: 'SINGLES' });
-        let singleVideos = [];
-        if (singlesPlaylist) {
-            singleVideos = await Video.find({ playlistId: singlesPlaylist._id }).sort({ _id: -1 });
-        }
 
         // 2. Fetch Custom Playlists
         const CustomPlaylist = require('../models/CustomPlaylist');
@@ -410,16 +412,20 @@ exports.getLibraryStats = async (req, res) => {
 
         // 5. Merge and Format
         const unifiedLibrary = [
-            ...importedPlaylists.map(p => ({
-                _id: p._id,
-                title: p.playlistTitle,
-                thumbnail: p.thumbnail,
-                type: 'imported',
-                isPinned: p.isPinned,
-                videoCount: importedCountMap[p._id.toString()] || 0,
-                createdAt: p.createdAt,
-                originalId: p._id
-            })),
+            ...importedPlaylists.map(p => {
+                const isStandalone = p.playlistId.startsWith('VIDEO_');
+                return {
+                    _id: isStandalone ? p.playlistId.replace('VIDEO_', '') : p._id,
+                    dbId: p._id,
+                    title: p.playlistTitle,
+                    thumbnail: p.thumbnail,
+                    type: isStandalone ? 'video' : 'imported',
+                    isPinned: p.isPinned,
+                    videoCount: isStandalone ? 1 : (importedCountMap[p._id.toString()] || 0),
+                    createdAt: p.createdAt,
+                    originalId: p._id
+                };
+            }),
             ...customPlaylists.map(p => ({
                 _id: p._id,
                 title: p.title,
@@ -429,17 +435,6 @@ exports.getLibraryStats = async (req, res) => {
                 videoCount: customCountMap[p._id.toString()] || 0,
                 createdAt: p.createdAt,
                 originalId: p._id
-            })),
-            ...singleVideos.map(v => ({
-                _id: v.videoId, // Use YouTube ID for frontend routing if needed, or v._id for DB
-                dbId: v._id,
-                title: v.title,
-                thumbnail: v.thumbnail,
-                type: 'video',
-                isPinned: v.isPinned,
-                videoCount: v.duration, // Reusing field for duration string
-                createdAt: v._id.getTimestamp(), // ObjectId has timestamp
-                originalId: v._id
             }))
         ];
 

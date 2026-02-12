@@ -19,6 +19,7 @@ const PlaylistDetails = () => {
     const [videos, setVideos] = useState([]);
     const [progress, setProgress] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     const getTodayLocal = () => {
         const d = new Date();
@@ -133,6 +134,7 @@ const PlaylistDetails = () => {
             }
         } catch (err) {
             console.error('Error fetching playlist details:', err);
+            setError(err.response?.data?.msg || err.message);
         } finally {
             setLoading(false);
         }
@@ -341,6 +343,28 @@ const PlaylistDetails = () => {
     });
 
     if (loading) return <LoadingScreen message="Assembling your curriculum..." />;
+
+    if (error) return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '2rem', textAlign: 'center', background: '#09090b', color: 'white' }}>
+            <div className="glass" style={{ padding: '3rem', maxWidth: '400px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                <XCircle size={64} style={{ color: 'var(--danger)', marginBottom: '1rem', marginLeft: 'auto', marginRight: 'auto' }} />
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Playlist Unavailable</h2>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>{error}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <button
+                        onClick={() => { setError(null); setLoading(true); fetchPlaylistData(); }}
+                        className="btn-primary"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}
+                    >
+                        <RefreshCw size={20} /> Try Again
+                    </button>
+                    <button onClick={() => navigate('/library')} className="btn-secondary" style={{ width: '100%' }}>
+                        Back to Library
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 
     const weekdayNames = ['s', 'm', 't', 'w', 'th', 'f', 'sa'];
 

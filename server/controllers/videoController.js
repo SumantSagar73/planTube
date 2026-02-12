@@ -1,21 +1,6 @@
 const Video = require('../models/Video');
 const axios = require('axios');
-const { parseChapters } = require('../utils/videoUtils');
-
-// Helper to format ISO duration to MM:SS (videoUtils.parseDuration returns seconds, but we need string for Schema)
-const formatDuration = (isoDuration) => {
-    const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-    if (!match) return '0:00';
-
-    const hours = parseInt(match[1]) || 0;
-    const minutes = parseInt(match[2]) || 0;
-    const seconds = parseInt(match[3]) || 0;
-
-    if (hours > 0) {
-        return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-};
+const { parseDuration, formatDuration, parseChapters } = require('../utils/videoUtils');
 
 // Helper to fetch single video data from YouTube
 const fetchYouTubeData = async (videoId) => {
@@ -34,13 +19,14 @@ const fetchYouTubeData = async (videoId) => {
 
     const item = res.data.items[0];
     const description = item.snippet.description || '';
+    const durationSecs = parseDuration(item.contentDetails.duration);
 
     return {
         title: item.snippet.title,
         thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '',
         duration: formatDuration(item.contentDetails.duration),
         description,
-        chapters: parseChapters(description)
+        chapters: parseChapters(description, durationSecs)
     };
 };
 
