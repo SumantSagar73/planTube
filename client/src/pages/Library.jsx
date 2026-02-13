@@ -4,7 +4,7 @@ import api from '../services/api';
 import {
     LayoutGrid, List as ListIcon, Search, Filter, Link as LinkIcon,
     Plus, Pin, MoreVertical, Play, Clock, CheckCircle, Video, PinOff,
-    ExternalLink, RefreshCw, Trash2
+    ExternalLink, RefreshCw, Trash2, Youtube as YoutubeIcon, Rocket
 } from 'lucide-react';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import AlertModal from '../components/Shared/AlertModal';
@@ -219,8 +219,28 @@ const Library = () => {
                 </div>
             </div>
 
+            {/* Empty State */}
+            {!loading && filteredItems.length === 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 2rem', textAlign: 'center' }}>
+                    <div className="glass" style={{ padding: '3rem', borderRadius: '32px', maxWidth: '500px', border: '1px solid var(--glass-border)' }}>
+                        <div style={{ width: '64px', height: '64px', background: 'rgba(99,102,241,0.1)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                            <YoutubeIcon size={32} color="var(--primary)" />
+                        </div>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '1rem' }}>Your Library is Empty</h2>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: 1.6 }}>
+                            Turn any YouTube playlist/video into an interactive course.
+                            Paste a link in the <strong>Import Bar</strong> at the top of the screen to get started!
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: 'var(--primary)', fontWeight: '700' }}>
+                            <Rocket size={20} />
+                            <span>First time? Use our guide in the menu!</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Content */}
-            {viewMode === 'grid' ? (
+            {filteredItems.length > 0 && viewMode === 'grid' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem' }}>
                     {filteredItems.map(item => (
                         <Link
@@ -302,7 +322,7 @@ const Library = () => {
                         </Link>
                     ))}
                 </div>
-            ) : (
+            ) : filteredItems.length > 0 ? (
                 <div className="glass" style={{ borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
@@ -402,7 +422,7 @@ const Library = () => {
                         </tbody>
                     </table>
                 </div>
-            )}
+            ) : null}
             {/* Modals */}
             <AlertModal
                 isOpen={alertState.isOpen}

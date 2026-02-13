@@ -1,9 +1,17 @@
+const mongoose = require('mongoose');
 const Schedule = require('../models/Schedule');
 const Video = require('../models/Video');
 
 exports.createSchedule = async (req, res) => {
-    const { videoId, scheduledDate, scheduledTime, status } = req.body;
+    let { videoId, scheduledDate, scheduledTime, status } = req.body;
     try {
+        // If it's a YouTube ID (not a valid MongoDB ObjectId), find the DB document
+        if (!mongoose.Types.ObjectId.isValid(videoId)) {
+            const video = await Video.findOne({ videoId: videoId });
+            if (!video) return res.status(404).json({ msg: 'Video not found' });
+            videoId = video._id;
+        }
+
         const schedule = new Schedule({
             userId: req.user.id,
             videoId,

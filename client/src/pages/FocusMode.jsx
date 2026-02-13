@@ -159,16 +159,18 @@ const FocusMode = () => {
     };
 
     const handleNextVideo = () => {
-        const currentIndex = allVideos.findIndex(v => v._id === videoId);
-        if (currentIndex < allVideos.length - 1) {
-            navigate(`/focus/${allVideos[currentIndex + 1]._id}`);
+        const currentIndex = allVideos.findIndex(v => v._id === videoId || v.videoId === videoId);
+        if (currentIndex < allVideos.length - 1 && currentIndex !== -1) {
+            const nextVideo = allVideos[currentIndex + 1];
+            navigate(`/focus/${nextVideo.videoId || nextVideo._id}`);
         }
     };
 
     const handlePrevVideo = () => {
-        const currentIndex = allVideos.findIndex(v => v._id === videoId);
+        const currentIndex = allVideos.findIndex(v => v._id === videoId || v.videoId === videoId);
         if (currentIndex > 0) {
-            navigate(`/focus/${allVideos[currentIndex - 1]._id}`);
+            const prevVideo = allVideos[currentIndex - 1];
+            navigate(`/focus/${prevVideo.videoId || prevVideo._id}`);
         }
     };
 
@@ -190,10 +192,11 @@ const FocusMode = () => {
         try {
             let currentSchedule = schedule;
 
-            // If no schedule exists, create one first (This might still delay slightly, but less common)
+            // If no schedule exists, create one first
             if (!currentSchedule) {
+                // Ensure we use the database ID (video._id) not the URL parameter (videoId)
                 const res = await api.post('/schedules', {
-                    videoId: videoId,
+                    videoId: video._id,
                     status: 'pending'
                 });
                 currentSchedule = res.data;

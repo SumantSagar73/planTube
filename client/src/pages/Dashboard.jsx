@@ -278,23 +278,30 @@ const Dashboard = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
 
                     {!user && (
-                        <div style={{
-                            background: 'rgba(99, 102, 241, 0.05)',
-                            border: '1px solid rgba(99, 102, 241, 0.2)',
-                            padding: '1rem 1.5rem',
-                            borderRadius: '20px',
+                        <div className="glass" style={{
+                            marginBottom: '2rem',
+                            padding: '1.25rem 2rem',
+                            borderRadius: '24px',
+                            background: 'linear-gradient(90deg, rgba(99,102,241,0.1) 0%, rgba(236,72,153,0.1) 100%)',
+                            border: '1px solid var(--glass-border)',
                             display: 'flex',
+                            justifyContent: 'space-between',
                             alignItems: 'center',
-                            gap: '1rem',
-                            marginBottom: '-1rem'
+                            flexWrap: 'wrap',
+                            gap: '1rem'
                         }}>
-                            <div style={{ pading: '0.5rem', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.2)', color: 'var(--primary)' }}>
-                                <Library size={20} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Sparkles size={20} color="var(--primary)" />
+                                </div>
+                                <div>
+                                    <h4 style={{ fontSize: '0.95rem', fontWeight: '800' }}>You're in Guest Mode</h4>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Your progress is saved locally. Sign up to sync across devices!</p>
+                                </div>
                             </div>
-                            <div>
-                                <p style={{ fontSize: '0.9rem', fontWeight: '800', color: 'white', marginBottom: '0.1rem' }}>Guest Mode Active</p>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Playlists are stored locally in your browser. <Link to="/login" style={{ color: 'var(--primary)', textDecoration: 'none' }}>Sign in</Link> to sync across devices.</p>
-                            </div>
+                            <Link to="/signup" className="btn-primary" style={{ padding: '0.6rem 1.5rem', fontSize: '0.85rem' }}>
+                                Create Account
+                            </Link>
                         </div>
                     )}
 
@@ -318,10 +325,22 @@ const Dashboard = () => {
                             <h2 style={{ fontSize: '1.4rem', fontWeight: '800' }}>Active Library</h2>
                         </div>
                         {playlists.length === 0 ? (
-                            <div className="glass" style={{ padding: '5rem', textAlign: 'center', borderRadius: '40px', border: '1px dashed var(--glass-border)', background: 'transparent' }}>
-                                <p style={{ fontSize: '1.1rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>No pinned playlists in Focus.</p>
-                                <Link to="/library" className="btn-primary" style={{ display: 'inline-block', padding: '0.6rem 1.2rem', textDecoration: 'none' }}>
-                                    Go to Library
+                            <div className="glass" style={{
+                                padding: '4rem 2rem',
+                                borderRadius: '40px',
+                                textAlign: 'center',
+                                background: 'rgba(255,255,255,0.01)',
+                                border: '1px dashed var(--glass-border)'
+                            }}>
+                                <div style={{ width: '56px', height: '56px', background: 'rgba(99,102,241,0.05)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                                    <Library size={24} color="var(--text-muted)" />
+                                </div>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>Your Focus List is Empty</h3>
+                                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem', maxWidth: '300px', margin: '0 auto 2rem' }}>
+                                    Your most important playlists appear here. Head to the library to pin your current study goals!
+                                </p>
+                                <Link to="/library" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    Visit Library <ChevronRight size={16} />
                                 </Link>
                             </div>
                         ) : (

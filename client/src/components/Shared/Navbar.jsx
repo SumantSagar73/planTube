@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LogOut, Layout, Youtube, User, ChevronDown, Users, Library, ListMusic, Target, Link as LinkIcon, Plus } from 'lucide-react';
+import { LogOut, Layout, Youtube, User, ChevronDown, Users, Library, ListMusic, Target, Link as LinkIcon, Plus, HelpCircle } from 'lucide-react';
 import AlertModal from './AlertModal';
+import WelcomeGuide from './WelcomeGuide';
+import { useEffect } from 'react';
 
 const Navbar = () => {
     const { user, logout } = useAuth();
@@ -12,6 +14,16 @@ const Navbar = () => {
     const [importUrl, setImportUrl] = useState('');
     const [importing, setImporting] = useState(false);
     const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', success: false });
+    const [showGuide, setShowGuide] = useState(false);
+
+    useEffect(() => {
+        const completed = localStorage.getItem('hasCompletedOnboarding');
+        if (!completed) {
+            // Short delay to let everything settle
+            const timer = setTimeout(() => setShowGuide(true), 1500);
+            return () => clearTimeout(timer);
+        }
+    }, [user]);
 
     const showAlert = (title, message, success = false) => {
         setAlertState({ isOpen: true, title, message, success });
@@ -131,8 +143,18 @@ const Navbar = () => {
                         <Link to="/signup" className="btn-primary" style={{ padding: '0.5rem 1.25rem', fontSize: '0.9rem' }}>Sign Up</Link>
                     </div>
                 )}
+
+                <button
+                    onClick={() => setShowGuide(true)}
+                    className="icon-btn-compact"
+                    title="User Guide"
+                    style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--text-muted)' }}
+                >
+                    <HelpCircle size={18} />
+                </button>
             </div>
-            {/* Modal */}
+            {/* Modals */}
+            <WelcomeGuide isOpen={showGuide} onClose={() => setShowGuide(false)} />
             <AlertModal
                 isOpen={alertState.isOpen}
                 onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))}
