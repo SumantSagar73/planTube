@@ -400,6 +400,15 @@ exports.getLibraryStats = async (req, res) => {
         const importedCountMap = {};
         importedVideoCounts.forEach(c => importedCountMap[c._id.toString()] = c.count);
 
+        // 3.5. Fetch Video Document IDs for standalone videos (VIDEO_*)
+        const standalonePlaylistIds = importedPlaylists
+            .filter(p => p.playlistId.startsWith('VIDEO_'))
+            .map(p => p._id);
+        
+        const standaloneVideos = await Video.find({ playlistId: { $in: standalonePlaylistIds } });
+        const videoDocIdMap = {};
+        standaloneVideos.forEach(v => videoDocIdMap[v.playlistId.toString()] = v._id);
+
         // 4. Get Video Counts for Custom
         const CustomPlaylistVideo = require('../models/CustomPlaylistVideo');
         const customIds = customPlaylists.map(p => p._id);
@@ -417,6 +426,7 @@ exports.getLibraryStats = async (req, res) => {
                 return {
                     _id: isStandalone ? p.playlistId.replace('VIDEO_', '') : p._id,
                     dbId: p._id,
+                    videoDbId: isStandalone ? videoDocIdMap[p._id.toString()] : undefined,
                     title: p.playlistTitle,
                     thumbnail: p.thumbnail,
                     type: isStandalone ? 'video' : 'imported',

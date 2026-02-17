@@ -86,7 +86,7 @@ const Library = () => {
 
         const isVideo = item.type === 'video';
         const endpoint = isVideo
-            ? `/videos/${item.dbId || item._id}/sync`
+            ? `/videos/${item.videoDbId}/sync`
             : `/playlists/${item._id}/sync`;
 
         triggerConfirm(

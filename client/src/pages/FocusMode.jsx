@@ -277,8 +277,8 @@ const FocusMode = () => {
             <div className="glass" style={{ padding: '0 1.5rem', height: '60px', borderRadius: 0, borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <button
                     onClick={() => {
-                        // If it's the internal "SINGLES" playlist container, go back to Library/Home instead
-                        if (playlist?.playlistId === 'SINGLES') {
+                        // If it's the internal "VIDEO_*" playlist container, go back to Library/Home instead
+                        if (playlist?.playlistId?.startsWith('VIDEO_')) {
                             navigate('/library');
                         } else {
                             navigate(`/playlist/${playlist?._id}`);
@@ -286,7 +286,7 @@ const FocusMode = () => {
                     }}
                     style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
                 >
-                    <ChevronLeft size={18} /> {playlist?.playlistId === 'SINGLES' ? 'Back to Library' : 'Back to Playlist'}
+                    <ChevronLeft size={18} /> {playlist?.playlistId?.startsWith('VIDEO_') ? 'Back to Library' : 'Back to Playlist'}
                 </button>
 
                 <h2 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)', maxWidth: '50vw', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: videoLoading ? 0.5 : 1 }}>
