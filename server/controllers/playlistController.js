@@ -404,7 +404,7 @@ exports.getLibraryStats = async (req, res) => {
         const standalonePlaylistIds = importedPlaylists
             .filter(p => p.playlistId.startsWith('VIDEO_'))
             .map(p => p._id);
-        
+
         const standaloneVideos = await Video.find({ playlistId: { $in: standalonePlaylistIds } });
         const videoDocIdMap = {};
         standaloneVideos.forEach(v => videoDocIdMap[v.playlistId.toString()] = v._id);
