@@ -22,17 +22,6 @@ const FocusMode = () => {
     const [sidebarTab, setSidebarTab] = useState('chapters'); // 'chapters' | 'description' | 'playlist'
     const playerRef = useRef(null);
 
-    // Memoize options to prevent player reloading on every render
-    const playerOptions = React.useMemo(() => ({
-        height: '100%',
-        width: '100%',
-        playerVars: {
-            autoplay: 1,
-            rel: 0,
-            modestbranding: 1,
-            origin: window.location.origin // standard practice to fix some origin warnings
-        },
-    }), []);
 
     useEffect(() => {
         fetchVideoData();
@@ -234,367 +223,275 @@ const FocusMode = () => {
         }
     };
 
-    if (initialLoading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#09090b', color: 'white' }}>
-            <div style={{ textAlign: 'center' }}>
-                <RefreshCw className="spin" size={48} style={{ color: 'var(--primary)', marginBottom: '1rem' }} />
-                <p>Loading Focus Mode...</p>
-            </div>
-        </div>
-    );
+    // Focus Mode & Hover Logic
+    const [isHovering, setIsHovering] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const hoverTimeoutRef = useRef(null);
+    const [compactMode, setCompactMode] = useState(window.innerWidth < 1000);
 
-    if (error) return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '2rem', textAlign: 'center', background: '#09090b' }}>
-            <div className="glass" style={{ padding: '3rem', maxWidth: '400px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                <XCircle size={64} style={{ color: 'var(--danger)', marginBottom: '1rem', marginLeft: 'auto', marginRight: 'auto' }} />
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Content Unavailable</h2>
-                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>{error}</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <button
-                        onClick={() => { setError(null); fetchVideoData(); }}
-                        className="btn-primary"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}
-                    >
-                        <RefreshCw size={20} /> Try Again
-                    </button>
-                    <button onClick={() => navigate('/library')} className="btn-secondary" style={{ width: '100%' }}>
-                        Back to Library
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
+    // Custom Controls State
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [volume, setVolume] = useState(100);
+    const [playbackRate, setPlaybackRate] = useState(1);
+    const [isDragging, setIsDragging] = useState(false); // For seeking
+    const timeIntervalRef = useRef(null);
 
-    if (!video) return <div style={{ textAlign: 'center', padding: '5rem', color: 'white' }}>Video not found</div>;
+    // Memoize options to prevent player reloading on every render
+    const playerOptions = React.useMemo(() => ({
+        height: '100%',
+        width: '100%',
+        playerVars: {
+            autoplay: 1,
+            controls: 0, // Hides native controls
+            rel: 0, // Limits related videos to same channel (best effort)
+            modestbranding: 1,
+            iv_load_policy: 3, // Hides annotations
+            fs: 0,
+            disablekb: 1,
+            origin: window.location.origin
+        },
+    }), []);
 
-    const currentIndex = allVideos.findIndex(v => v._id === videoId);
-    const isCompleted = schedule?.status === 'completed';
+    // ... (keep useEffects)
 
-    return (
-        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#09090b', overflow: 'hidden' }}>
+    // Calculate Active Chapter
+    const activeChapterIndex = React.useMemo(() => {
+        if (!video?.chapters) return -1;
+        // Find the last chapter that has a start time <= current time
+        for (let i = video.chapters.length - 1; i >= 0; i--) {
+            if (currentTime >= video.chapters[i].seconds) {
+                return i;
+            }
+        }
+        return -1;
+    }, [currentTime, video]);
 
-            {/* Header */}
-            <div className="glass" style={{ padding: '0 1.5rem', height: '60px', borderRadius: 0, borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <button
-                    onClick={() => {
-                        // If it's the internal "VIDEO_*" playlist container, go back to Library/Home instead
-                        if (playlist?.playlistId?.startsWith('VIDEO_')) {
-                            navigate('/library');
-                        } else {
-                            navigate(`/playlist/${playlist?._id}`);
-                        }
-                    }}
-                    style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-                >
-                    <ChevronLeft size={18} /> {playlist?.playlistId?.startsWith('VIDEO_') ? 'Back to Library' : 'Back to Playlist'}
-                </button>
+    // ... (keep other handlers)
 
-                <h2 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)', maxWidth: '50vw', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: videoLoading ? 0.5 : 1 }}>
-                    {video.videoId === videoId /* Check if it's the video ID object or our custom db object */ ? video.title : video.title}
-                </h2>
+    {/* Content Switcher */ }
+    {
+        sidebarTab === 'chapters' ? (
+            <>
+                {video.chapters && video.chapters.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {video.chapters.map((chapter, idx) => {
+                            const isDone = schedule?.completedChapters?.includes(idx);
+                            const isActive = idx === activeChapterIndex;
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <button
-                        onClick={() => {
-                            if (showSidebar && sidebarTab === 'description') {
-                                setShowSidebar(false);
-                            } else {
-                                setSidebarTab('description');
-                                setShowSidebar(true);
-                            }
-                        }}
-                        title="Show Description"
-                        className="hover-bg-glass"
-                        style={{
-                            background: showSidebar && sidebarTab === 'description' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                            border: 'none', padding: '0.5rem', borderRadius: '8px',
-                            color: showSidebar && sidebarTab === 'description' ? 'white' : 'var(--text-muted)',
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'all 0.2s'
-                        }}
-                    >
-                        <AlignLeft size={18} />
-                    </button>
-
-                    {/* Playlist Toggle - Hide if it is a 'Singles' playlist */}
-                    {playlist && playlist.playlistId !== 'SINGLES' && (
-                        <button
-                            onClick={() => {
-                                if (showSidebar && sidebarTab === 'playlist') {
-                                    setShowSidebar(false);
-                                } else {
-                                    setSidebarTab('playlist');
-                                    setShowSidebar(true);
-                                }
-                            }}
-                            title="Show Playlist"
-                            className="hover-bg-glass"
-                            style={{
-                                background: showSidebar && sidebarTab === 'playlist' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                                border: 'none', padding: '0.5rem', borderRadius: '8px',
-                                color: showSidebar && sidebarTab === 'playlist' ? 'white' : 'var(--text-muted)',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'all 0.2s'
-                            }}
-                        >
-                            <ListIcon size={18} />
-                        </button>
-                    )}
-
-                    <button
-                        onClick={() => {
-                            if (showSidebar && sidebarTab === 'chapters') {
-                                setShowSidebar(false);
-                            } else {
-                                setSidebarTab('chapters');
-                                setShowSidebar(true);
-                            }
-                        }}
-                        title="Show Chapters"
-                        className="hover-bg-glass"
-                        style={{
-                            background: showSidebar && sidebarTab === 'chapters' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                            border: 'none', padding: '0.5rem', borderRadius: '8px',
-                            color: showSidebar && sidebarTab === 'chapters' ? 'white' : 'var(--text-muted)',
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'all 0.2s'
-                        }}
-                    >
-                        <Map size={18} />
-                    </button>
-                </div>
-            </div>
-
-            {/* Main Content Area */}
-            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-
-                {/* Left: Video Player */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'black', position: 'relative' }}>
-                    <div style={{ flex: 1, position: 'relative' }}>
-                        {/* We use a wrapper for 100% height */}
-                        <YouTube
-                            videoId={video.videoId.includes && video.videoId.includes('http') ? null : (video.youtubeVideoId || video.videoId)}
-                            opts={playerOptions}
-                            onReady={(event) => (playerRef.current = event.target)}
-                            className="youtube-player"
-                            style={{ width: '100%', height: '100%', opacity: videoLoading ? 0.5 : 1, transition: 'opacity 0.2s' }}
-                        />
-                        {videoLoading && (
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-                                <div className="spinner" style={{ width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Bottom Controls Bar */}
-                    <div style={{ padding: '1rem 2rem', background: '#09090b', borderTop: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <button onClick={handlePrevVideo} disabled={currentIndex <= 0} className="btn-secondary" style={{ padding: '0.8rem' }}><ChevronLeft /></button>
-                            <button onClick={handleNextVideo} disabled={currentIndex >= allVideos.length - 1} className="btn-secondary" style={{ padding: '0.8rem' }}><ChevronRight /></button>
-                        </div>
-
-                        <button
-                            onClick={handleToggleComplete}
-                            className={`btn-primary ${isCompleted ? 'success' : ''}`}
-                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: isCompleted ? '#22c55e' : 'var(--primary)', padding: '0.8rem 2rem' }}
-                        >
-                            <CheckCircle size={20} />
-                            {isCompleted ? 'Mark Undone' : 'Mark Complete'}
-                        </button>
-
-                        {isCompleted && currentIndex < allVideos.length - 1 && (
-                            <button
-                                onClick={handleNextVideo}
-                                className="btn-primary"
-                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'white', color: 'black', padding: '0.8rem 2rem', marginLeft: '1rem' }}
-                            >
-                                Next Video <ChevronRight size={20} />
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Right: Sidebar (Description & Chapters) */}
-                {showSidebar && (
-                    <div className="glass" style={{ width: '380px', borderLeft: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'slideIn 0.3s ease' }}>
-                        <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <div style={{ display: 'flex', justifySelf: 'space-between', alignItems: 'center', width: '100%' }}>
-                                <div>
-                                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800', background: 'linear-gradient(90deg, #fff, var(--primary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                                        {sidebarTab === 'chapters' ? 'Video Map' : (sidebarTab === 'playlist' ? 'Playlist' : 'About this Video')}
-                                    </h3>
-                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                        {sidebarTab === 'chapters' ? 'Chapters & Progress' : (sidebarTab === 'playlist' ? `${currentIndex + 1} of ${allVideos.length} Videos` : 'Description & Details')}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Progress Bar (Only visible in chapters view) */}
-                            {sidebarTab === 'chapters' && video.chapters && video.chapters.length > 0 && (
-                                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden', marginTop: '0.5rem' }}>
-                                    <div style={{
-                                        width: `${schedule ? (schedule.completedChapters?.length / video.chapters.length) * 100 : 0}%`,
-                                        height: '100%',
-                                        background: 'var(--primary)',
-                                        transition: 'width 0.3s ease'
-                                    }} />
-                                </div>
-                            )}
-                        </div>
-
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
-                            {/* Content Switcher */}
-                            {sidebarTab === 'chapters' ? (
-                                <>
-                                    {video.chapters && video.chapters.length > 0 ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                            {video.chapters.map((chapter, idx) => {
-                                                const isDone = schedule?.completedChapters?.includes(idx);
-                                                return (
-                                                    <div
-                                                        key={idx}
-                                                        className="glass-hover"
-                                                        style={{
-                                                            background: isDone ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                                                            border: `1px solid ${isDone ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.05)'}`,
-                                                            borderRadius: '16px',
-                                                            padding: '0.5rem',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '0.5rem',
-                                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                            position: 'relative',
-                                                            overflow: 'hidden'
-                                                        }}
-                                                    >
-                                                        <button
-                                                            onClick={() => toggleChapter(idx)}
-                                                            style={{
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                cursor: 'pointer',
-                                                                color: isDone ? '#22c55e' : 'rgba(255,255,255,0.2)',
-                                                                display: 'flex',
-                                                                padding: '0.4rem',
-                                                                borderRadius: '10px',
-                                                                transition: 'all 0.2s',
-                                                                zIndex: 2
-                                                            }}
-                                                            className="hover-bg-glass"
-                                                        >
-                                                            <CheckCircle size={20} fill={isDone ? '#22c55e' : 'none'} strokeWidth={isDone ? 2 : 1.5} />
-                                                        </button>
-
-                                                        <button
-                                                            onClick={() => handleSeek(chapter.seconds)}
-                                                            style={{
-                                                                flex: 1,
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                textAlign: 'left',
-                                                                padding: '0.5rem',
-                                                                cursor: 'pointer',
-                                                                display: 'flex',
-                                                                flexDirection: 'column',
-                                                                gap: '0.1rem',
-                                                                zIndex: 2
-                                                            }}
-                                                        >
-                                                            <span style={{ fontSize: '0.9rem', fontWeight: '600', color: isDone ? 'rgba(255,255,255,0.4)' : '#ffffff', textDecoration: isDone ? 'line-through' : 'none' }}>
-                                                                {chapter.title}
-                                                            </span>
-                                                            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)', opacity: isDone ? 0.5 : 1 }}>
-                                                                {chapter.timestamp}
-                                                            </span>
-                                                        </button>
-
-                                                        {/* Visual glow when done */}
-                                                        {isDone && <div style={{ position: 'absolute', right: '-20px', bottom: '-20px', width: '60px', height: '60px', background: '#22c55e', filter: 'blur(30px)', opacity: 0.1, pointerEvents: 'none' }} />}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div style={{ padding: '3rem 1rem', textAlign: 'center', opacity: 0.5 }}>
-                                            <Map size={48} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
-                                            <p style={{ fontSize: '0.9rem' }}>No chapters found for this video.</p>
-                                        </div>
+                            return (
+                                <div
+                                    key={idx}
+                                    className="glass-hover"
+                                    style={{
+                                        background: isActive ? 'rgba(99, 102, 241, 0.15)' : (isDone ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255, 255, 255, 0.02)'),
+                                        border: isActive ? '1px solid var(--primary)' : (isDone ? '1px solid rgba(34, 197, 94, 0.2)' : '1px solid rgba(255, 255, 255, 0.05)'),
+                                        borderRadius: '16px',
+                                        padding: '0.5rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        transform: isActive ? 'scale(1.02)' : 'scale(1)',
+                                        boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
+                                    }}
+                                >
+                                    {/* Active Indicator Bar */}
+                                    {isActive && (
+                                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: 'var(--primary)' }} />
                                     )}
-                                </>
-                            ) : sidebarTab === 'playlist' ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    {/* Playlist Progress Bar */}
-                                    <div style={{ padding: '0 0.5rem' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                            <span>Playlist Progress</span>
-                                            <span>{Math.round((playlistSchedules.filter(s => s.status === 'completed').length / (allVideos.length || 1)) * 100)}%</span>
-                                        </div>
-                                        <div className="progress-container" style={{ height: '6px' }}>
-                                            <div
-                                                className="progress-bar"
-                                                style={{ width: `${(playlistSchedules.filter(s => s.status === 'completed').length / (allVideos.length || 1)) * 100}%` }}
-                                            ></div>
-                                        </div>
-                                    </div>
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                        {allVideos.map((v, idx) => {
-                                            const isActive = v._id === videoId;
-                                            // Check status from playlistSchedules
-                                            const vSchedule = playlistSchedules.find(s => {
-                                                const sVid = (typeof s.videoId === 'object') ? s.videoId._id : s.videoId;
-                                                return sVid === v._id;
-                                            });
-                                            const isDone = vSchedule?.status === 'completed';
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); toggleChapter(idx); }}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: isDone ? '#22c55e' : 'rgba(255,255,255,0.2)',
+                                            display: 'flex',
+                                            padding: '0.4rem',
+                                            borderRadius: '10px',
+                                            transition: 'all 0.2s',
+                                            zIndex: 2,
+                                            marginLeft: isActive ? '0.5rem' : '0'
+                                        }}
+                                        className="hover-bg-glass"
+                                        title={isDone ? "Mark as incomplete" : "Mark as complete"}
+                                    >
+                                        <CheckCircle size={20} fill={isDone ? '#22c55e' : 'none'} strokeWidth={isDone ? 2 : 1.5} />
+                                    </button>
 
-                                            return (
-                                                <div
-                                                    key={v._id}
-                                                    onClick={() => navigate(`/focus/${v._id}`)}
-                                                    className="glass-hover"
-                                                    style={{
-                                                        padding: '0.75rem', borderRadius: '12px',
-                                                        background: isActive ? 'var(--primary)' : (isDone ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.02)'),
-                                                        border: isActive ? '1px solid var(--primary)' : (isDone ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(255,255,255,0.05)'),
-                                                        cursor: 'pointer', display: 'flex', gap: '0.75rem', alignItems: 'center'
-                                                    }}
-                                                >
-                                                    <div style={{ fontSize: '0.8rem', fontWeight: '900', color: isActive ? 'white' : (isDone ? '#4ade80' : 'var(--text-muted)'), minWidth: '20px' }}>
-                                                        {idx + 1}
-                                                    </div>
-                                                    <div style={{ position: 'relative' }}>
-                                                        <img src={v.thumbnail} alt="" style={{ width: '80px', height: '45px', borderRadius: '6px', objectFit: 'cover', opacity: isActive ? 1 : (isDone ? 0.8 : 0.7) }} />
-                                                        {isDone && !isActive && (
-                                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}>
-                                                                <CheckCircle size={14} className="text-green-400" color="#4ade80" />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <p style={{ fontSize: '0.85rem', fontWeight: '600', color: isActive ? 'white' : (isDone ? '#86efac' : 'var(--text-main)'), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</p>
-                                                        <p style={{ fontSize: '0.7rem', color: isActive ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>{v.duration}</p>
-                                                    </div>
-                                                    {isActive && <Play size={14} fill="white" />}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                    <button
+                                        onClick={() => handleSeek(chapter.seconds)}
+                                        style={{
+                                            flex: 1,
+                                            background: 'none',
+                                            border: 'none',
+                                            textAlign: 'left',
+                                            padding: '0.5rem',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '0.1rem',
+                                            zIndex: 2
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '0.9rem', fontWeight: '600', color: isActive ? 'white' : (isDone ? 'rgba(255,255,255,0.4)' : '#ffffff'), textDecoration: isDone ? 'line-through' : 'none' }}>
+                                            {chapter.title}
+                                        </span>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)', opacity: (isDone && !isActive) ? 0.5 : 1 }}>
+                                            {chapter.timestamp}
+                                        </span>
+                                    </button>
+
+                                    {isActive && <div style={{ marginRight: '0.5rem' }}><div className="pulsing-dot" style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }} /></div>}
                                 </div>
-                            ) : (
-                                <div style={{ color: 'var(--text-main)', fontSize: '0.9rem', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                    {video.description ? (
-                                        video.description.split(/((?:https?:\/\/|www\.)[^\s]+)/g).map((part, i) => {
-                                            if (part.match(/^(https?:\/\/|www\.)/)) {
-                                                const url = part.startsWith('www.') ? 'https://' + part : part;
-                                                return <a key={i} href={url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{part}</a>;
-                                            }
-                                            return part;
-                                        })
-                                    ) : <p style={{ opacity: 0.5 }}>No description available.</p>}
-                                </div>
-                            )}
-                        </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div style={{ padding: '3rem 1rem', textAlign: 'center', opacity: 0.5 }}>
+                        <Map size={48} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
+                        <p style={{ fontSize: '0.9rem' }}>No chapters found for this video.</p>
                     </div>
                 )}
+            </>
+        ) : sidebarTab === 'playlist' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {/* Playlist Progress Bar */}
+                <div style={{ padding: '0 0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        <span>Playlist Progress</span>
+                        <span>{Math.round((playlistSchedules.filter(s => s.status === 'completed').length / (allVideos.length || 1)) * 100)}%</span>
+                    </div>
+                    <div className="progress-container" style={{ height: '6px' }}>
+                        <div
+                            className="progress-bar"
+                            style={{ width: `${(playlistSchedules.filter(s => s.status === 'completed').length / (allVideos.length || 1)) * 100}%` }}
+                        ></div>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {allVideos.map((v, idx) => {
+                        const isActive = v._id === videoId;
+                        const vSchedule = playlistSchedules.find(s => {
+                            const sVid = (typeof s.videoId === 'object') ? s.videoId._id : s.videoId;
+                            return sVid === v._id;
+                        });
+                        const isDone = vSchedule?.status === 'completed';
+
+                        return (
+                            <div
+                                key={v._id}
+                                onClick={() => navigate(`/focus/${v._id}`)}
+                                className="glass-hover"
+                                style={{
+                                    padding: '0.75rem', borderRadius: '12px',
+                                    background: isActive ? 'var(--primary)' : (isDone ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.02)'),
+                                    border: isActive ? '1px solid var(--primary)' : (isDone ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(255,255,255,0.05)'),
+                                    cursor: 'pointer', display: 'flex', gap: '0.75rem', alignItems: 'center'
+                                }}
+                            >
+                                <div style={{ fontSize: '0.8rem', fontWeight: '900', color: isActive ? 'white' : (isDone ? '#4ade80' : 'var(--text-muted)'), minWidth: '20px' }}>
+                                    {idx + 1}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ fontSize: '0.85rem', fontWeight: '600', color: isActive ? 'white' : (isDone ? '#86efac' : 'var(--text-main)'), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</p>
+                                    <p style={{ fontSize: '0.7rem', color: isActive ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>{v.duration}</p>
+                                </div>
+                                {isActive && <Play size={14} fill="white" />}
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
+        ) : (
+        <div style={{ color: 'var(--text-main)', fontSize: '0.9rem', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {video.description ? (
+                video.description.split(/((?:https?:\/\/|www\.)[^\s]+)/g).map((part, i) => {
+                    if (part.match(/^(https?:\/\/|www\.)/)) {
+                        const url = part.startsWith('www.') ? 'https://' + part : part;
+                        return <a key={i} href={url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{part}</a>;
+                    }
+                    return part;
+                })
+            ) : <p style={{ opacity: 0.5 }}>No description available.</p>}
         </div>
+    )
+    }
+                </div >
+            </div >
+
+    {/* Styles for Deck - Add to index.css later or keep inline if acceptable */ }
+    < style > {`
+                .icon-btn-deck {
+                    background: transparent;
+                    border: none;
+                    color: rgba(255,255,255,0.7);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 0.5rem;
+                    border-radius: 12px;
+                    transition: all 0.2s;
+                }
+                .icon-btn-deck:hover {
+                    background: rgba(255,255,255,0.1);
+                    color: white;
+                    transform: translateY(-2px);
+                }
+                .icon-btn-deck.active {
+                    background: var(--primary);
+                    color: white;
+                }
+                .deck-primary-btn {
+                    background: var(--primary);
+                    color: white;
+                    border: none;
+                    border-radius: 30px;
+                    padding: 0.6rem 1.5rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.6rem;
+                    cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+                }
+                .deck-primary-btn:hover {
+                    transform: translateY(-2px) scale(1.05);
+                    box-shadow: 0 8px 16px rgba(99, 102, 241, 0.6);
+                }
+                .deck-primary-btn.completed {
+                    background: #22c55e;
+                    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+                }
+                .deck-primary-btn.completed:hover {
+                    box-shadow: 0 8px 16px rgba(34, 197, 94, 0.6);
+                }
+                .custom-range::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    width: 12px;
+                    height: 12px;
+                    background: white;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+                }
+                .custom-range::-moz-range-thumb {
+                    width: 12px;
+                    height: 12px;
+                    background: white;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+                }
+             `}</style >
+        </div >
     );
 };
 
