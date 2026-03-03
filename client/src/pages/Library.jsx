@@ -1,32 +1,27 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
-    LayoutGrid, List as ListIcon, Search, Filter, Link as LinkIcon,
-    Plus, Pin, MoreVertical, Play, Clock, CheckCircle, Video, PinOff,
-    ExternalLink, RefreshCw, Trash2, Youtube as YoutubeIcon, Rocket
+    LayoutGrid, List as ListIcon, Search,
+    Plus, RefreshCw, Rocket
 } from 'lucide-react';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import AlertModal from '../components/Shared/AlertModal';
 import ConfirmModal from '../components/Shared/ConfirmModal';
+import LibraryItem from '../components/Playlist/LibraryItem';
 
 const Library = () => {
     const navigate = useNavigate();
-    const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+    const [viewMode, setViewMode] = useState('grid');
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all'); // 'all', 'imported', 'custom'
+    const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
+    const [syncingIds, setSyncingIds] = useState(new Set());
 
-    // Modal States
     const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', success: false });
     const [confirmState, setConfirmState] = useState({
-        isOpen: false,
-        title: '',
-        description: '',
-        onConfirm: null,
-        danger: false,
-        confirmText: ''
+        isOpen: false, title: '', description: '', onConfirm: null, danger: false, confirmText: ''
     });
 
     const showAlert = (title, message, success = false) => {
@@ -41,10 +36,19 @@ const Library = () => {
         fetchLibrary();
     }, []);
 
-    const fetchLibrary = async () => {
+    const fetchLibrary = async (useCache = true) => {
+        if (useCache) {
+            const cachedItems = sessionStorage.getItem('library_items');
+            if (cachedItems) {
+                setItems(JSON.parse(cachedItems));
+                setLoading(false);
+            }
+        }
+
         try {
             const res = await api.get('/playlists/library');
             setItems(res.data);
+            sessionStorage.setItem('library_items', JSON.stringify(res.data));
         } catch (err) {
             console.error(err);
         } finally {
@@ -54,78 +58,47 @@ const Library = () => {
 
     const handleTogglePin = async (e, item) => {
         e.preventDefault();
-        e.stopPropagation();
+        const originalItems = [...items];
+        setItems(prev => prev.map(i => i._id === item._id ? { ...i, isPinned: !i.isPinned } : i)
+            .sort((a, b) => {
+                if (a.isPinned && !b.isPinned) return -1;
+                if (!a.isPinned && b.isPinned) return 1;
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            }));
+
         try {
             if (item.type === 'video') {
-                // Use dbId if available (for backend ID), otherwise originalId might be YouTube ID which backend now handles
                 await api.put(`/videos/${item.dbId || item._id}/pin`);
             } else {
                 await api.put(`/playlists/${item._id}/pin`);
             }
-            // Optimistic update or refetch
-            fetchLibrary();
+            sessionStorage.setItem('library_items', JSON.stringify(items));
         } catch (err) {
-            console.error('Failed to toggle pin', err);
+            setItems(originalItems);
+            showAlert('Error', 'Could not update pin status');
         }
     };
 
-    const handleShare = (e, item) => {
+    const handleDelete = (e, item) => {
         e.preventDefault();
-        e.stopPropagation();
-        const link = window.location.origin + (item.type === 'video' ? `/focus/${item._id}` : (item.type === 'custom' ? `/custom-playlist/${item._id}` : `/playlist/${item._id}`));
-        navigator.clipboard.writeText(link);
-        showAlert('Link Copied', 'Success! The shareable link is now in your clipboard.', true);
-    };
-
-    const handleSync = async (e, item) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        // Allow sync for imported playlists OR individual videos
-        if (item.type !== 'imported' && item.type !== 'video') return;
-
-        const isVideo = item.type === 'video';
-        const endpoint = isVideo
-            ? `/videos/${item.videoDbId}/sync`
-            : `/playlists/${item._id}/sync`;
-
         triggerConfirm(
-            `Resync ${isVideo ? 'Video' : 'Playlist'}?`,
-            `Do you want to refresh "${item.title}" from YouTube?`,
+            'Remove from Library?',
+            `Are you sure you want to remove "${item.title}"? Progress and schedules for this ${item.type} will be lost.`,
             async () => {
                 try {
-                    await api.put(endpoint);
-                    showAlert('Sync Complete', 'Updated successfully!', true);
-                    fetchLibrary();
-                } catch (err) {
-                    console.error('Failed to sync', err);
-                    showAlert('Sync Failed', err.response?.data?.msg || err.message);
-                }
-            }
-        );
-    };
-
-    const handleDelete = async (e, item) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const typeLabel = item.type === 'video' ? 'video' : 'playlist';
-
-        triggerConfirm(
-            `Delete ${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)}?`,
-            `Are you sure you want to permanently delete "${item.title}"? This action cannot be undone.`,
-            async () => {
-                try {
-                    if (item.type === 'video') {
+                    if (item.type === 'custom') {
+                        await api.delete(`/custom-playlists/${item._id}`);
+                    } else if (item.type === 'video') {
                         await api.delete(`/videos/${item.dbId || item._id}`);
                     } else {
                         await api.delete(`/playlists/${item._id}`);
                     }
-                    showAlert('Deleted', `${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)} has been removed.`, true);
-                    fetchLibrary();
+                    const updated = items.filter(i => i._id !== item._id);
+                    setItems(updated);
+                    sessionStorage.setItem('library_items', JSON.stringify(updated));
+                    setConfirmState({ ...confirmState, isOpen: false });
                 } catch (err) {
-                    console.error('Failed to delete', err);
-                    showAlert('Delete Failed', err.response?.data?.msg || err.message);
+                    showAlert('Error', 'Could not delete item');
                 }
             },
             true,
@@ -133,316 +106,190 @@ const Library = () => {
         );
     };
 
+    const handleSync = async (e, item) => {
+        e.preventDefault();
+        if (syncingIds.has(item._id)) return;
+
+        setSyncingIds(prev => new Set(prev).add(item._id));
+        try {
+            if (item.type === 'video') {
+                await api.put(`/videos/${item.dbId || item._id}/sync`);
+            } else {
+                await api.put(`/playlists/${item._id}/sync`);
+            }
+            fetchLibrary(false);
+            showAlert('Success', `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} synced with YouTube`, true);
+        } catch (err) {
+            showAlert('Error', 'Sync failed');
+        } finally {
+            setSyncingIds(prev => {
+                const next = new Set(prev);
+                next.delete(item._id);
+                return next;
+            });
+        }
+    };
+
+    const handleShare = (e, item) => {
+        e.preventDefault();
+        const baseUrl = window.location.origin;
+        const link = item.type === 'video'
+            ? `${baseUrl}/focus/${item._id}`
+            : (item.type === 'custom' ? `${baseUrl}/custom-playlist/${item._id}` : `${baseUrl}/playlist/${item._id}`);
+
+        navigator.clipboard.writeText(link).then(() => {
+            showAlert('Link Copied', 'Shareable link copied to clipboard!', true);
+        }).catch(err => {
+            showAlert('Error', 'Could not copy link');
+        });
+    };
+
     const filteredItems = items.filter(item => {
         const matchesSearch = item.title.toLowerCase().includes(search.toLowerCase());
-        const matchesType = filter === 'all' || item.type === filter;
-        return matchesSearch && matchesType;
+        const matchesFilter = filter === 'all' ||
+            (filter === 'video' && item.type === 'video') ||
+            (filter === 'playlist' && (item.type === 'playlist' || item.type === 'imported')) ||
+            (filter === 'custom' && item.type === 'custom');
+        return matchesSearch && matchesFilter;
     });
 
-    if (loading) return <LoadingScreen message="Loading Library..." />;
+    if (loading && items.length === 0) return <LoadingScreen message="Loading your library..." />;
 
     return (
-        <div style={{ paddingBottom: '4rem' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div style={{ padding: '1.5rem 1rem 5rem' }}>
+            {/* Focal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3rem' }}>
                 <div>
-                    <h1 style={{ fontSize: '2.5rem', fontWeight: '800', lineHeight: 1 }}>Library</h1>
-                    <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>All your learning collections.</p>
+                    <h1 style={{ fontSize: '3.5rem', fontWeight: '950', marginBottom: '0.5rem', letterSpacing: '-2px', color: 'white' }}>
+                        Vault <span style={{ color: 'var(--primary)' }}>.</span>
+                    </h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem', fontWeight: '500' }}>
+                        Your curated learning collections.
+                    </p>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button
-                        onClick={() => navigate('/my-playlists')} // Or open generic create modal
-                        className="btn-primary"
-                        style={{ padding: '0.6rem 1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                    >
-                        <Plus size={18} />
-                        <span>New Playlist</span>
+                <div style={{ display: 'flex', gap: '1.25rem' }}>
+                    <div className="glass" style={{ display: 'flex', padding: '0.4rem', borderRadius: '16px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.02)' }}>
+                        <button onClick={() => setViewMode('grid')} className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}><LayoutGrid size={18} /></button>
+                        <button onClick={() => setViewMode('list')} className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}><ListIcon size={18} /></button>
+                    </div>
+                    <button onClick={() => navigate('/import')} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.8rem 1.75rem', borderRadius: '18px', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.2)' }}>
+                        <Plus size={20} /> Import New
                     </button>
                 </div>
             </div>
 
-            {/* Controls */}
-            <div className="glass" style={{ padding: '0.75rem', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flex: 1 }}>
-                    <div style={{ position: 'relative', flex: 1, maxWidth: '300px' }}>
-                        <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <input
-                            className="input-glass"
-                            placeholder="Snapshot search..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            style={{ paddingLeft: '2.5rem', width: '100%', borderRadius: '10px' }}
-                        />
-                    </div>
-                    <div style={{ height: '24px', width: '1px', background: 'var(--glass-border)' }}></div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        {['all', 'imported', 'custom', 'video'].map(f => (
-                            <button
-                                key={f}
-                                onClick={() => setFilter(f)}
-                                style={{
-                                    background: filter === f ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-                                    color: filter === f ? 'var(--primary)' : 'var(--text-muted)',
-                                    border: 'none', padding: '0.4rem 0.8rem', borderRadius: '8px',
-                                    fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', textTransform: 'capitalize'
-                                }}
-                            >
-                                {f}
-                            </button>
-                        ))}
-                    </div>
+            {/* Toolbar */}
+            <div style={{ marginBottom: '3rem', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flex: 1, maxWidth: '600px' }}>
+                    <Search style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', opacity: 0.5 }} size={20} />
+                    <input
+                        type="text"
+                        placeholder="Search collection..."
+                        className="input-glass"
+                        style={{ paddingLeft: '3.5rem', width: '100%', height: '56px', borderRadius: '18px', fontSize: '1rem' }}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
                 </div>
-
-                <div style={{ display: 'flex', gap: '0.5rem', paddingLeft: '1rem' }}>
-                    <button
-                        onClick={() => setViewMode('grid')}
-                        style={{
-                            background: viewMode === 'grid' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                            color: viewMode === 'grid' ? 'white' : 'var(--text-muted)',
-                            border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}
-                    >
-                        <LayoutGrid size={18} />
-                    </button>
-                    <button
-                        onClick={() => setViewMode('list')}
-                        style={{
-                            background: viewMode === 'list' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                            color: viewMode === 'list' ? 'white' : 'var(--text-muted)',
-                            border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}
-                    >
-                        <ListIcon size={18} />
-                    </button>
-                </div>
-            </div>
-
-            {/* Empty State */}
-            {!loading && filteredItems.length === 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 2rem', textAlign: 'center' }}>
-                    <div className="glass" style={{ padding: '3rem', borderRadius: '32px', maxWidth: '500px', border: '1px solid var(--glass-border)' }}>
-                        <div style={{ width: '64px', height: '64px', background: 'rgba(99,102,241,0.1)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-                            <YoutubeIcon size={32} color="var(--primary)" />
-                        </div>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '1rem' }}>Your Library is Empty</h2>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: 1.6 }}>
-                            Turn any YouTube playlist/video into an interactive course.
-                            Paste a link in the <strong>Import Bar</strong> at the top of the screen to get started!
-                        </p>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: 'var(--primary)', fontWeight: '700' }}>
-                            <Rocket size={20} />
-                            <span>First time? Use our guide in the menu!</span>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Content */}
-            {filteredItems.length > 0 && viewMode === 'grid' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem' }}>
-                    {filteredItems.map(item => (
-                        <Link
-                            key={item._id}
-                            to={item.type === 'video' ? `/focus/${item._id}` : (item.type === 'custom' ? `/custom-playlist/${item._id}` : `/playlist/${item._id}`)}
-                            className="glass glass-hover"
-                            style={{ borderRadius: '20px', overflow: 'hidden', textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column' }}
-                        >
-                            <div style={{ position: 'relative', aspectRatio: '16/9' }}>
-                                <img src={item.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                {item.isPinned && (
-                                    <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: 'var(--primary)', padding: '0.3rem', borderRadius: '50%' }}>
-                                        <Pin size={12} fill="white" color="white" />
-                                    </div>
-                                )}
-                                {item.type === 'video' ? (
-                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '0.5rem' }}>
-                                        <Play size={24} fill="white" color="white" />
-                                    </div>
-                                ) : (
-                                    <div style={{ position: 'absolute', bottom: '0.5rem', right: '0.5rem', background: 'rgba(0,0,0,0.7)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '700', color: 'white', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                        <Video size={10} /> {item.videoCount}
-                                    </div>
-                                )}
-                                <div style={{ position: 'absolute', bottom: '0.5rem', right: '0.5rem', background: 'rgba(0,0,0,0.8)', padding: '0.2rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '700', color: 'white' }}>
-                                    {item.videoCount}
-                                </div>
-                            </div>
-                            <div style={{ padding: '1rem', flex: 1 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.3rem' }}>
-                                    <h3 style={{ fontSize: '1rem', fontWeight: '700', lineHeight: '1.3', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', flex: 1 }}>{item.title}</h3>
-                                    <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                        <button
-                                            onClick={(e) => handleShare(e, item)}
-                                            className="icon-btn-compact share"
-                                            title="Copy Link"
-                                        >
-                                            <LinkIcon size={14} />
-                                        </button>
-                                        {(item.type === 'imported' || item.type === 'video') && (
-                                            <button
-                                                onClick={(e) => handleSync(e, item)}
-                                                className="icon-btn-compact sync"
-                                                title="Resync from YouTube"
-                                            >
-                                                <RefreshCw size={14} />
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={(e) => handleTogglePin(e, item)}
-                                            className={`icon-btn-compact pin ${item.isPinned ? 'active' : ''}`}
-                                            title={item.isPinned ? "Unpin" : "Pin"}
-                                        >
-                                            {item.isPinned ? <PinOff size={14} /> : <Pin size={14} />}
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleDelete(e, item)}
-                                            className="icon-btn-compact delete"
-                                            title="Delete"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{
-                                        fontSize: '0.75rem', fontWeight: '600',
-                                        color: item.type === 'custom' ? '#f59e0b' : (item.type === 'video' ? '#ef4444' : '#3b82f6'),
-                                        background: item.type === 'custom' ? 'rgba(245, 158, 11, 0.1)' : (item.type === 'video' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)'),
-                                        padding: '0.1rem 0.5rem', borderRadius: '4px'
-                                    }}>
-                                        {item.type === 'custom' ? 'Personal' : (item.type === 'video' ? 'Video' : 'Imported')}
-                                    </span>
-                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                        {new Date(item.createdAt).toLocaleDateString()}
-                                    </span>
-                                </div>
-                            </div>
-                        </Link>
+                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.02)', padding: '0.5rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                    {['all', 'video', 'playlist', 'custom'].map(f => (
+                        <button key={f} onClick={() => setFilter(f)} style={{
+                            padding: '0.6rem 1.5rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '800',
+                            background: filter === f ? 'var(--primary)' : 'transparent',
+                            color: filter === f ? 'white' : 'var(--text-muted)',
+                            border: 'none', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            letterSpacing: '0.5px'
+                        }}>
+                            {f === 'video' ? 'VIDEOS' : (f === 'playlist' ? 'PLAYLISTS' : f.toUpperCase())}
+                        </button>
                     ))}
                 </div>
-            ) : filteredItems.length > 0 ? (
-                <div className="glass" style={{ borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                        <thead>
-                            <tr style={{ borderBottom: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.02)' }}>
-                                <th style={{ padding: '1rem 1.5rem', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Playlist</th>
-                                <th style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Type</th>
-                                <th style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'center' }}>Videos</th>
-                                <th style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Created</th>
-                                <th style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredItems.map(item => (
-                                <tr key={item._id} className="table-row-hover" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <td style={{ padding: '1rem 1.5rem' }}>
-                                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                            <div style={{ position: 'relative' }}>
-                                                <img src={item.thumbnail} alt="" style={{ width: '60px', borderRadius: '8px', aspectRatio: '16/9', objectFit: 'cover' }} />
-                                                {item.type === 'video' && (
-                                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', padding: '0.1rem' }}>
-                                                        <Play size={10} fill="white" color="white" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <Link
-                                                    to={item.type === 'video' ? `/focus/${item._id}` : (item.type === 'custom' ? `/custom-playlist/${item._id}` : `/playlist/${item._id}`)}
-                                                    style={{ fontSize: '0.95rem', fontWeight: '700', color: 'white', textDecoration: 'none', display: 'block' }}
-                                                >
-                                                    {item.title}
-                                                </Link>
-                                                {item.isPinned && (
-                                                    <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
-                                                        <Pin size={10} /> Pinned to Dashboard
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '1rem' }}>
-                                        <span style={{
-                                            fontSize: '0.75rem', fontWeight: '600',
-                                            color: item.type === 'custom' ? '#f59e0b' : (item.type === 'video' ? '#ef4444' : '#3b82f6'),
-                                            background: item.type === 'custom' ? 'rgba(245, 158, 11, 0.1)' : (item.type === 'video' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)'),
-                                            padding: '0.2rem 0.6rem', borderRadius: '6px'
-                                        }}>
-                                            {item.type === 'custom' ? 'Custom' : (item.type === 'video' ? 'Video' : 'Imported')}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: 'var(--text-muted)' }}>
-                                        {item.videoCount}
-                                    </td>
-                                    <td style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                        {new Date(item.createdAt).toLocaleDateString()}
-                                    </td>
-                                    <td style={{ padding: '1rem', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
-                                        <button
-                                            onClick={(e) => handleShare(e, item)}
-                                            className="icon-btn-compact share"
-                                            title="Copy Link"
-                                        >
-                                            <LinkIcon size={14} />
-                                        </button>
-                                        {(item.type === 'imported' || item.type === 'video') && (
-                                            <button
-                                                onClick={(e) => handleSync(e, item)}
-                                                className="icon-btn-compact sync"
-                                                title="Resync from YouTube"
-                                            >
-                                                <RefreshCw size={14} />
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={(e) => handleTogglePin(e, item)}
-                                            className={`icon-btn-compact pin ${item.isPinned ? 'active' : ''}`}
-                                            title={item.isPinned ? "Unpin" : "Pin"}
-                                        >
-                                            {item.isPinned ? <PinOff size={14} /> : <Pin size={14} />}
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleDelete(e, item)}
-                                            className="icon-btn-compact delete"
-                                            title="Delete"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                        <Link
-                                            to={item.type === 'video' ? `/focus/${item._id}` : (item.type === 'custom' ? `/custom-playlist/${item._id}` : `/playlist/${item._id}`)}
-                                            className="btn-secondary"
-                                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', textDecoration: 'none', borderRadius: '8px' }}
-                                        >
-                                            {item.type === 'video' ? 'Play' : 'View'}
-                                        </Link>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            ) : null}
-            {/* Modals */}
-            <AlertModal
-                isOpen={alertState.isOpen}
-                onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))}
-                title={alertState.title}
-                message={alertState.message}
-                success={alertState.success}
-            />
+            </div>
 
+            {filteredItems.length === 0 ? (
+                <div className="glass" style={{ padding: '6rem 2rem', textAlign: 'center', borderRadius: '40px', border: '1px dashed var(--glass-border)' }}>
+                    <div style={{ fontSize: '4rem', marginBottom: '1.5rem', opacity: 0.5 }}>📚</div>
+                    <h3 style={{ fontSize: '1.8rem', fontWeight: '900', marginBottom: '1rem' }}>Library is silent</h3>
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '2.5rem', fontSize: '1.1rem', maxWidth: '400px', margin: '0 auto 2.5rem' }}>Start your journey by importing a YouTube playlist or creating a unique custom one.</p>
+                    <button onClick={() => navigate('/import')} className="btn-primary" style={{ padding: '1rem 2rem' }}>Import First Playlist</button>
+                </div>
+            ) : (
+                viewMode === 'grid' ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                        {filteredItems.map(item => (
+                            <LibraryItem
+                                key={item._id}
+                                item={item}
+                                viewMode="grid"
+                                onTogglePin={handleTogglePin}
+                                onDelete={handleDelete}
+                                onSync={handleSync}
+                                onShare={handleShare}
+                                isSyncing={syncingIds.has(item._id)}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="glass" style={{ borderRadius: '32px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--glass-border)' }}>
+                                    <th style={{ padding: '1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '900', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Collection</th>
+                                    <th style={{ padding: '1.5rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: '900', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredItems.map(item => (
+                                    <LibraryItem
+                                        key={item._id}
+                                        item={item}
+                                        viewMode="list"
+                                        onTogglePin={handleTogglePin}
+                                        onDelete={handleDelete}
+                                        onSync={handleSync}
+                                        onShare={handleShare}
+                                        isSyncing={syncingIds.has(item._id)}
+                                    />
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )
+            )}
+
+            <style>{`
+                .view-btn {
+                    padding: 0.5rem 0.75rem;
+                    border-radius: 12px;
+                    border: none;
+                    background: transparent;
+                    color: var(--text-muted);
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .view-btn:hover {
+                    color: white;
+                    background: rgba(255,255,255,0.05);
+                }
+                .view-btn.active {
+                    background: var(--primary);
+                    color: white;
+                    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+                }
+            `}</style>
+
+            <AlertModal isOpen={alertState.isOpen} title={alertState.title} message={alertState.message} success={alertState.success} onClose={() => setAlertState({ ...alertState, isOpen: false })} />
             <ConfirmModal
                 isOpen={confirmState.isOpen}
-                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
-                onConfirm={() => {
-                    if (confirmState.onConfirm) confirmState.onConfirm();
-                    setConfirmState(prev => ({ ...prev, isOpen: false }));
-                }}
                 title={confirmState.title}
                 description={confirmState.description}
-                confirmText={confirmState.confirmText}
+                onConfirm={confirmState.onConfirm}
+                onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
                 danger={confirmState.danger}
+                confirmText={confirmState.confirmText}
             />
         </div>
     );

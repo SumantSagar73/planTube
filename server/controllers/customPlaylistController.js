@@ -106,6 +106,8 @@ exports.getPublicPlaylist = async (req, res) => {
             return res.status(404).json({ msg: 'Playlist not found' });
         }
 
+        
+
         if (playlist.visibility !== 'link') {
             // If caller is the creator, allow it? 
             // Requirement says: "if visibility === 'link', anyone can fetch it"

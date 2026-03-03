@@ -11,6 +11,8 @@ import { cache } from '../utils/cache';
 
 import { Link } from 'react-router-dom';
 import LoadingScreen from '../components/Shared/LoadingScreen';
+import SkillTree from '../components/Playlist/SkillTree';
+import { AlignLeft, GitGraph } from 'lucide-react';
 
 const PlaylistDetails = () => {
     const { id } = useParams();
@@ -33,6 +35,7 @@ const PlaylistDetails = () => {
     const [sortBy, setSortBy] = useState('position');
     const [message, setMessage] = useState('');
     const [hasScrolled, setHasScrolled] = useState(false);
+    const [viewMode, setViewMode] = useState('list'); // 'list' | 'tree'
 
     useEffect(() => {
         fetchPlaylistData();
@@ -442,25 +445,56 @@ const PlaylistDetails = () => {
 
                     {/* Toolbar & Filters */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <h2 style={{ fontSize: '1.5rem', fontWeight: '800' }}>Curriculum</h2>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: '800' }}>Curriculum</h2>
+                                <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                                    {['all', 'pending', 'completed'].map(f => (
+                                        <button
+                                            key={f}
+                                            onClick={() => setFilter(f)}
+                                            style={{
+                                                padding: '0.4rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600',
+                                                background: filter === f ? 'var(--primary)' : 'transparent',
+                                                color: filter === f ? 'white' : 'var(--text-muted)',
+                                                border: 'none', cursor: 'pointer', transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {f.charAt(0).toUpperCase() + f.slice(1)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* View Toggle */}
                             <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
-                                {['all', 'pending', 'completed'].map(f => (
-                                    <button
-                                        key={f}
-                                        onClick={() => setFilter(f)}
-                                        style={{
-                                            padding: '0.4rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600',
-                                            background: filter === f ? 'var(--primary)' : 'transparent',
-                                            color: filter === f ? 'white' : 'var(--text-muted)',
-                                            border: 'none', cursor: 'pointer', transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        {f.charAt(0).toUpperCase() + f.slice(1)}
-                                    </button>
-                                ))}
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    style={{
+                                        padding: '0.4rem', borderRadius: '6px', cursor: 'pointer',
+                                        background: viewMode === 'list' ? 'rgba(255,255,255,0.05)' : 'transparent',
+                                        color: viewMode === 'list' ? 'var(--primary)' : 'var(--text-muted)',
+                                        border: 'none', display: 'flex'
+                                    }}
+                                    title="List View"
+                                >
+                                    <AlignLeft size={18} />
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('tree')}
+                                    style={{
+                                        padding: '0.4rem', borderRadius: '6px', cursor: 'pointer',
+                                        background: viewMode === 'tree' ? 'rgba(255,255,255,0.05)' : 'transparent',
+                                        color: viewMode === 'tree' ? 'var(--primary)' : 'var(--text-muted)',
+                                        border: 'none', display: 'flex'
+                                    }}
+                                    title="Skill Tree"
+                                >
+                                    <GitGraph size={18} />
+                                </button>
                             </div>
                         </div>
+
                         <div style={{ display: 'flex', gap: '0.75rem' }}>
                             <select
                                 value={sortBy}
@@ -475,82 +509,84 @@ const PlaylistDetails = () => {
                         </div>
                     </div>
 
-                    {/* Videos List */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {filteredVideos.map((video) => {
-                            const schedule = schedulesMap[video._id];
-                            const isCompleted = schedule?.status === 'completed';
-                            const isPlanned = schedule && schedule.scheduledDate;
+                    {/* Curriculum View Condition */}
+                    {viewMode === 'list' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {filteredVideos.map((video) => {
+                                const schedule = schedulesMap[video._id];
+                                const isCompleted = schedule?.status === 'completed';
+                                const isPlanned = schedule && schedule.scheduledDate;
 
-                            return (
-                                <div key={video._id} id={`video-${video._id}`} className="glass-hover" style={{
-                                    padding: '1rem', borderRadius: '16px',
-                                    display: 'flex', alignItems: 'center', gap: '1.5rem',
-                                    background: isCompleted ? 'rgba(34, 197, 94, 0.05)' : 'var(--bg-card)',
-                                    border: isCompleted ? '2px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--glass-border)',
-                                    opacity: isCompleted ? 0.9 : 1,
-                                    transition: 'all 0.3s ease'
-                                }} onMouseEnter={(e) => !isCompleted && (e.currentTarget.style.borderColor = 'var(--primary)')} onMouseLeave={(e) => !isCompleted && (e.currentTarget.style.borderColor = 'var(--glass-border)')}>
-                                    <Link to={`/focus/${video._id}`} style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1, textDecoration: 'none', color: 'inherit' }}>
-                                        <div style={{ fontSize: '1.2rem', fontWeight: '900', color: isCompleted ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.03)', width: '30px', textAlign: 'center' }}>
-                                            {(video.position + 1).toString().padStart(2, '0')}
-                                        </div>
-                                        {video.thumbnail && <img src={video.thumbnail} alt="" style={{ width: '120px', height: '68px', borderRadius: '10px', objectFit: 'cover' }} />}
-                                        <div style={{ flex: 1 }}>
-                                            <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', fontWeight: '700', color: isCompleted ? '#86efac' : 'inherit' }}>{video.title}</h3>
-                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                    <Clock size={14} /> {video.duration || '0:00'}
-                                                </div>
-                                                {isPlanned && (
-                                                    <span style={{ color: isCompleted ? '#86efac' : 'var(--primary)', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                        <Calendar size={14} /> {formatDate(schedule.scheduledDate.split('T')[0])}
-                                                    </span>
-                                                )}
+                                return (
+                                    <div key={video._id} id={`video-${video._id}`} className="glass-hover" style={{
+                                        padding: '1rem', borderRadius: '16px',
+                                        display: 'flex', alignItems: 'center', gap: '1.5rem',
+                                        background: isCompleted ? 'rgba(34, 197, 94, 0.05)' : 'var(--bg-card)',
+                                        border: isCompleted ? '2px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--glass-border)',
+                                        opacity: isCompleted ? 0.9 : 1,
+                                        transition: 'all 0.3s ease'
+                                    }} onMouseEnter={(e) => !isCompleted && (e.currentTarget.style.borderColor = 'var(--primary)')} onMouseLeave={(e) => !isCompleted && (e.currentTarget.style.borderColor = 'var(--glass-border)')}>
+                                        <Link to={`/focus/${video._id}`} style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1, textDecoration: 'none', color: 'inherit' }}>
+                                            <div style={{ fontSize: '1.2rem', fontWeight: '900', color: isCompleted ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.03)', width: '30px', textAlign: 'center' }}>
+                                                {(video.position + 1).toString().padStart(2, '0')}
                                             </div>
+                                            {video.thumbnail && <img src={video.thumbnail} alt="" style={{ width: '120px', height: '68px', borderRadius: '10px', objectFit: 'cover' }} />}
+                                            <div style={{ flex: 1 }}>
+                                                <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', fontWeight: '700', color: isCompleted ? '#86efac' : 'inherit' }}>{video.title}</h3>
+                                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                        <Clock size={14} /> {video.duration || '0:00'}
+                                                    </div>
+                                                    {isPlanned && (
+                                                        <span style={{ color: isCompleted ? '#86efac' : 'var(--primary)', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                            <Calendar size={14} /> {formatDate(schedule.scheduledDate.split('T')[0])}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </Link>
+
+                                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                            {user && (
+                                                !isPlanned ? (
+                                                    <button
+                                                        onClick={() => handleQuickSchedule(video._id)}
+                                                        disabled={isCompleted}
+                                                        className="btn-secondary"
+                                                        style={{
+                                                            padding: '0.5rem 1.2rem',
+                                                            borderRadius: '10px',
+                                                            opacity: isCompleted ? 0.5 : 1,
+                                                            cursor: isCompleted ? 'not-allowed' : 'pointer'
+                                                        }}
+                                                    >
+                                                        Plan
+                                                    </button>
+                                                ) : (
+                                                    <button onClick={() => handleRemoveSchedule(video._id)} style={{ background: 'none', color: 'var(--danger)', opacity: 0.5, cursor: 'pointer' }} title="Remove from plan"><XCircle size={22} /></button>
+                                                )
+                                            )}
+
+                                            <button
+                                                onClick={() => handleToggleCompletion(video._id)}
+                                                style={{
+                                                    width: '42px', height: '42px', borderRadius: '12px',
+                                                    background: isCompleted ? '#16a34a' : 'rgba(255,255,255,0.03)',
+                                                    color: 'white', border: isCompleted ? 'none' : '1px solid var(--glass-border)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s'
+                                                }}
+                                                title={isCompleted ? "Mark as Pending" : "Mark as Completed"}
+                                            >
+                                                <CheckCircle size={24} fill={isCompleted ? "white" : "none"} strokeWidth={isCompleted ? 0 : 2} />
+                                            </button>
                                         </div>
-                                    </Link>
-
-                                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-
-
-                                        {user && (
-                                            !isPlanned ? (
-                                                <button
-                                                    onClick={() => handleQuickSchedule(video._id)}
-                                                    disabled={isCompleted}
-                                                    className="btn-secondary"
-                                                    style={{
-                                                        padding: '0.5rem 1.2rem',
-                                                        borderRadius: '10px',
-                                                        opacity: isCompleted ? 0.5 : 1,
-                                                        cursor: isCompleted ? 'not-allowed' : 'pointer'
-                                                    }}
-                                                >
-                                                    Plan
-                                                </button>
-                                            ) : (
-                                                <button onClick={() => handleRemoveSchedule(video._id)} style={{ background: 'none', color: 'var(--danger)', opacity: 0.5, cursor: 'pointer' }} title="Remove from plan"><XCircle size={22} /></button>
-                                            )
-                                        )}
-
-                                        <button
-                                            onClick={() => handleToggleCompletion(video._id)}
-                                            style={{
-                                                width: '42px', height: '42px', borderRadius: '12px',
-                                                background: isCompleted ? '#16a34a' : 'rgba(255,255,255,0.03)',
-                                                color: 'white', border: isCompleted ? 'none' : '1px solid var(--glass-border)',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s'
-                                            }}
-                                            title={isCompleted ? "Mark as Pending" : "Mark as Completed"}
-                                        >
-                                            <CheckCircle size={24} fill={isCompleted ? "white" : "none"} strokeWidth={isCompleted ? 0 : 2} />
-                                        </button>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <SkillTree videos={filteredVideos} schedulesMap={schedulesMap} />
+                    )}
                 </div>
 
                 {/* Sidebar: Planner & Agenda (Only for Logged-in Users) */}

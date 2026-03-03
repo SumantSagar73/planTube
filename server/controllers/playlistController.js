@@ -1,4 +1,5 @@
 const Playlist = require('../models/Playlist');
+const UserPlaylist = require('../models/UserPlaylist');
 const Video = require('../models/Video');
 const Schedule = require('../models/Schedule');
 const axios = require('axios');
@@ -121,58 +122,75 @@ exports.importPlaylist = async (req, res) => {
 
         // Case 1: Playlist
         if (playlistId) {
-            let query = { playlistId };
-            if (req.user) query.userId = req.user.id;
-            else query.userId = { $exists: false };
+            // 1. Check if global metadata exists
+            let playlist = await Playlist.findOne({ playlistId });
 
-            let playlist = await Playlist.findOne(query);
-            if (playlist && req.user) return res.status(400).json({ msg: 'Playlist already imported' });
-            if (playlist) {
-                const videos = await Video.find({ playlistId: playlist._id }).sort('position');
-                return res.json({ playlist, videos });
+            if (!playlist) {
+                // Fetch from YouTube and save globally
+                const data = await fetchPlaylistData(playlistId);
+                playlist = new Playlist({
+                    playlistTitle: data.playlistTitle,
+                    playlistId,
+                    thumbnail: data.thumbnail,
+                });
+                await playlist.save();
+
+                const videoDocs = data.videos.map(v => ({ ...v, playlistId: playlist._id }));
+                await Video.insertMany(videoDocs);
             }
 
-            const data = await fetchPlaylistData(playlistId);
-            playlist = new Playlist({
-                userId: req.user?.id,
-                playlistTitle: data.playlistTitle,
-                playlistId,
-                thumbnail: data.thumbnail,
-            });
-            await playlist.save();
+            // 2. Link to user if logged in
+            if (req.user) {
+                let userPlaylist = await UserPlaylist.findOne({ userId: req.user.id, playlistId: playlist._id });
+                if (userPlaylist) {
+                    return res.status(400).json({ msg: 'Playlist already in your library' });
+                }
+                userPlaylist = new UserPlaylist({
+                    userId: req.user.id,
+                    playlistId: playlist._id
+                });
+                await userPlaylist.save();
+            }
 
-            const videoDocs = data.videos.map(v => ({ ...v, playlistId: playlist._id }));
-            await Video.insertMany(videoDocs);
-            return res.json({ playlist, videos: videoDocs });
+            const videos = await Video.find({ playlistId: playlist._id }).sort('position');
+            return res.json({ playlist, videos });
         }
 
         // Case 2: Single Video
         if (videoId && (playlistUrl.includes('youtube.com') || playlistUrl.includes('youtu.be'))) {
             const cleanVideoId = videoId.includes('/') ? videoId.split('/').pop() : videoId;
 
-            const videoData = await fetchSingleVideoData(cleanVideoId);
+            // 1. Check if global metadata exists (as a standalone playlist)
+            let playlist = await Playlist.findOne({ playlistId: `VIDEO_${cleanVideoId}` });
 
-            // Check if already imported as a standalone video
-            let query = { playlistId: `VIDEO_${cleanVideoId}` };
-            if (req.user) query.userId = req.user.id;
+            if (!playlist) {
+                const videoData = await fetchSingleVideoData(cleanVideoId);
+                playlist = new Playlist({
+                    playlistTitle: videoData.title,
+                    playlistId: `VIDEO_${cleanVideoId}`,
+                    thumbnail: videoData.thumbnail,
+                });
+                await playlist.save();
 
-            let existingPlaylist = await Playlist.findOne(query);
-            if (existingPlaylist) {
-                const video = await Video.findOne({ playlistId: existingPlaylist._id });
-                return res.json({ playlist: existingPlaylist, video });
+                const video = new Video({ ...videoData, playlistId: playlist._id });
+                await video.save();
             }
 
-            const playlist = new Playlist({
-                userId: req.user?.id,
-                playlistTitle: videoData.title,
-                playlistId: `VIDEO_${cleanVideoId}`,
-                thumbnail: videoData.thumbnail,
-            });
-            await playlist.save();
+            // 2. Link to user if logged in
+            if (req.user) {
+                let userPlaylist = await UserPlaylist.findOne({ userId: req.user.id, playlistId: playlist._id });
+                if (userPlaylist) {
+                    const video = await Video.findOne({ playlistId: playlist._id });
+                    return res.json({ playlist, video });
+                }
+                userPlaylist = new UserPlaylist({
+                    userId: req.user.id,
+                    playlistId: playlist._id
+                });
+                await userPlaylist.save();
+            }
 
-            const video = new Video({ ...videoData, playlistId: playlist._id });
-            await video.save();
-
+            const video = await Video.findOne({ playlistId: playlist._id });
             return res.json({ playlist, video });
         }
 
@@ -185,12 +203,12 @@ exports.importPlaylist = async (req, res) => {
 
 exports.togglePin = async (req, res) => {
     try {
-        const playlist = await Playlist.findOne({ _id: req.params.id, userId: req.user.id });
-        if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
+        const userPlaylist = await UserPlaylist.findOne({ playlistId: req.params.id, userId: req.user.id });
+        if (!userPlaylist) return res.status(404).json({ msg: 'Playlist not found in your library' });
 
-        playlist.isPinned = !playlist.isPinned;
-        await playlist.save();
-        res.json(playlist);
+        userPlaylist.isPinned = !userPlaylist.isPinned;
+        await userPlaylist.save();
+        res.json(userPlaylist);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
@@ -199,43 +217,48 @@ exports.togglePin = async (req, res) => {
 
 exports.getPlaylistById = async (req, res) => {
     try {
-        // 1. Try finding in Imported Playlists (Legacy/Standard)
+        // 1. Try finding global metadata
         const playlist = await Playlist.findById(req.params.id);
 
         if (playlist) {
-            // --- Existing Logic for Imported Playlists ---
-            if (!req.user) {
-                return res.json(playlist);
+            // Find if current user has this linked
+            let userLink = null;
+            if (req.user) {
+                userLink = await UserPlaylist.findOne({ userId: req.user.id, playlistId: playlist._id });
             }
 
-            // If owner, allow access
-            if (playlist.userId && playlist.userId.toString() === req.user.id) {
-                return res.json(playlist);
-            }
+            // Access Control: 
+            // If it's a global playlist (no userId on Playlist or it's shared in a group)
+            // or if it's the user's own linked playlist, allow access.
 
-            // If generic/guest playlist (no userId), allow access
-            if (!playlist.userId) {
-                return res.json(playlist);
-            }
+            // For now, if the Playlist document exists and it's not a legacy private playlist, allow access
+            // In the new system, Playlist is global. 
 
-            // If not owner, check if shared in any of user's groups
             const Group = require('../models/Group');
             const GroupPlaylist = require('../models/GroupPlaylist');
 
-            const userGroups = await Group.find({ members: req.user.id }).select('_id');
-            const groupIds = userGroups.map(g => g._id);
+            let isShared = false;
+            if (req.user) {
+                const userGroups = await Group.find({ members: req.user.id }).select('_id');
+                const groupIds = userGroups.map(g => g._id);
 
-            const isShared = await GroupPlaylist.findOne({
-                playlistId: playlist._id,
-                groupId: { $in: groupIds }
-            });
-
-            if (isShared) {
-                return res.json(playlist);
+                isShared = await GroupPlaylist.findOne({
+                    playlistId: playlist._id,
+                    groupId: { $in: groupIds }
+                });
             }
 
-            return res.status(403).json({ msg: 'Access denied' });
-            // --- End Existing Logic ---
+            // Simplified: If it exists globally, allow viewing videos. 
+            // Personal settings (goal, pinning) come from UserPlaylist (userLink).
+            const videos = await Video.find({ playlistId: playlist._id }).sort('position');
+            return res.json({
+                playlist: {
+                    ...playlist.toObject(),
+                    isPinned: userLink?.isPinned || false,
+                    goal: userLink?.goal
+                },
+                videos
+            });
         }
 
         // 2. If not found, try Custom Playlists
@@ -250,14 +273,12 @@ exports.getPlaylistById = async (req, res) => {
         }
 
         // Access Control for Custom Playlist
-        // Visibility: 'private' (owner only) or 'link' (public)
         if (customPlaylist.visibility === 'private') {
             if (!req.user || (customPlaylist.creatorId._id || customPlaylist.creatorId).toString() !== req.user.id) {
                 return res.status(403).json({ msg: 'Access denied (Private)' });
             }
         }
 
-        // Fetch videos for custom playlist (as requested in reqs: return playlist + videos)
         const videos = await CustomPlaylistVideo.find({ playlistId: customPlaylist._id })
             .sort('orderIndex');
 
@@ -274,8 +295,19 @@ exports.getPlaylistById = async (req, res) => {
 
 exports.getUserPlaylists = async (req, res) => {
     try {
-        const playlists = await Playlist.find({ userId: req.user.id }).sort({ isPinned: -1, createdAt: -1 });
-        res.json(playlists);
+        const userPlaylists = await UserPlaylist.find({ userId: req.user.id })
+            .populate('playlistId')
+            .sort({ isPinned: -1, createdAt: -1 });
+
+        // Map to expected format
+        const formatted = userPlaylists.filter(up => up.playlistId).map(up => ({
+            ...up.playlistId.toObject(),
+            isPinned: up.isPinned,
+            goal: up.goal,
+            userPlaylistId: up._id
+        }));
+
+        res.json(formatted);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
@@ -294,16 +326,18 @@ exports.getPlaylistVideos = async (req, res) => {
 
 exports.deletePlaylist = async (req, res) => {
     try {
-        // 1. Try Imported Playlist
-        const playlist = await Playlist.findOne({ _id: req.params.id, userId: req.user.id });
+        // 1. Try Imported Playlist (Remove UserLink)
+        const userPlaylist = await UserPlaylist.findOne({ playlistId: req.params.id, userId: req.user.id });
 
-        if (playlist) {
-            const videos = await Video.find({ playlistId: playlist._id });
+        if (userPlaylist) {
+            // Delete associated schedules (personal to user)
+            const videos = await Video.find({ playlistId: req.params.id });
             const videoIds = videos.map(v => v._id);
-            await Schedule.deleteMany({ videoId: { $in: videoIds } });
-            await Video.deleteMany({ playlistId: playlist._id });
-            await Playlist.findByIdAndDelete(playlist._id);
-            return res.json({ msg: 'Playlist removed' });
+            await Schedule.deleteMany({ videoId: { $in: videoIds }, userId: req.user.id });
+
+            await UserPlaylist.findByIdAndDelete(userPlaylist._id);
+            // Note: We don't delete the global Playlist or Video records here
+            return res.json({ msg: 'Playlist removed from your library' });
         }
 
         // 2. Try Custom Playlist
@@ -382,28 +416,28 @@ exports.getLibraryStats = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        // 1. Fetch All Imported Playlists (Standard & Standalone)
-        const importedPlaylists = await Playlist.find({
+        // 1. Fetch All Imported Playlists via UserPlaylist link
+        const userPlaylists = await UserPlaylist.find({
             userId
-        }).sort({ isPinned: -1, createdAt: -1 });
+        }).populate('playlistId').sort({ isPinned: -1, createdAt: -1 });
 
         // 2. Fetch Custom Playlists
         const CustomPlaylist = require('../models/CustomPlaylist');
         const customPlaylists = await CustomPlaylist.find({ creatorId: userId }).sort({ createdAt: -1 });
 
         // 3. Get Video Counts for Imported
-        const importedIds = importedPlaylists.map(p => p._id);
+        const playlistIds = userPlaylists.filter(up => up.playlistId).map(up => up.playlistId._id);
         const importedVideoCounts = await Video.aggregate([
-            { $match: { playlistId: { $in: importedIds } } },
+            { $match: { playlistId: { $in: playlistIds } } },
             { $group: { _id: '$playlistId', count: { $sum: 1 } } }
         ]);
         const importedCountMap = {};
         importedVideoCounts.forEach(c => importedCountMap[c._id.toString()] = c.count);
 
         // 3.5. Fetch Video Document IDs for standalone videos (VIDEO_*)
-        const standalonePlaylistIds = importedPlaylists
-            .filter(p => p.playlistId.startsWith('VIDEO_'))
-            .map(p => p._id);
+        const standalonePlaylistIds = userPlaylists
+            .filter(up => up.playlistId && up.playlistId.playlistId.startsWith('VIDEO_'))
+            .map(up => up.playlistId._id);
 
         const standaloneVideos = await Video.find({ playlistId: { $in: standalonePlaylistIds } });
         const videoDocIdMap = {};
@@ -421,7 +455,8 @@ exports.getLibraryStats = async (req, res) => {
 
         // 5. Merge and Format
         const unifiedLibrary = [
-            ...importedPlaylists.map(p => {
+            ...userPlaylists.filter(up => up.playlistId).map(up => {
+                const p = up.playlistId;
                 const isStandalone = p.playlistId.startsWith('VIDEO_');
                 return {
                     _id: isStandalone ? p.playlistId.replace('VIDEO_', '') : p._id,
@@ -429,11 +464,12 @@ exports.getLibraryStats = async (req, res) => {
                     videoDbId: isStandalone ? videoDocIdMap[p._id.toString()] : undefined,
                     title: p.playlistTitle,
                     thumbnail: p.thumbnail,
-                    type: isStandalone ? 'video' : 'imported',
-                    isPinned: p.isPinned,
+                    type: isStandalone ? 'video' : 'playlist',
+                    isPinned: up.isPinned,
                     videoCount: isStandalone ? 1 : (importedCountMap[p._id.toString()] || 0),
-                    createdAt: p.createdAt,
-                    originalId: p._id
+                    createdAt: up.createdAt,
+                    originalId: p._id,
+                    goal: up.goal
                 };
             }),
             ...customPlaylists.map(p => ({
@@ -456,7 +492,6 @@ exports.getLibraryStats = async (req, res) => {
         });
 
         res.json(unifiedLibrary);
-
 
     } catch (err) {
         console.error('Library Stats Error:', err);
@@ -497,19 +532,7 @@ exports.syncVideo = async (req, res) => {
         const Video = require('../models/Video');
         const Playlist = require('../models/Playlist');
 
-        const importedPlaylist = await Playlist.findOne({ _id: id });
-
-        // If not found at all
         if (!importedPlaylist) return res.status(404).json({ msg: 'Playlist/Video not found' });
-
-        // Access Check for Imported
-        // For now, allow sync if user owns it OR if it's a public/group one?
-        // Let's stick to owner for safety, or just loose for now if it helps fixes.
-        // Assuming owner or general user for now (if simple app).
-        // Stricter: Only owner can sync.
-        if (importedPlaylist.userId && importedPlaylist.userId.toString() !== req.user.id) {
-            return res.status(403).json({ msg: 'Not authorized to sync this playlist' });
-        }
 
         const video = await Video.findOne({ _id: videoId, playlistId: id });
         if (!video) return res.status(404).json({ msg: 'Video not found' });

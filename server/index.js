@@ -57,6 +57,10 @@ app.use('/api/videos', require('./routes/video'));
 // Group Routes
 app.use('/api/groups', require('./routes/group'));
 
+// Analytics Routes
+app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/presence', require('./routes/presence'));
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

@@ -4,6 +4,11 @@ import { X, ChevronRight, ChevronLeft, Youtube, Target, PlayCircle, Rocket, Spar
 const WelcomeGuide = ({ isOpen, onClose }) => {
     const [currentSlide, setCurrentSlide] = useState(0);
 
+    // Reset to first slide every time the guide opens
+    useEffect(() => {
+        if (isOpen) setCurrentSlide(0);
+    }, [isOpen]);
+
     const slides = [
         {
             title: "Welcome to PlanTube",
@@ -70,7 +75,7 @@ const WelcomeGuide = ({ isOpen, onClose }) => {
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
             }}>
                 <button
-                    onClick={onClose}
+                    onClick={handleComplete}
                     style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
                 >
                     <X size={20} />

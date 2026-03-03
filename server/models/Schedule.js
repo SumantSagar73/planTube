@@ -27,6 +27,10 @@ const scheduleSchema = new mongoose.Schema({
     completedChapters: {
         type: [Number], // Array of chapter indices
         default: []
+    },
+    lastWatchedSecond: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 

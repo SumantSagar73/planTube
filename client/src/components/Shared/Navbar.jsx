@@ -17,6 +17,7 @@ const Navbar = () => {
     const [showGuide, setShowGuide] = useState(false);
 
     useEffect(() => {
+        if (!user) return;
         const completed = localStorage.getItem('hasCompletedOnboarding');
         if (!completed) {
             // Short delay to let everything settle

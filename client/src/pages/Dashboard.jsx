@@ -13,26 +13,14 @@ import DeleteConfirmation from '../components/Shared/DeleteConfirmation';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import { cache } from '../utils/cache';
 
-const MiniCalendar = ({ history, streak }) => {
+const FocusPulseHeatmap = ({ data, streak }) => {
     const [viewDate, setViewDate] = useState(new Date());
 
-    // Convert history (raw ISO strings) to local YYYY-MM-DD set
-    const completionSet = new Set((history || []).map(dateStr => {
-        const d = new Date(dateStr);
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-    }));
-
-    // Get today's local YYYY-MM-DD
-    const todayObj = new Date();
-    const tY = todayObj.getFullYear();
-    const tM = String(todayObj.getMonth() + 1).padStart(2, '0');
-    const tD = String(todayObj.getDate()).padStart(2, '0');
-    const todayStr = `${tY}-${tM}-${tD}`;
-
-    const isTodayDone = completionSet.has(todayStr);
+    // Map heatmap data to a quickly accessible object { 'YYYY-MM-DD': seconds }
+    const activityMap = (data || []).reduce((acc, curr) => {
+        acc[curr.date] = curr.seconds;
+        return acc;
+    }, {});
 
     const getDays = () => {
         const year = viewDate.getFullYear();
@@ -52,58 +40,87 @@ const MiniCalendar = ({ history, streak }) => {
         setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1));
     };
 
+    const getIntensity = (seconds) => {
+        if (!seconds) return 0;
+        if (seconds < 600) return 1; // < 10 mins
+        if (seconds < 1800) return 2; // < 30 mins
+        if (seconds < 3600) return 3; // < 1 hour
+        return 4; // > 1 hour
+    };
+
+    const COLORS = [
+        'rgba(255,255,255,0.03)', // 0: None
+        'rgba(99, 102, 241, 0.2)', // 1: Low
+        'rgba(99, 102, 241, 0.4)', // 2: Mid
+        'rgba(99, 102, 241, 0.7)', // 3: High
+        'var(--primary)',         // 4: Max
+    ];
+
     return (
-        <div className="glass" style={{ padding: '1rem', borderRadius: '24px', background: 'rgba(255,255,255,0.02)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Flame
-                        size={16}
-                        fill={streak > 0 ? "#f59e0b" : "none"}
-                        color={streak > 0 ? "#f59e0b" : "var(--text-muted)"}
-                        style={{ filter: streak > 0 ? 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.4))' : 'none', transition: 'all 0.3s' }}
-                    />
-                    <span style={{ fontSize: '0.8rem', fontWeight: '800', color: streak > 0 ? '#f59e0b' : 'var(--text-muted)' }}>{streak} Day Streak</span>
+        <div className="glass" style={{ padding: '1.5rem', borderRadius: '28px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Flame size={20} fill="#f59e0b" color="#f59e0b" style={{ filter: 'drop-shadow(0 0 8px rgba(245, 158, 11, 0.4))' }} />
+                    </div>
+                    <div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>Study Streak</p>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '900', color: '#f59e0b' }}>{streak} Days</h4>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.1rem' }}>
-                    <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem' }}><ChevronLeft size={14} /></button>
-                    <button onClick={() => changeMonth(1)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem' }}><ChevronRightIcon size={14} /></button>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'white' }}>
+                        {viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.25rem', marginLeft: '0.5rem' }}>
+                        <button onClick={() => changeMonth(-1)} className="icon-btn-deck" style={{ padding: '0.4rem' }}><ChevronLeft size={16} /></button>
+                        <button onClick={() => changeMonth(1)} className="icon-btn-deck" style={{ padding: '0.4rem' }}><ChevronRightIcon size={16} /></button>
+                    </div>
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', textAlign: 'center' }}>
-                {['s', 'm', 't', 'w', 'th', 'f', 'sa'].map((d, i) => (
-                    <span key={i} style={{ fontSize: '0.55rem', fontWeight: '800', color: 'rgba(255,255,255,0.1)', marginBottom: '2px' }}>{d}</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                    <span key={i} style={{ fontSize: '0.65rem', fontWeight: '900', color: 'rgba(255,255,255,0.2)', textAlign: 'center', marginBottom: '4px' }}>{d}</span>
                 ))}
                 {getDays().map((date, i) => {
                     if (!date) return <div key={`empty-${i}`} />;
 
-                    // Format current cell date to YYYY-MM-DD
-                    // IMPORTANT: use local parts to avoid timezone shift when creating string from date obj
-                    const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const day = String(date.getDate()).padStart(2, '0');
-                    const dateStr = `${year}-${month}-${day}`;
-
-                    const isCompleted = completionSet.has(dateStr);
+                    const dateStr = date.toISOString().split('T')[0];
+                    const seconds = activityMap[dateStr] || 0;
+                    const intensity = getIntensity(seconds);
 
                     return (
-                        <div key={i} style={{
-                            aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '0.65rem', fontWeight: '700', borderRadius: '6px',
-                            background: isCompleted ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
-                            color: isCompleted ? '#f59e0b' : 'var(--text-muted)',
-                            position: 'relative',
-                            border: isCompleted ? '1px solid rgba(245, 158, 11, 0.2)' : 'none'
-                        }}>
-                            {date.getDate()}
-                            {isCompleted && (
-                                <div style={{ position: 'absolute', bottom: '2px', display: 'flex', justifyContent: 'center', width: '100%' }}>
-                                    <Flame size={8} fill="#f59e0b" color="#f59e0b" />
-                                </div>
-                            )}
-                        </div>
+                        <div key={i}
+                            title={seconds > 0 ? `${Math.round(seconds / 60)} mins on ${dateStr}` : `No activity on ${dateStr}`}
+                            style={{
+                                aspectRatio: '1/1', borderRadius: '6px',
+                                background: COLORS[intensity],
+                                border: intensity > 0 ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(255,255,255,0.02)',
+                                transition: 'all 0.2s',
+                                cursor: seconds > 0 ? 'pointer' : 'default',
+                                position: 'relative'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (intensity > 0) e.currentTarget.style.transform = 'scale(1.2)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'scale(1)';
+                            }}
+                        />
                     );
                 })}
+            </div>
+
+            <div style={{ marginTop: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '600' }}>Focus Intensity</span>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginRight: '4px' }}>Less</span>
+                    {COLORS.map((c, i) => (
+                        <div key={i} style={{ width: '10px', height: '10px', borderRadius: '2px', background: c }} />
+                    ))}
+                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginLeft: '4px' }}>More</span>
+                </div>
             </div>
         </div>
     );
@@ -114,6 +131,8 @@ const Dashboard = () => {
     const [playlists, setPlaylists] = useState([]);
     const [todayTasks, setTodayTasks] = useState([]);
     const [analytics, setAnalytics] = useState(null);
+    const [heatmapData, setHeatmapData] = useState([]);
+    const [stats, setStats] = useState({ totalFocusHours: 0, completedVideos: 0, totalPlaylists: 0 });
     const [loading, setLoading] = useState(false);
     const [dataLoading, setDataLoading] = useState(true);
     const [error, setError] = useState('');
@@ -145,10 +164,12 @@ const Dashboard = () => {
                     // However, Dashboard is high traffic. Let's do Background Refresh.
                 }
 
-                const [playlistsRes, todayRes, analyticsRes] = await Promise.all([
-                    api.get('/playlists/library'), // Use Unified Library to include Pinned Videos
+                const [playlistsRes, todayRes, analyticsRes, heatmapRes, statsRes] = await Promise.all([
+                    api.get('/playlists/library'),
                     api.get('/schedules/today'),
-                    api.get('/schedules/analytics')
+                    api.get('/schedules/analytics'),
+                    api.get('/analytics/heatmap'),
+                    api.get('/analytics/stats')
                 ]);
 
                 // Filter for Pinned Items (Playlists & Videos)
@@ -159,12 +180,16 @@ const Dashboard = () => {
                 setPlaylists(pinnedItems);
                 setTodayTasks(todayRes.data);
                 setAnalytics(analyticsRes.data);
+                setHeatmapData(heatmapRes.data);
+                setStats(statsRes.data);
 
                 // Update Cache
                 cache.set('dashboard_data', {
                     playlists: playlistsRes.data,
                     today: todayRes.data,
-                    analytics: analyticsRes.data
+                    analytics: analyticsRes.data,
+                    heatmap: heatmapRes.data,
+                    stats: statsRes.data
                 });
 
             } else {
@@ -223,6 +248,15 @@ const Dashboard = () => {
             } else {
                 await api.put(`/playlists/${item._id}/pin`);
             }
+            cache.invalidate('dashboard_data');
+            // Optimistic update for immediate feedback
+            setPlaylists(prev => {
+                if (item.isPinned) {
+                    return prev.filter(p => p._id !== item._id);
+                } else {
+                    return [...prev, { ...item, isPinned: true }];
+                }
+            });
             fetchData();
         } catch (err) {
             console.error('Error toggling pin:', err);
@@ -306,17 +340,36 @@ const Dashboard = () => {
                     )}
 
                     {/* Focal Header */}
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                            <h1 style={{ fontSize: '2.8rem', fontWeight: '900', letterSpacing: '-1.5px', lineHeight: 1 }}>Focus</h1>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <h1 style={{ fontSize: '3rem', fontWeight: '950', letterSpacing: '-2px', lineHeight: 1, color: 'white' }}>Pulse</h1>
                             {user && pendingToday.length > 0 && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(99, 102, 241, 0.1)', padding: '0.35rem 0.85rem', borderRadius: '12px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-                                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', boxShadow: '0 0 8px var(--primary)' }}></div>
-                                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary)' }}>{pendingToday.length} Pending</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(99, 102, 241, 0.1)', padding: '0.4rem 1rem', borderRadius: '12px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', boxShadow: '0 0 12px var(--primary)' }}></div>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--primary)' }}>{pendingToday.length} Session{pendingToday.length > 1 ? 's' : ''} Pending</span>
                                 </div>
                             )}
                         </div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', fontWeight: '500' }}>Your path to mastery starts here.</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem', fontWeight: '500' }}>Your learning velocity this week.</p>
+                    </div>
+
+                    {/* Stats Overview */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+                        {[
+                            { label: 'Focus Hours', value: stats.totalFocusHours, icon: Clock, color: 'var(--primary)', bg: 'rgba(99, 102, 241, 0.1)' },
+                            { label: 'Videos Done', value: stats.completedVideos, icon: CheckCircle, color: '#22c55e', bg: 'rgba(34, 197, 94, 0.1)' },
+                            { label: 'Active Goals', value: stats.totalPlaylists, icon: Target, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
+                        ].map((s, i) => (
+                            <div key={i} className="glass" style={{ padding: '1.5rem', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                                <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <s.icon size={24} color={s.color} />
+                                </div>
+                                <div>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>{s.label}</p>
+                                    <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white' }}>{s.value}</h3>
+                                </div>
+                            </div>
+                        ))}
                     </div>
 
                     <section>
@@ -520,8 +573,8 @@ const Dashboard = () => {
 
                     {/* Enhanced Tracker - Only for Logged In */}
                     {user && (
-                        <MiniCalendar
-                            history={analytics?.completionHistory}
+                        <FocusPulseHeatmap
+                            data={heatmapData}
                             streak={analytics?.streak || 0}
                         />
                     )}

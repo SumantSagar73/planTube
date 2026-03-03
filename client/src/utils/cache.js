@@ -32,7 +32,7 @@ export const cache = {
         }
     },
 
-    remove: (key) => {
+    invalidate: (key) => {
         localStorage.removeItem(key);
     },
 
