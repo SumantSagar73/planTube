@@ -36,9 +36,7 @@ const Home = () => {
                     <h1 style={{ fontSize: 'clamp(3rem, 8vw, 5rem)', fontWeight: '900', lineHeight: 1.1, marginBottom: '1.5rem', letterSpacing: '-0.03em' }}>
                         Master Your Learning <br />
                         <span style={{
-                            background: 'linear-gradient(to right, #818cf8, #c084fc, #f472b6)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent'
+                            color: 'var(--primary)'
                         }}>Without Distractions</span>
                     </h1>
 

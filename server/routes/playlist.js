@@ -13,6 +13,7 @@ const { auth, optionalAuth } = require('../middleware/auth');
 router.get('/library', auth, getLibraryStats);
 
 router.post('/import', optionalAuth, importPlaylist);
+router.get('/fetch-metadata', auth, require('../controllers/playlistController').fetchMetadata);
 
 // Custom Playlists Routes
 router.post('/', auth, customController.createPlaylist);

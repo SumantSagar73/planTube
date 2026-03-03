@@ -6,7 +6,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 
     return (
         <div style={{
-            position: 'fixed', inset: 0, zIndex: 50,
+            position: 'fixed', inset: 0, zIndex: 2000,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)'
         }}>

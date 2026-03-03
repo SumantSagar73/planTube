@@ -3,12 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
     CheckCircle, ChevronLeft, RefreshCw, XCircle,
-    AlignLeft, List as ListIcon, Play, Users
+    AlignLeft, List as ListIcon, Play, Users, Zap
 } from 'lucide-react';
 import YouTube from 'react-youtube';
 import { cache } from '../utils/cache';
 import FocusSidebar from '../components/Focus/FocusSidebar';
 import FocusControls from '../components/Focus/FocusControls';
+import GhostPlayer from '../components/Focus/GhostPlayer';
+import ReactDOM from 'react-dom/client';
 
 const FocusMode = () => {
     const { videoId } = useParams();
@@ -39,8 +41,11 @@ const FocusMode = () => {
     const [zenMode, setZenMode] = useState(false);
     const [presenceCount, setPresenceCount] = useState(1);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [isGhostMode, setIsGhostMode] = useState(false);
+    const [ghostPosition, setGhostPosition] = useState({ x: window.innerWidth - 420, y: 30 });
 
     const playerRef = useRef(null);
+    const mainSlotRef = useRef(null);
     const watchedTimeRef = useRef({});
     const lastTickTimeRef = useRef(0);
     const lastActiveChapterRef = useRef(-1);
@@ -266,6 +271,10 @@ const FocusMode = () => {
         }
     };
 
+    const handleToggleGhostMode = () => {
+        setIsGhostMode(!isGhostMode);
+    };
+
     const handleSeek = (seconds) => {
         if (playerRef.current) {
             playerRef.current.seekTo(seconds, true);
@@ -308,6 +317,25 @@ const FocusMode = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Presence & Heartbeat - Independent of playback
+    useEffect(() => {
+        if (!videoId) return;
+
+        const sendHeartbeat = () => {
+            api.post('/presence/heartbeat', { videoId })
+                .then(res => setPresenceCount(res.data.count))
+                .catch(err => console.warn('Heartbeat failed', err));
+        };
+
+        // Send immediately on mount/videoId change
+        sendHeartbeat();
+
+        // Then poll every 30 seconds
+        const heartbeatInterval = setInterval(sendHeartbeat, 30000);
+
+        return () => clearInterval(heartbeatInterval);
+    }, [videoId]);
+
     useEffect(() => {
         if (isPlaying && !isDragging) {
             let syncCounter = 0;
@@ -327,11 +355,9 @@ const FocusMode = () => {
                         pendingPulseRef.current += delta;
                         syncCounter += delta;
 
-                        // Daily Pulse (Analytics) - every 20s
+                        // Daily Pulse (Analytics) - only during playback
                         if (pendingPulseRef.current >= 20) {
                             api.post('/analytics/pulse', { seconds: Math.floor(pendingPulseRef.current) }).catch(() => { });
-                            api.post('/presence/heartbeat', { videoId })
-                                .then(res => setPresenceCount(res.data.count)).catch(() => { });
                             pendingPulseRef.current = 0;
                         }
 
@@ -421,26 +447,58 @@ const FocusMode = () => {
             onMouseLeave={() => isPlaying && setIsHovering(false)}
             onClick={() => !isHovering && togglePlay()}
         >
-            {/* 1. Full Screen Video Player */}
-            <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                <YouTube
-                    videoId={video.videoId.includes && video.videoId.includes('http') ? null : (video.youtubeVideoId || video.videoId)}
-                    opts={playerOptions}
-                    onStateChange={handlePlayerStateChange}
-                    onReady={handlePlayerReady}
-                    onEnd={handleVideoEnd}
-                    className="youtube-player"
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        pointerEvents: 'none',
-                        transform: 'scale(1.01)'
-                    }}
-                />
+            {/* 1. Full Screen Video Player / Ghost Player Wrapper */}
+            <div
+                ref={mainSlotRef}
+                id="main-player-slot"
+                style={{
+                    width: isGhostMode ? '400px' : '100%',
+                    height: isGhostMode ? '225px' : '100%',
+                    position: isGhostMode ? 'fixed' : 'absolute',
+                    left: isGhostMode ? `${ghostPosition.x}px` : 0,
+                    top: isGhostMode ? `${ghostPosition.y + 36}px` : 0,
+                    zIndex: isGhostMode ? 10000 : 0,
+                    pointerEvents: isGhostMode || !isPlaying ? 'auto' : 'none',
+                    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                    borderRadius: isGhostMode ? '0 0 16px 16px' : 0,
+                    overflow: 'hidden',
+                    background: '#000'
+                }}
+            >
+                <div className="youtube-player-container" style={{ width: '100%', height: '100%' }}>
+                    <YouTube
+                        videoId={(video.youtubeVideoId || video.videoId)}
+                        opts={playerOptions}
+                        onStateChange={handlePlayerStateChange}
+                        onReady={handlePlayerReady}
+                        onEnd={handleVideoEnd}
+                        className="youtube-player"
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            transform: isGhostMode ? 'none' : 'scale(1.01)'
+                        }}
+                    />
+                </div>
             </div>
 
+            {/* Ghost Mode Frame Overlay */}
+            {isGhostMode && (
+                <GhostPlayer
+                    video={video}
+                    isPlaying={isPlaying}
+                    playbackRate={playbackRate}
+                    onTogglePlay={togglePlay}
+                    onToggleSpeed={toggleSpeed}
+                    onNext={handleNextVideo}
+                    onPrev={handlePrevVideo}
+                    onClose={() => setIsGhostMode(false)}
+                    onPositionChange={setGhostPosition}
+                />
+            )}
+
             {/* Pause Overlay Layer */}
-            {!isPlaying && !videoLoading && !initialLoading && (
+            {!isPlaying && !videoLoading && !initialLoading && !isGhostMode && (
                 <div
                     style={{
                         position: 'absolute',
@@ -477,7 +535,7 @@ const FocusMode = () => {
             )}
 
             {/* Click Mask */}
-            {isPlaying && (
+            {isPlaying && !isGhostMode && (
                 <div
                     style={{ position: 'absolute', inset: 0, zIndex: 5 }}
                     onClick={togglePlay}
@@ -485,7 +543,7 @@ const FocusMode = () => {
             )}
 
             {/* Loading Overlay */}
-            {videoLoading && (
+            {videoLoading && !isGhostMode && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.5)' }}>
                     <div className="spinner" style={{ width: '50px', height: '50px', border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
                 </div>
@@ -503,10 +561,10 @@ const FocusMode = () => {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'start',
-                    opacity: showControls ? 1 : 0,
-                    transform: `translateY(${showControls ? '0' : '-100%'})`,
+                    opacity: (showControls && !isGhostMode) ? 1 : 0,
+                    transform: `translateY(${(showControls && !isGhostMode) ? '0' : '-100%'})`,
                     transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                    pointerEvents: showControls ? 'auto' : 'none',
+                    pointerEvents: (showControls && !isGhostMode) ? 'auto' : 'none',
                     zIndex: 30
                 }}
             >
@@ -558,7 +616,7 @@ const FocusMode = () => {
 
             {/* 3. Control Deck */}
             <FocusControls
-                showControls={showControls}
+                showControls={showControls && !isGhostMode}
                 isMobile={isMobile}
                 compactMode={compactMode}
                 video={video}
@@ -588,11 +646,13 @@ const FocusMode = () => {
                 setSidebarTab={setSidebarTab}
                 setShowSidebar={setShowSidebar}
                 formatTime={formatTime}
+                isGhostMode={isGhostMode}
+                handleToggleGhostMode={handleToggleGhostMode}
             />
 
             {/* 4. Sidebar Panel */}
             <FocusSidebar
-                showSidebar={showSidebar}
+                showSidebar={showSidebar && !isGhostMode}
                 setShowSidebar={setShowSidebar}
                 sidebarTab={sidebarTab}
                 setSidebarTab={setSidebarTab}
@@ -609,9 +669,21 @@ const FocusMode = () => {
                 isMobile={isMobile}
                 compactMode={compactMode}
                 chapterRefs={chapterRefs}
+                presenceCount={presenceCount}
             />
 
             <style>{`
+                .spinner {
+                    border: 4px solid rgba(255,255,255,0.1);
+                    border-left-color: var(--primary);
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
                 .icon-btn-deck {
                     background: transparent;
                     border: none;

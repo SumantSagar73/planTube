@@ -48,7 +48,7 @@ const AppRoutes = () => {
                         element={
                             <>
                                 <Navbar />
-                                <div className="container" style={{ paddingTop: '2rem' }}>
+                                <div className="container" style={{ paddingTop: '5rem' }}>
                                     <Routes>
                                         <Route path="/" element={user ? <Dashboard /> : <Home />} />
                                         <Route path="/playlist/:id" element={<PlaylistDetails />} />

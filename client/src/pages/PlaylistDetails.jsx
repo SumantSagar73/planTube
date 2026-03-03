@@ -36,6 +36,7 @@ const PlaylistDetails = () => {
     const [message, setMessage] = useState('');
     const [hasScrolled, setHasScrolled] = useState(false);
     const [viewMode, setViewMode] = useState('list'); // 'list' | 'tree'
+    const [presenceCount, setPresenceCount] = useState(0);
 
     useEffect(() => {
         fetchPlaylistData();
@@ -142,6 +143,23 @@ const PlaylistDetails = () => {
             setLoading(false);
         }
     };
+
+    // Presence Tracking for Playlist
+    useEffect(() => {
+        if (!videos || videos.length === 0) return;
+
+        const videoIds = videos.map(v => v._id);
+
+        const fetchPresence = () => {
+            api.post('/presence/playlist/total', { videoIds })
+                .then(res => setPresenceCount(res.data.count))
+                .catch(err => console.warn('Playlist presence fetch failed', err));
+        };
+
+        fetchPresence();
+        const interval = setInterval(fetchPresence, 30000);
+        return () => clearInterval(interval);
+    }, [videos]);
 
     const handleQuickSchedule = async (videoId) => {
         try {
@@ -400,6 +418,15 @@ const PlaylistDetails = () => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.7)' }}>
                                 <ListChecks size={20} style={{ color: 'var(--accent)' }} /> <span>{progress?.completed} / {progress?.total} Completed</span>
                             </div>
+                            {presenceCount > 0 && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.7)' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <Users size={20} style={{ color: '#22c55e' }} />
+                                        <div style={{ position: 'absolute', top: 0, right: 0, width: '6px', height: '6px', background: '#22c55e', borderRadius: '50%', border: '1px solid black' }}></div>
+                                    </div>
+                                    <span>{presenceCount} studying now</span>
+                                </div>
+                            )}
                         </div>
                         <div style={{ maxWidth: '400px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem', fontSize: '0.9rem', color: 'rgba(255,255,255,0.9)' }}>

@@ -1,4 +1,9 @@
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const Schedule = require('../models/Schedule');
+const Playlist = require('../models/Playlist');
+const Video = require('../models/Video');
+const Activity = require('../models/Activity');
 
 exports.getPreferences = async (req, res) => {
     try {
@@ -57,3 +62,50 @@ exports.updateProfile = async (req, res) => {
         res.status(500).send('Server error');
     }
 };
+
+exports.changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) return res.status(400).json({ msg: 'Both fields are required' });
+        if (newPassword.length < 6) return res.status(400).json({ msg: 'New password must be at least 6 characters' });
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ msg: 'User not found' });
+
+        const isMatch = await user.comparePassword(currentPassword);
+        if (!isMatch) return res.status(400).json({ msg: 'Current password is incorrect' });
+
+        user.password = newPassword; // pre-save hook will hash it
+        await user.save();
+        res.json({ msg: 'Password updated successfully' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+};
+
+exports.deleteAccount = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Delete all user data
+        await Schedule.deleteMany({ userId });
+        await Activity.deleteMany({ userId });
+
+        // Delete playlists and their videos
+        const playlists = await Playlist.find({ userId });
+        for (const pl of playlists) {
+            await Video.deleteMany({ playlistId: pl._id });
+        }
+        await Playlist.deleteMany({ userId });
+
+        // Delete user
+        await User.findByIdAndDelete(userId);
+
+        res.json({ msg: 'Account deleted successfully' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+};
+

@@ -1,7 +1,8 @@
 import React from 'react';
 import {
     ChevronLeft, ChevronRight, Play, CheckCircle,
-    Eye, EyeOff, Map, AlignLeft, List as ListIcon
+    Eye, EyeOff, Map, AlignLeft, List as ListIcon,
+    Zap
 } from 'lucide-react';
 
 const FocusControls = ({
@@ -34,7 +35,9 @@ const FocusControls = ({
     handleToggleComplete,
     setSidebarTab,
     setShowSidebar,
-    formatTime
+    formatTime,
+    isGhostMode,
+    handleToggleGhostMode
 }) => {
     return (
         <div
@@ -197,6 +200,14 @@ const FocusControls = ({
                     </button>
 
                     <button
+                        onClick={handleToggleGhostMode}
+                        className={`icon-btn-deck ${isGhostMode ? 'active' : ''}`}
+                        title={isGhostMode ? "Disable Ghost Mode" : "Enable Ghost Mode (Floating Mini Player)"}
+                    >
+                        <Zap size={18} fill={isGhostMode ? "white" : "none"} />
+                    </button>
+
+                    <button
                         onClick={handleToggleComplete}
                         className={`deck-primary-btn ${isCompleted ? 'completed' : ''}`}
                         title={isCompleted ? "Mark Undone" : "Mark Complete"}
@@ -206,21 +217,30 @@ const FocusControls = ({
                         <span>{isCompleted ? 'Done' : 'Mark'}</span>
                     </button>
 
-                    {!compactMode && (
-                        <>
-                            <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 0.5rem' }}></div>
-                            <button onClick={() => { setSidebarTab('chapters'); setShowSidebar(!showSidebar || sidebarTab !== 'chapters'); }} className={`icon-btn-deck ${showSidebar && sidebarTab === 'chapters' ? 'active' : ''}`} title="Chapters">
-                                <Map size={18} />
-                            </button>
-                            <button onClick={() => { setSidebarTab('description'); setShowSidebar(!showSidebar || sidebarTab !== 'description'); }} className={`icon-btn-deck ${showSidebar && sidebarTab === 'description' ? 'active' : ''}`} title="Info">
-                                <AlignLeft size={18} />
-                            </button>
-                            {playlist && playlist.playlistId !== 'SINGLES' && !playlist.playlistId?.startsWith('VIDEO_') && (
-                                <button onClick={() => { setSidebarTab('playlist'); setShowSidebar(!showSidebar || sidebarTab !== 'playlist'); }} className={`icon-btn-deck ${showSidebar && sidebarTab === 'playlist' ? 'active' : ''}`} title="Playlist">
-                                    <ListIcon size={18} />
-                                </button>
-                            )}
-                        </>
+                    {/* Sidebar Tabs - Always visible for accessibility */}
+                    <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 0.5rem' }}></div>
+                    <button
+                        onClick={() => { setSidebarTab('chapters'); setShowSidebar(!showSidebar || sidebarTab !== 'chapters'); }}
+                        className={`icon-btn-deck ${showSidebar && sidebarTab === 'chapters' ? 'active' : ''}`}
+                        title="Chapters"
+                    >
+                        <Map size={18} />
+                    </button>
+                    <button
+                        onClick={() => { setSidebarTab('description'); setShowSidebar(!showSidebar || sidebarTab !== 'description'); }}
+                        className={`icon-btn-deck ${showSidebar && sidebarTab === 'description' ? 'active' : ''}`}
+                        title="Info"
+                    >
+                        <AlignLeft size={18} />
+                    </button>
+                    {playlist && playlist.playlistId !== 'SINGLES' && !playlist.playlistId?.startsWith('VIDEO_') && (
+                        <button
+                            onClick={() => { setSidebarTab('playlist'); setShowSidebar(!showSidebar || sidebarTab !== 'playlist'); }}
+                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'playlist' ? 'active' : ''}`}
+                            title="Playlist"
+                        >
+                            <ListIcon size={18} />
+                        </button>
                     )}
                 </div>
             </div>

@@ -41,3 +41,24 @@ exports.getPresence = (req, res) => {
     const count = activeUsers.get(videoId)?.size || 0;
     res.json({ count });
 };
+
+exports.getPlaylistPresence = (req, res) => {
+    const { videoIds } = req.body; // Expecting array of videoIds
+    if (!Array.isArray(videoIds)) {
+        return res.status(400).json({ msg: 'videoIds must be an array' });
+    }
+
+    let totalCount = 0;
+    const uniqueUsers = new Set();
+
+    videoIds.forEach(vid => {
+        const uMap = activeUsers.get(vid);
+        if (uMap) {
+            uMap.forEach((lastSeen, uid) => {
+                uniqueUsers.add(uid);
+            });
+        }
+    });
+
+    res.json({ count: uniqueUsers.size });
+};

@@ -201,6 +201,51 @@ exports.importPlaylist = async (req, res) => {
     }
 };
 
+exports.fetchMetadata = async (req, res) => {
+    const { url: playlistUrl } = req.query;
+    if (!playlistUrl) return res.status(400).json({ msg: 'URL is required' });
+
+    try {
+        const url = new URL(playlistUrl);
+        const playlistId = url.searchParams.get('list');
+        const videoId = url.searchParams.get('v') || url.pathname.slice(1).split('/').pop();
+
+        const apiKey = process.env.YOUTUBE_API_KEY;
+        if (!apiKey) throw new Error('YouTube API Key is missing');
+
+        if (playlistId) {
+            const playlistRes = await axios.get(`https://www.googleapis.com/youtube/v3/playlists`, {
+                params: { part: 'snippet', id: playlistId, key: apiKey }
+            });
+            if (!playlistRes.data.items.length) throw new Error('Playlist not found');
+            const snippet = playlistRes.data.items[0].snippet;
+            return res.json({
+                title: snippet.title,
+                description: snippet.description,
+                thumbnail: snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || ''
+            });
+        }
+
+        if (videoId && (playlistUrl.includes('youtube.com') || playlistUrl.includes('youtu.be'))) {
+            const videoRes = await axios.get(`https://www.googleapis.com/youtube/v3/videos`, {
+                params: { part: 'snippet', id: videoId, key: apiKey }
+            });
+            if (!videoRes.data.items.length) throw new Error('Video not found');
+            const snippet = videoRes.data.items[0].snippet;
+            return res.json({
+                title: snippet.title,
+                description: snippet.description,
+                thumbnail: snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || ''
+            });
+        }
+
+        res.status(400).json({ msg: 'Unsupported YouTube URL' });
+    } catch (err) {
+        console.error('Metadata Fetch Error:', err.message);
+        res.status(500).json({ msg: 'Fetch Error: ' + err.message });
+    }
+};
+
 exports.togglePin = async (req, res) => {
     try {
         const userPlaylist = await UserPlaylist.findOne({ playlistId: req.params.id, userId: req.user.id });

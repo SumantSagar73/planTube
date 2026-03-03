@@ -5,6 +5,7 @@ import api from '../../services/api';
 import { LogOut, Layout, Youtube, User, ChevronDown, Users, Library, ListMusic, Target, Link as LinkIcon, Plus, HelpCircle } from 'lucide-react';
 import AlertModal from './AlertModal';
 import WelcomeGuide from './WelcomeGuide';
+import ThemeSwitcher from './ThemeSwitcher';
 import { useEffect } from 'react';
 
 const Navbar = () => {
@@ -58,7 +59,7 @@ const Navbar = () => {
     };
 
     return (
-        <nav className="glass" style={{ width: '100%', margin: '1rem 0', padding: '0.75rem 3vw', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 1000, position: 'relative' }}>
+        <nav className="glass" style={{ width: '100%', margin: '0', padding: '0.75rem 3vw', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 1000, position: 'fixed', top: 0, left: 0 }}>
             {/* Left: Logo */}
             <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)', flexShrink: 0 }}>
                 <Youtube size={32} />
@@ -153,6 +154,8 @@ const Navbar = () => {
                 >
                     <HelpCircle size={18} />
                 </button>
+
+                <ThemeSwitcher />
             </div>
             {/* Modals */}
             <WelcomeGuide isOpen={showGuide} onClose={() => setShowGuide(false)} />

@@ -1,0 +1,383 @@
+import { useState, useEffect } from 'react';
+import api from '../services/api';
+import {
+    Play, CheckCircle, Clock, Check, ListChecks,
+    Youtube, ChevronRight, Target, Pin, Trash2, Library, Sparkles
+} from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import LoadingScreen from '../components/Shared/LoadingScreen';
+import { cache } from '../utils/cache';
+
+
+
+const Dashboard = () => {
+    const navigate = useNavigate();
+    const [playlists, setPlaylists] = useState([]);
+    const [todayTasks, setTodayTasks] = useState([]);
+    const [analytics, setAnalytics] = useState(null);
+    const [dataLoading, setDataLoading] = useState(true);
+
+    const { user } = useAuth();
+
+    useEffect(() => {
+        fetchData();
+    }, [user]);
+
+    const fetchData = async () => {
+        try {
+            if (user) {
+                // Check Cache first
+                const cachedDashboard = cache.get('dashboard_data');
+                if (cachedDashboard) {
+                    const pinnedItems = cachedDashboard.playlists.filter(item => item.isPinned);
+                    setPlaylists(pinnedItems);
+                    setTodayTasks(cachedDashboard.today);
+                    setAnalytics(cachedDashboard.analytics);
+                    setDataLoading(false);
+                    // Continue to fetch in background to update cache?
+                    // For "fast performance" asked by user, we trust cache or fetch quietly.
+                    // But if we want updates, we should fetch in background.
+                    // However, Dashboard is high traffic. Let's do Background Refresh.
+                }
+
+                const [playlistsRes, todayRes, analyticsRes] = await Promise.all([
+                    api.get('/playlists/library'),
+                    api.get('/schedules/today'),
+                    api.get('/schedules/analytics')
+                ]);
+
+                // Filter for Pinned Items (Playlists & Videos)
+                const pinnedItems = playlistsRes.data.filter(item => item.isPinned);
+
+                setPlaylists(pinnedItems);
+                setTodayTasks(todayRes.data);
+                setAnalytics(analyticsRes.data);
+
+                // Update Cache
+                cache.set('dashboard_data', {
+                    playlists: playlistsRes.data,
+                    today: todayRes.data,
+                    analytics: analyticsRes.data
+                });
+
+            } else {
+                // Guest mode: fetch from localStorage
+                const localPlaylists = JSON.parse(localStorage.getItem('guestPlaylists') || '[]');
+                setPlaylists(localPlaylists);
+                setTodayTasks([]);
+                setAnalytics(null);
+            }
+        } catch (err) {
+            console.error('Error fetching dashboard data:', err);
+        } finally {
+            setDataLoading(false);
+        }
+    };
+
+    const pendingToday = todayTasks.filter(t => t.status !== 'completed');
+    const completedTodayCount = todayTasks.filter(t => t.status === 'completed').length;
+    const progressPercent = todayTasks.length > 0 ? (completedTodayCount / todayTasks.length) * 100 : 0;
+    const firstPendingTask = pendingToday[0];
+
+    if (dataLoading) return <LoadingScreen message="Curating your dashboard..." />;
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem', paddingBottom: '5rem' }}>
+
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '3.5rem', alignItems: 'start' }}>
+
+                {/* Main Content (Left): Library */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+
+                    {!user && (
+                        <div className="glass" style={{
+                            marginBottom: '2rem',
+                            padding: '1.25rem 2rem',
+                            borderRadius: '24px',
+                            background: 'linear-gradient(90deg, rgba(99,102,241,0.1) 0%, rgba(236,72,153,0.1) 100%)',
+                            border: '1px solid var(--glass-border)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '1rem'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Sparkles size={20} color="var(--primary)" />
+                                </div>
+                                <div>
+                                    <h4 style={{ fontSize: '0.95rem', fontWeight: '800' }}>You're in Guest Mode</h4>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Your progress is saved locally. Sign up to sync across devices!</p>
+                                </div>
+                            </div>
+                            <Link to="/signup" className="btn-primary" style={{ padding: '0.6rem 1.5rem', fontSize: '0.85rem' }}>
+                                Create Account
+                            </Link>
+                        </div>
+                    )}
+
+                    {/* Focal Header */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <h1 style={{ fontSize: '3rem', fontWeight: '950', letterSpacing: '-2px', lineHeight: 1, color: 'white' }}>Pulse</h1>
+                                {user && analytics?.streak > 0 && (
+                                    <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '0.25rem 0.75rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span style={{ fontSize: '1rem' }}>🔥</span>
+                                        <span style={{ color: '#f59e0b', fontWeight: '800', fontSize: '0.9rem' }}>{analytics.streak} Days</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem', fontWeight: '500' }}>Your learning velocity today.</p>
+                    </div>
+
+                    <section>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
+                            <Youtube size={24} style={{ color: 'var(--primary)' }} />
+                            <h2 style={{ fontSize: '1.4rem', fontWeight: '800' }}>Active Library</h2>
+                        </div>
+                        {playlists.length === 0 ? (
+                            <div className="glass" style={{
+                                padding: '4rem 2rem',
+                                borderRadius: '40px',
+                                textAlign: 'center',
+                                background: 'rgba(255,255,255,0.01)',
+                                border: '1px dashed var(--glass-border)'
+                            }}>
+                                <div style={{ width: '56px', height: '56px', background: 'rgba(99,102,241,0.05)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                                    <Library size={24} color="var(--text-muted)" />
+                                </div>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>Your Focus List is Empty</h3>
+                                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem', maxWidth: '300px', margin: '0 auto 2rem' }}>
+                                    Your most important playlists appear here. Head to the library to pin your current study goals!
+                                </p>
+                                <Link to="/library" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    Visit Library <ChevronRight size={16} />
+                                </Link>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2rem' }}>
+                                {playlists.map(item => (
+                                    <div key={item._id} className="glass-hover" style={{ borderRadius: '32px', overflow: 'hidden', background: 'var(--bg-card)', border: item.isPinned ? '1px solid var(--primary)' : '1px solid var(--glass-border)', position: 'relative', transition: 'all 0.3s ease' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseLeave={(e) => e.currentTarget.style.borderColor = item.isPinned ? 'var(--primary)' : 'var(--glass-border)'}>
+                                        <Link
+                                            to={item.type === 'video' ? `/focus/${item._id}` : `/playlist/${item._id}`}
+                                            style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+                                        >
+                                            <div style={{ position: 'relative' }}>
+                                                <img src={item.thumbnail} alt="" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover' }} />
+                                                {item.isPinned && (
+                                                    <div style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'var(--primary)', padding: '0.4rem', borderRadius: '50%', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                                                        <Pin size={14} fill="white" color="white" />
+                                                    </div>
+                                                )}
+                                                {item.type === 'video' && (
+                                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '0.6rem' }}>
+                                                        <Play size={28} fill="white" color="white" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div style={{ padding: '1.75rem' }}>
+                                                <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.75rem', lineHeight: '1.3', minHeight: '2.8rem' }}>{item.title || item.playlistTitle}</h3>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                                                        {item.type === 'video' ? 'Single Video' : 'Curriculum'}
+                                                    </span>
+                                                    <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        {item.type === 'video' ? <Play size={16} /> : <ChevronRight size={20} />}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                        <div style={{ position: 'absolute', top: '1rem', left: '1rem', display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    handleTogglePin(item);
+                                                }}
+                                                style={{
+                                                    background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '12px',
+                                                    padding: '0.5rem', cursor: 'pointer', color: 'white',
+                                                    backdropFilter: 'blur(4px)', display: 'flex'
+                                                }}
+                                                title={item.isPinned ? "Unpin" : "Pin"}
+                                            >
+                                                {item.isPinned ? <PinOff size={16} /> : <Pin size={16} />}
+                                            </button>
+
+                                            {item.type !== 'video' && item.playlistId !== 'SINGLES' && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        handleSyncPlaylist(item._id);
+                                                    }}
+                                                    style={{
+                                                        background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '12px',
+                                                        padding: '0.5rem', cursor: 'pointer', color: 'white',
+                                                        backdropFilter: 'blur(4px)', display: 'flex'
+                                                    }}
+                                                    title="Sync with YouTube"
+                                                >
+                                                    <RefreshCw size={16} className={syncingIds.has(item._id) ? "spin" : ""} />
+                                                </button>
+                                            )}
+
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    if (item.type === 'video') {
+                                                        // Maybe implement video delete later, for now just unpin or hide
+                                                        // Actually, we can assume this is delete from dashboard only (unpin really)
+                                                        // But let's keep delete functionality if needed
+                                                        // For now, let's just allow unpinning as the main action
+                                                        alert("To remove a video, unpin it or delete it from Library.");
+                                                    } else {
+                                                        setDeleteModal({ isOpen: true, playlistId: item._id, playlistTitle: item.title });
+                                                    }
+                                                }}
+                                                style={{
+                                                    background: 'rgba(239, 68, 68, 0.8)', border: 'none', borderRadius: '12px',
+                                                    padding: '0.5rem', cursor: 'pointer', color: 'white',
+                                                    backdropFilter: 'blur(4px)', display: 'flex'
+                                                }}
+                                                title="Delete"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+                </div>
+
+                {/* Sidebar (Right): Agenda & Tracker */}
+                <aside style={{ position: 'sticky', top: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+
+                    {/* Today's Agenda (Back to Sidebar) - Only for Logged In */}
+                    {user && (
+                        <div className="glass" style={{ padding: '1.5rem', borderRadius: '28px', border: '1px solid var(--glass-border)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                                <h3 style={{ fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <Target size={18} style={{ color: 'var(--primary)' }} /> Daily Agenda
+                                </h3>
+                                <span style={{ fontSize: '0.75rem', fontWeight: '900', color: 'var(--primary)', padding: '0.2rem 0.6rem', background: 'rgba(99,102,241,0.1)', borderRadius: '8px' }}>
+                                    {pendingToday.length}
+                                </span>
+                            </div>
+
+                            {todayTasks.length === 0 ? (
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>No tasks for today.</p>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                                    {todayTasks.map(task => {
+                                        const isComp = task.status === 'completed';
+                                        return (
+                                            <div key={task._id} style={{
+                                                padding: '1rem', borderRadius: '20px', background: isComp ? 'rgba(34, 197, 94, 0.05)' : 'rgba(255,255,255,0.03)',
+                                                border: isComp ? '1px solid rgba(34,197,94,0.1)' : '1px solid var(--glass-border)',
+                                                display: 'flex', gap: '0.85rem', alignItems: 'center', opacity: isComp ? 0.6 : 1,
+                                                transition: 'all 0.3s'
+                                            }}>
+                                                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: isComp ? '#16a34a' : 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.75rem', fontWeight: '900', flexShrink: 0 }}>
+                                                    {isComp ? <CheckCircle size={16} /> : (task.videoId?.position + 1)}
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ fontSize: '0.9rem', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isComp ? 'var(--text-muted)' : 'inherit' }}>{task.videoId?.title}</p>
+                                                    {!isComp ? (
+                                                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                            <a href={`https://www.youtube.com/watch?v=${task.videoId?.videoId}`} target="_blank" rel="noreferrer" className="btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>Watch</a>
+                                                            <button onClick={() => handleMarkComplete(task._id)} className="btn-primary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>Done</button>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ marginTop: '0.5rem' }}>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await api.put(`/schedules/${task._id}`, { status: 'pending' });
+                                                                        fetchData();
+                                                                    } catch (e) {
+                                                                        console.error(e);
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    background: 'rgba(255,255,255,0.1)', border: 'none', color: 'var(--text-muted)',
+                                                                    padding: '0.2rem 0.6rem', borderRadius: '8px', fontSize: '0.7rem',
+                                                                    cursor: 'pointer', fontWeight: '600'
+                                                                }}
+                                                            >
+                                                                Undo
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Import Launcher */}
+                    <div className="glass" style={{ padding: '1.5rem', borderRadius: '28px' }}>
+                        <h3 style={{ fontSize: '0.9rem', fontWeight: '800', marginBottom: '1rem' }}>Quick Import</h3>
+                        <form onSubmit={handleImport} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <input className="input-glass" placeholder="Link to video/playlist..." value={playlistUrl} onChange={(e) => setPlaylistUrl(e.target.value)} style={{ fontSize: '0.8rem' }} />
+                            <button type="submit" disabled={loading} className="btn-primary" style={{ padding: '0.65rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '800' }}>
+                                {loading ? 'Importing...' : 'Add to Focus'}
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* Enhanced Tracker - Only for Logged In */}
+                    {user && (
+                        <FocusPulseHeatmap
+                            data={heatmapData}
+                            streak={analytics?.streak || 0}
+                        />
+                    )}
+                </aside>
+            </div>
+
+            <Modal
+                isOpen={syncResultModal.isOpen}
+                onClose={() => setSyncResultModal(prev => ({ ...prev, isOpen: false }))}
+                title="Sync Complete"
+            >
+                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                    <div style={{
+                        width: '50px', height: '50px', background: 'rgba(99, 102, 241, 0.1)',
+                        borderRadius: '50%', color: 'var(--primary)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        margin: '0 auto 1rem'
+                    }}>
+                        <RefreshCw size={24} />
+                    </div>
+                    <p style={{ color: 'var(--text-main)', fontSize: '1rem', marginBottom: '0.5rem' }}>{syncResultModal.message}</p>
+                    <button
+                        onClick={() => setSyncResultModal(prev => ({ ...prev, isOpen: false }))}
+                        className="btn-primary"
+                        style={{ marginTop: '1rem', width: '100%' }}
+                    >
+                        Awesome
+                    </button>
+                </div>
+            </Modal>
+
+            <DeleteConfirmation
+                isOpen={deleteModal.isOpen}
+                onClose={() => setDeleteModal({ isOpen: false, playlistId: null, playlistTitle: '' })}
+                onConfirm={confirmDeletePlaylist}
+                playlistTitle={deleteModal.playlistTitle}
+            />
+        </div>
+
+    );
+};
+
+export default Dashboard;

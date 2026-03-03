@@ -21,7 +21,8 @@ const FocusSidebar = ({
     videoId,
     isMobile,
     compactMode,
-    chapterRefs
+    chapterRefs,
+    presenceCount
 }) => {
     if (!video) return null;
 
@@ -54,7 +55,7 @@ const FocusSidebar = ({
             {/* Sidebar Header */}
             <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800', background: 'linear-gradient(90deg, #fff, var(--primary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--primary)' }}>
                         {sidebarTab === 'chapters' ? 'Video Map' : (sidebarTab === 'playlist' ? 'Playlist' : 'About')}
                     </h3>
                     {compactMode && (
@@ -219,7 +220,13 @@ const FocusSidebar = ({
                                             <p style={{ fontSize: '0.85rem', fontWeight: '600', color: isActive ? 'white' : (isDone ? '#86efac' : 'var(--text-main)'), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</p>
                                             <p style={{ fontSize: '0.7rem', color: isActive ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>{v.duration}</p>
                                         </div>
-                                        {isActive && <Play size={14} fill="white" />}
+                                        {isActive && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(0,0,0,0.2)', padding: '0.2rem 0.5rem', borderRadius: '8px' }}>
+                                                <div style={{ width: '6px', height: '6px', background: '#22c55e', borderRadius: '50%', boxShadow: '0 0 8px #22c55e' }}></div>
+                                                <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'white' }}>{presenceCount} Live</span>
+                                                <Play size={12} fill="white" />
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
