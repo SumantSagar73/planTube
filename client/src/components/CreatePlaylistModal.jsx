@@ -147,15 +147,15 @@ const CreatePlaylistModal = ({ onClose, onCreated }) => {
                 </div>
 
                 {isPlaylist && (
-                    <div style={{ 
-                        marginBottom: '1.5rem', padding: '1rem', borderRadius: '16px', 
+                    <div style={{
+                        marginBottom: '1.5rem', padding: '1rem', borderRadius: '16px',
                         background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)',
                         display: 'flex', alignItems: 'center', gap: '0.75rem'
                     }}>
-                        <input 
-                            type="checkbox" 
-                            id="importAll" 
-                            checked={importAll} 
+                        <input
+                            type="checkbox"
+                            id="importAll"
+                            checked={importAll}
                             onChange={e => setImportAll(e.target.checked)}
                             style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                         />
