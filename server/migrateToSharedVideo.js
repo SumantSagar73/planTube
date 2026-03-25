@@ -37,7 +37,7 @@ async function migrateToSharedVideo() {
 
             // Check if SharedVideo already exists
             let sharedVideo = await SharedVideo.findOne({ youtubeId: video.videoId });
-            
+
             if (!sharedVideo) {
                 // Create new SharedVideo
                 sharedVideo = new SharedVideo({

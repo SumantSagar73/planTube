@@ -10,6 +10,8 @@ const CreatePlaylistModal = ({ onClose, onCreated }) => {
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(false);
     const [error, setError] = useState('');
+    const [isPlaylist, setIsPlaylist] = useState(false);
+    const [importAll, setImportAll] = useState(true);
 
     const handleFetchMetadata = async () => {
         if (!ytUrl || !ytUrl.includes('youtube.com') && !ytUrl.includes('youtu.be')) return;
@@ -21,6 +23,7 @@ const CreatePlaylistModal = ({ onClose, onCreated }) => {
             setTitle(res.data.title || '');
             setDescription(res.data.description || '');
             setThumbnail(res.data.thumbnail || '');
+            setIsPlaylist(res.data.type === 'playlist');
         } catch (err) {
             console.error(err);
             setError('Could not fetch YouTube details. You can still enter them manually.');
@@ -36,7 +39,20 @@ const CreatePlaylistModal = ({ onClose, onCreated }) => {
 
         try {
             const res = await api.post('/playlists', { title, description, thumbnail });
-            onCreated(res.data);
+            const newPlaylist = res.data;
+
+            if (importAll && isPlaylist && ytUrl) {
+                // Trigger bulk import
+                try {
+                    await api.post(`/playlists/${newPlaylist._id}/import-youtube`, { playlistUrl: ytUrl });
+                } catch (importErr) {
+                    console.error('Import failed:', importErr);
+                    // We created the playlist, so we still call onCreated.
+                    // But we might want to alert the user about the import failure.
+                }
+            }
+
+            onCreated(newPlaylist);
             onClose();
         } catch (err) {
             console.error(err);
@@ -129,6 +145,25 @@ const CreatePlaylistModal = ({ onClose, onCreated }) => {
                         </button>
                     </div>
                 </div>
+
+                {isPlaylist && (
+                    <div style={{ 
+                        marginBottom: '1.5rem', padding: '1rem', borderRadius: '16px', 
+                        background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)',
+                        display: 'flex', alignItems: 'center', gap: '0.75rem'
+                    }}>
+                        <input 
+                            type="checkbox" 
+                            id="importAll" 
+                            checked={importAll} 
+                            onChange={e => setImportAll(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <label htmlFor="importAll" style={{ fontSize: '0.85rem', cursor: 'pointer', color: '#a5b4fc' }}>
+                            Import all videos from this playlist automatically
+                        </label>
+                    </div>
+                )}
 
                 <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', marginBottom: '1.5rem' }}></div>
 

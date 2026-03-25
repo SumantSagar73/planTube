@@ -39,7 +39,7 @@ const videoSchema = new mongoose.Schema({
         seconds: Number
     }],
     // END DEPRECATED FIELDS
-    
+
     // Playlist-specific fields
     position: {
         type: Number,

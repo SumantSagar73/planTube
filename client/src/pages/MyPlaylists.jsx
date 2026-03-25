@@ -34,13 +34,22 @@ const MyPlaylists = () => {
                     <h1 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '0.5rem' }}>My Custom Playlists</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Create and manage your own collections.</p>
                 </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="btn-primary"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                >
-                    <Plus size={20} /> Create New
-                </button>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="btn-secondary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                        <Plus size={20} /> Create New
+                    </button>
+                    <button
+                        onClick={() => setShowCreateModal(true)} // Modal now handles import
+                        className="btn-primary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                        <Plus size={20} /> Import YouTube Playlist
+                    </button>
+                </div>
             </div>
 
             {playlists.length === 0 ? (
@@ -50,9 +59,14 @@ const MyPlaylists = () => {
                     </div>
                     <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>No Playlists Yet</h2>
                     <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Start by creating your first custom playlist to clean up your learning journey.</p>
-                    <button onClick={() => setShowCreateModal(true)} className="btn-secondary">
-                        Create Playlist
-                    </button>
+                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                        <button onClick={() => setShowCreateModal(true)} className="btn-secondary">
+                            Create Blank
+                        </button>
+                        <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+                            Import YouTube Playlist
+                        </button>
+                    </div>
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>

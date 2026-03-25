@@ -281,6 +281,9 @@ exports.importYoutubePlaylistToCustom = async (req, res) => {
         if (!youtubePlaylistId) return res.status(400).json({ msg: 'Invalid YouTube Playlist URL' });
 
         const data = await fetchPlaylistData(youtubePlaylistId);
+        if (!data || !data.videos || !data.videos.length) {
+            return res.status(400).json({ msg: 'No videos found in this YouTube playlist' });
+        }
 
         // Find current last order
         const lastVideo = await CustomPlaylistVideo.findOne({ playlistId: playlist._id }).sort('-orderIndex');

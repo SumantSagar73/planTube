@@ -74,11 +74,11 @@ const activeUsers = new Map(); // videoId -> Set of socketId/userId
 
 io.on('connection', (socket) => {
     console.log('\ud83d\udd17 Socket connected:', socket.id);
-    
+
     const broadcastPresence = (videoId) => {
         const videoMap = activeUsers.get(videoId);
         const count = videoMap ? videoMap.size : 0;
-        
+
         console.log(`\ud83d\udce1 Broadcasting presence for video ${videoId}: ${count} users`);
 
         // Notify video room
@@ -126,7 +126,7 @@ io.on('connection', (socket) => {
 
         const videoMap = activeUsers.get(videoId);
         videoMap.set(socket.id, { id, timestamp: Date.now() });
-        
+
         console.log(`\u2705 User ${id} added to video ${videoId}. Total viewers: ${videoMap.size}`);
 
         broadcastPresence(videoId);

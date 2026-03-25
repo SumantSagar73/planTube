@@ -6,7 +6,12 @@ const { importPlaylist, getUserPlaylists, deletePlaylist,
     getPlaylistById,
     getPlaylistVideos
 } = require('../controllers/playlistController');
-const customController = require('../controllers/customPlaylistController');
+const {
+    createPlaylist, getMyPlaylists, getPublicPlaylist,
+    updateVisibility, addVideoToPlaylist, reorderVideos,
+    removeVideo, syncCustomVideo, importYoutubePlaylistToCustom,
+    addPlanTubePlaylistToCustom
+} = require('../controllers/customPlaylistController');
 const { auth, optionalAuth } = require('../middleware/auth');
 
 // Unified Library Stats
@@ -16,13 +21,15 @@ router.post('/import', optionalAuth, importPlaylist);
 router.get('/fetch-metadata', auth, require('../controllers/playlistController').fetchMetadata);
 
 // Custom Playlists Routes
-router.post('/', auth, customController.createPlaylist);
-router.get('/my', auth, customController.getMyPlaylists);
-router.get('/:id/public', customController.getPublicPlaylist);
-router.put('/:id/visibility', auth, customController.updateVisibility);
-router.post('/:id/videos', auth, customController.addVideoToPlaylist);
-router.put('/:id/videos/reorder', auth, customController.reorderVideos);
-router.delete('/:playlistId/videos/:videoId', auth, customController.removeVideo);
+router.post('/', auth, createPlaylist);
+router.get('/my', auth, getMyPlaylists);
+router.get('/:id/public', getPublicPlaylist);
+router.put('/:id/visibility', auth, updateVisibility);
+router.post('/:id/videos', auth, addVideoToPlaylist);
+router.put('/:id/videos/reorder', auth, reorderVideos);
+router.delete('/:playlistId/videos/:videoId', auth, removeVideo);
+router.post('/:id/import-youtube', auth, importYoutubePlaylistToCustom);
+router.post('/:id/import-library', auth, addPlanTubePlaylistToCustom);
 
 // Existing Routes
 router.put('/:id/pin', auth, require('../controllers/playlistController').togglePin);

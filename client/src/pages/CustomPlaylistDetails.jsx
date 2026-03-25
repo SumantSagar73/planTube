@@ -301,8 +301,9 @@ const CustomPlaylistDetails = () => {
                                 className="input-glass"
                                 style={{ flex: 1, fontSize: '0.85rem' }}
                             />
-                            <button type="submit" disabled={importing} className="btn-secondary" style={{ padding: '0.75rem' }}>
+                            <button type="submit" disabled={importing} className="btn-primary" style={{ padding: '0 1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 {importing ? <RefreshCw className="spin" size={16} /> : <Plus size={16} />}
+                                {importing ? 'Importing...' : 'Import'}
                             </button>
                         </form>
                     </div>

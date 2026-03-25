@@ -185,7 +185,8 @@ exports.fetchMetadata = async (req, res) => {
             return res.json({
                 title: snippet.title,
                 description: snippet.description,
-                thumbnail: snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || ''
+                thumbnail: snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || '',
+                type: 'playlist'
             });
         }
 
@@ -198,7 +199,8 @@ exports.fetchMetadata = async (req, res) => {
             return res.json({
                 title: snippet.title,
                 description: snippet.description,
-                thumbnail: snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || ''
+                thumbnail: snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || '',
+                type: 'video'
             });
         }
 
@@ -326,9 +328,17 @@ exports.getUserPlaylists = async (req, res) => {
 
 exports.getPlaylistVideos = async (req, res) => {
     try {
-        const videos = await Video.find({ playlistId: req.params.id })
+        let videos = await Video.find({ playlistId: req.params.id })
             .populate('sharedVideoId')
             .sort('position');
+
+        if (!videos.length) {
+            // Check custom
+            const CustomPlaylistVideo = require('../models/CustomPlaylistVideo');
+            videos = await CustomPlaylistVideo.find({ playlistId: req.params.id })
+                .sort('orderIndex');
+        }
+
         res.json(videos);
     } catch (err) {
         console.error(err.message);
@@ -357,12 +367,15 @@ exports.deletePlaylist = async (req, res) => {
         const CustomPlaylist = require('../models/CustomPlaylist');
         const CustomPlaylistVideo = require('../models/CustomPlaylistVideo');
 
-        const customPlaylist = await CustomPlaylist.findOne({ _id: req.params.id, creatorId: req.user.id });
-
         if (customPlaylist) {
+            // Delete associated schedules for these custom videos
+            const customVideos = await CustomPlaylistVideo.find({ playlistId: customPlaylist._id });
+            const customVideoIds = customVideos.map(cv => cv._id);
+            await Schedule.deleteMany({ videoId: { $in: customVideoIds }, userId: req.user.id });
+
             await CustomPlaylistVideo.deleteMany({ playlistId: customPlaylist._id });
             await CustomPlaylist.findByIdAndDelete(customPlaylist._id);
-            return res.json({ msg: 'Playlist removed' });
+            return res.json({ msg: 'Playlist removed and schedules cleared' });
         }
 
         return res.status(404).json({ msg: 'Playlist not found' });

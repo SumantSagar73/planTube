@@ -14,6 +14,7 @@ import CustomPlaylistDetails from './pages/CustomPlaylistDetails';
 import PublicPlaylist from './pages/PublicPlaylist';
 import LibraryPage from './pages/Library';
 import Home from './pages/Home';
+import ImportPage from './pages/ImportPage';
 import Navbar from './components/Shared/Navbar';
 import LoadingScreen from './components/Shared/LoadingScreen';
 
@@ -90,6 +91,14 @@ const AppRoutes = () => {
                                             element={
                                                 <ProtectedRoute>
                                                     <CustomPlaylistDetails />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/import"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <ImportPage />
                                                 </ProtectedRoute>
                                             }
                                         />
