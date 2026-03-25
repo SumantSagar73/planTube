@@ -1,33 +1,41 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
-    Calendar, ChevronLeft, ChevronRight, BarChart,
-    CheckCircle, Plus, XCircle, Clock, Filter,
-    ArrowUpDown, ListChecks, PlayCircle, RefreshCw
+    ChevronLeft, BarChart, CheckCircle, Plus, XCircle,
+    Filter, ArrowUpDown, ListChecks, PlayCircle, RefreshCw
 } from 'lucide-react';
 import { cache } from '../utils/cache';
-
-import { Link } from 'react-router-dom';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import SkillTree from '../components/Playlist/SkillTree';
-import { AlignLeft, GitGraph } from 'lucide-react';
+import VideoCard from '../components/Playlist/VideoCard';
+import CalendarPanel from '../components/Playlist/CalendarPanel';
+import AgendaPanel from '../components/Playlist/AgendaPanel';
+import { AlignLeft, GitGraph, Users } from 'lucide-react';
+import socket from '../services/socket';
+
+const getTodayLocal = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+};
 
 const PlaylistDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
+
     const [playlist, setPlaylist] = useState(null);
     const [videos, setVideos] = useState([]);
     const [progress, setProgress] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-
-    const getTodayLocal = () => {
-        const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    };
-
     const [activeDate, setActiveDate] = useState(getTodayLocal());
     const [viewDate, setViewDate] = useState(new Date());
     const [schedulesMap, setSchedulesMap] = useState({});
@@ -35,50 +43,31 @@ const PlaylistDetails = () => {
     const [sortBy, setSortBy] = useState('position');
     const [message, setMessage] = useState('');
     const [hasScrolled, setHasScrolled] = useState(false);
-    const [viewMode, setViewMode] = useState('list'); // 'list' | 'tree'
+    const [viewMode, setViewMode] = useState('list');
     const [presenceCount, setPresenceCount] = useState(0);
+    const [scrolled, setScrolled] = useState(false);
 
-    useEffect(() => {
-        fetchPlaylistData();
-    }, [id]);
+    useEffect(() => { fetchPlaylistData(); }, [id]);
 
-    // Auto-scroll logic: Today > Nearest Future > Start (only once on initial load)
+    // Auto-scroll to today's / next scheduled video
     useEffect(() => {
         if (!loading && videos.length > 0 && !hasScrolled) {
             const todayStr = getTodayLocal();
-
-            // 1. Priority: Find video scheduled for Today
-            let targetId = videos.find(v => {
-                const s = schedulesMap[v._id];
-                return s?.scheduledDate?.startsWith(todayStr);
-            })?._id;
-
-            // 2. Priority: Find nearest future scheduled video
+            let targetId = videos.find(v => schedulesMap[v._id]?.scheduledDate?.startsWith(todayStr))?._id;
             if (!targetId) {
                 let minFutureDate = '9999-99-99';
-
                 videos.forEach(v => {
                     const s = schedulesMap[v._id];
                     if (s?.scheduledDate) {
                         const sDate = s.scheduledDate.split('T')[0];
-                        // strict string comparison for ISO dates works: "2026-01-30" > "2026-01-29"
-                        if (sDate > todayStr && sDate < minFutureDate) {
-                            minFutureDate = sDate;
-                            targetId = v._id;
-                        }
+                        if (sDate > todayStr && sDate < minFutureDate) { minFutureDate = sDate; targetId = v._id; }
                     }
                 });
             }
-
-            // Scroll if target found
             if (targetId) {
-                // Short timeout to ensure DOM render
                 setTimeout(() => {
                     const el = document.getElementById(`video-${targetId}`);
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        setHasScrolled(true);
-                    }
+                    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); setHasScrolled(true); }
                 }, 500);
             } else {
                 setHasScrolled(true);
@@ -86,7 +75,23 @@ const PlaylistDetails = () => {
         }
     }, [loading, videos, schedulesMap, hasScrolled]);
 
-    const { user } = useAuth();
+    // Presence tracking
+    useEffect(() => {
+        if (!videos || videos.length === 0) return;
+        if (!socket.connected) socket.connect();
+
+        const videoIds = videos.map(v => v.sharedVideoId?.youtubeId || v.videoId);
+        socket.emit('join_playlist', { playlistId: id, videoIds });
+
+        const handlePlaylistUpdate = (data) => { if (data.playlistId === id) setPresenceCount(data.count); };
+        const handleTriggerUpdate = () => socket.emit('request_playlist_update');
+        socket.on('playlist_presence_update', handlePlaylistUpdate);
+        socket.on('trigger_playlist_update', handleTriggerUpdate);
+        return () => {
+            socket.off('playlist_presence_update', handlePlaylistUpdate);
+            socket.off('trigger_playlist_update', handleTriggerUpdate);
+        };
+    }, [videos, id]);
 
     const fetchPlaylistData = async () => {
         try {
@@ -97,19 +102,14 @@ const PlaylistDetails = () => {
                     api.get(`/schedules/progress?playlistId=${id}`),
                     api.get(`/schedules/playlist/${id}`)
                 ]);
-
                 const currentPlaylist = playlistRes.data.find(p => p._id === id);
                 setPlaylist(currentPlaylist);
                 setVideos(videosRes.data || []);
                 setProgress(progressRes.data);
-
                 const sMap = {};
-                (schedulesRes.data || []).forEach(s => {
-                    sMap[s.videoId] = s;
-                });
+                (schedulesRes.data || []).forEach(s => { sMap[s.videoId] = s; });
                 setSchedulesMap(sMap);
             } else {
-                // Guest mode
                 const [playlistRes, videosRes] = await Promise.all([
                     api.get(`/playlists/${id}`),
                     api.get(`/playlists/${id}/videos`)
@@ -117,24 +117,14 @@ const PlaylistDetails = () => {
                 setPlaylist(playlistRes.data);
                 const vds = videosRes.data || [];
                 setVideos(vds);
-
-                // Get local progress
                 const localWatched = JSON.parse(localStorage.getItem('guestWatched') || '{}');
                 const sMap = {};
                 let completedCount = 0;
-
                 vds.forEach(v => {
-                    if (localWatched[v._id]) {
-                        sMap[v._id] = { status: 'completed', videoId: v._id };
-                        completedCount++;
-                    }
+                    if (localWatched[v._id]) { sMap[v._id] = { status: 'completed', videoId: v._id }; completedCount++; }
                 });
                 setSchedulesMap(sMap);
-                setProgress({
-                    completed: completedCount,
-                    total: vds.length,
-                    percent: vds.length > 0 ? (completedCount / vds.length) * 100 : 0
-                });
+                setProgress({ completed: completedCount, total: vds.length, percent: vds.length > 0 ? (completedCount / vds.length) * 100 : 0 });
             }
         } catch (err) {
             console.error('Error fetching playlist details:', err);
@@ -144,84 +134,27 @@ const PlaylistDetails = () => {
         }
     };
 
-    // Presence Tracking for Playlist
-    useEffect(() => {
-        if (!videos || videos.length === 0) return;
-
-        const videoIds = videos.map(v => v._id);
-
-        const fetchPresence = () => {
-            api.post('/presence/playlist/total', { videoIds })
-                .then(res => setPresenceCount(res.data.count))
-                .catch(err => console.warn('Playlist presence fetch failed', err));
-        };
-
-        fetchPresence();
-        const interval = setInterval(fetchPresence, 30000);
-        return () => clearInterval(interval);
-    }, [videos]);
-
     const handleQuickSchedule = async (videoId) => {
         try {
             const existing = schedulesMap[videoId];
-            let res;
-            if (existing) {
-                res = await api.put(`/schedules/${existing._id}`, { scheduledDate: activeDate });
-            } else {
-                res = await api.post('/schedules', {
-                    videoId,
-                    scheduledDate: activeDate,
-                    scheduledTime: null
-                });
-            }
+            const res = existing
+                ? await api.put(`/schedules/${existing._id}`, { scheduledDate: activeDate })
+                : await api.post('/schedules', { videoId, scheduledDate: activeDate, scheduledTime: null });
             setSchedulesMap(prev => ({ ...prev, [videoId]: res.data }));
-
-            console.log('--- Quick Schedule Debug ---');
-            console.log('Active Date:', activeDate);
-            console.log('Response Scheduled Date:', res.data.scheduledDate);
-            console.log('Match?', res.data.scheduledDate?.split('T')[0] === activeDate);
-
             setMessage('Added to ' + formatDate(activeDate));
             setTimeout(() => setMessage(''), 3000);
             updateProgress();
-        } catch (err) {
-            console.error('Error scheduling video:', err);
-        }
+        } catch (err) { console.error('Error scheduling video:', err); }
     };
 
     const handleRemoveSchedule = async (videoId) => {
         try {
             await api.delete(`/schedules/video/${videoId}`);
-            setSchedulesMap(prev => {
-                const newMap = { ...prev };
-                delete newMap[videoId];
-                return newMap;
-            });
+            setSchedulesMap(prev => { const m = { ...prev }; delete m[videoId]; return m; });
             setMessage('Removed from plan');
             setTimeout(() => setMessage(''), 3000);
             updateProgress();
-        } catch (err) {
-            console.error('Error removing schedule:', err);
-        }
-    };
-
-    const handleSyncVideo = async (videoId) => {
-        try {
-            // 1. Call API
-            await api.put(`/playlists/${id}/videos/${videoId}/sync`);
-
-            // 2. Invalidate caches
-            cache.remove(`video_${videoId}`);
-            cache.remove(`playlist_${id}`); // Playlist metadata might change too if we cache it
-
-            // 3. Refresh UI
-            fetchPlaylistData();
-            setMessage('Synced successfully');
-            setTimeout(() => setMessage(''), 3000);
-        } catch (err) {
-            console.error('Sync failed', err);
-            setMessage('Sync failed: ' + (err.response?.data?.msg || err.message));
-        }
+        } catch (err) { console.error('Error removing schedule:', err); }
     };
 
     const handleToggleCompletion = async (videoId) => {
@@ -233,106 +166,29 @@ const PlaylistDetails = () => {
                     const res = await api.put(`/schedules/${existing._id}`, { status: newStatus });
                     setSchedulesMap(prev => ({ ...prev, [videoId]: res.data }));
                 } else {
-                    const res = await api.post('/schedules', {
-                        videoId,
-                        scheduledDate: null,
-                        status: 'completed'
-                    });
+                    const res = await api.post('/schedules', { videoId, scheduledDate: null, status: 'completed' });
                     setSchedulesMap(prev => ({ ...prev, [videoId]: res.data }));
                 }
                 updateProgress();
             } else {
-                // Guest mode: toggle in localStorage
                 const localWatched = JSON.parse(localStorage.getItem('guestWatched') || '{}');
-                if (localWatched[videoId]) {
-                    delete localWatched[videoId];
-                } else {
-                    localWatched[videoId] = true;
-                }
+                if (localWatched[videoId]) delete localWatched[videoId]; else localWatched[videoId] = true;
                 localStorage.setItem('guestWatched', JSON.stringify(localWatched));
-
-                // Update state
                 const newSMap = { ...schedulesMap };
-                if (localWatched[videoId]) {
-                    newSMap[videoId] = { status: 'completed', videoId };
-                } else {
-                    delete newSMap[videoId];
-                }
+                if (localWatched[videoId]) newSMap[videoId] = { status: 'completed', videoId };
+                else delete newSMap[videoId];
                 setSchedulesMap(newSMap);
-
-                // Update progress state
                 const completedCount = Object.keys(localWatched).filter(vid => videos.some(v => v._id === vid)).length;
-                setProgress({
-                    completed: completedCount,
-                    total: videos.length,
-                    percent: videos.length > 0 ? (completedCount / videos.length) * 100 : 0
-                });
+                setProgress({ completed: completedCount, total: videos.length, percent: videos.length > 0 ? (completedCount / videos.length) * 100 : 0 });
             }
-        } catch (err) {
-            console.error('Error toggling completion:', err);
-        }
+        } catch (err) { console.error('Error toggling completion:', err); }
     };
 
     const updateProgress = async () => {
         try {
             const progressRes = await api.get(`/schedules/progress?playlistId=${id}`);
             setProgress(progressRes.data);
-        } catch (err) {
-            console.error('Error updating progress:', err);
-        }
-    };
-
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '';
-        const [y, m, d] = dateStr.split('-').map(Number);
-        return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-    };
-
-    const getCalendarDays = () => {
-        const year = viewDate.getFullYear();
-        const month = viewDate.getMonth();
-        const firstDayOfMonth = new Date(year, month, 1);
-        const lastDayOfMonth = new Date(year, month + 1, 0);
-        const daysInMonth = lastDayOfMonth.getDate();
-        const startingDayOfWeek = firstDayOfMonth.getDay();
-        const calendarDays = [];
-
-        const lastDayOfPrevMonth = new Date(year, month, 0).getDate();
-        for (let i = startingDayOfWeek - 1; i >= 0; i--) {
-            const dateObj = new Date(year, month - 1, lastDayOfPrevMonth - i);
-            calendarDays.push({
-                day: lastDayOfPrevMonth - i, month: month - 1, year: year, currentMonth: false, full: dateObj.toLocaleDateString('en-CA')
-            });
-        }
-
-        for (let i = 1; i <= daysInMonth; i++) {
-            const dateObj = new Date(year, month, i);
-            calendarDays.push({
-                day: i, month: month, year: year, currentMonth: true, full: dateObj.toLocaleDateString('en-CA')
-            });
-        }
-
-        const totalCells = 42;
-        const nextMonthPadding = totalCells - calendarDays.length;
-        for (let i = 1; i <= nextMonthPadding; i++) {
-            const dateObj = new Date(year, month + 1, i);
-            calendarDays.push({
-                day: i, month: month + 1, year: year, currentMonth: false, full: dateObj.toLocaleDateString('en-CA')
-            });
-        }
-        return calendarDays;
-    };
-
-    const changeMonth = (offset) => {
-        const newDate = new Date(viewDate);
-        newDate.setMonth(newDate.getMonth() + offset);
-        setViewDate(newDate);
-    };
-
-    const handleGoToToday = () => {
-        const today = new Date();
-        setViewDate(today);
-        setActiveDate(getTodayLocal());
+        } catch (err) { console.error('Error updating progress:', err); }
     };
 
     const filteredVideos = videos.filter(v => {
@@ -344,10 +200,7 @@ const PlaylistDetails = () => {
     }).sort((a, b) => {
         if (sortBy === 'position') return a.position - b.position;
         if (sortBy === 'duration') {
-            const getSec = (d) => {
-                const p = (d || '0:00').split(':').map(Number);
-                return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
-            };
+            const getSec = (d) => { const p = (d || '0:00').split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1]; };
             return getSec(b.duration || '0:00') - getSec(a.duration || '0:00');
         }
         if (sortBy === 'date') {
@@ -358,10 +211,12 @@ const PlaylistDetails = () => {
         return 0;
     });
 
-    const plannedToday = videos.filter(v => {
-        const s = schedulesMap[v._id];
-        return s && s.scheduledDate && s.scheduledDate.split('T')[0] === activeDate;
-    });
+    const plannedToday = videos
+        .filter(v => {
+            const s = schedulesMap[v._id];
+            return s && s.scheduledDate && s.scheduledDate.split('T')[0] === activeDate;
+        })
+        .map(v => ({ ...v, _scheduleStatus: schedulesMap[v._id]?.status }));
 
     if (loading) return <LoadingScreen message="Assembling your curriculum..." />;
 
@@ -372,45 +227,51 @@ const PlaylistDetails = () => {
                 <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Playlist Unavailable</h2>
                 <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>{error}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <button
-                        onClick={() => { setError(null); setLoading(true); fetchPlaylistData(); }}
-                        className="btn-primary"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}
-                    >
+                    <button onClick={() => { setError(null); setLoading(true); fetchPlaylistData(); }} className="btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}>
                         <RefreshCw size={20} /> Try Again
                     </button>
-                    <button onClick={() => navigate('/library')} className="btn-secondary" style={{ width: '100%' }}>
-                        Back to Library
-                    </button>
+                    <button onClick={() => navigate('/library')} className="btn-secondary" style={{ width: '100%' }}>Back to Library</button>
                 </div>
             </div>
         </div>
     );
 
-    const weekdayNames = ['s', 'm', 't', 'w', 'th', 'f', 'sa'];
-
     return (
-        <div style={{ paddingBottom: '5rem' }}>
-            {/* Immersive Hero Header */}
-            <div style={{ position: 'relative', height: '300px', borderRadius: '24px', overflow: 'hidden', marginBottom: '2.5rem' }}>
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    backgroundImage: `url(${playlist?.thumbnail})`,
-                    backgroundSize: 'cover', backgroundPosition: 'center',
-                    filter: 'blur(40px) brightness(0.4)', transform: 'scale(1.1)'
-                }}></div>
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'linear-gradient(to right, rgba(15,15,20,0.9), transparent)'
-                }}></div>
+        <div style={{ height: 'calc(100vh - 5rem)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-                <div style={{ position: 'relative', height: '100%', display: 'flex', alignItems: 'center', padding: '0 3rem', gap: '2.5rem' }}>
-                    <img src={playlist?.thumbnail} alt="" style={{ width: '320px', aspectRatio: '16/9', borderRadius: '16px', objectFit: 'cover', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }} />
+            {/* Collapsible Hero Header */}
+            <div style={{ position: 'relative', height: scrolled ? '72px' : '260px', transition: 'height 0.4s cubic-bezier(0.23, 1, 0.32, 1)', flexShrink: 0, overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${playlist?.thumbnail})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(40px) brightness(0.4)', transform: 'scale(1.1)' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(15,15,20,0.9), transparent)' }} />
+
+                {/* Compact header (scrolled) */}
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 2rem', gap: '1.5rem', opacity: scrolled ? 1 : 0, transition: 'opacity 0.25s ease', pointerEvents: scrolled ? 'auto' : 'none' }}>
+                    <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', flexShrink: 0 }}>
+                        <ChevronLeft size={16} /> Dashboard
+                    </button>
+                    <h2 style={{ fontSize: '1rem', fontWeight: '800', color: 'white', background: 'linear-gradient(to right, white, var(--primary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {playlist?.playlistTitle}
+                    </h2>
+                    <div style={{ flex: 1 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontWeight: '700', color: 'var(--primary)', fontSize: '0.9rem' }}>{Math.round(progress?.percent || 0)}%</span>
+                        <div style={{ width: '120px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
+                            <div style={{ width: `${progress?.percent || 0}%`, height: '100%', background: 'var(--primary)', borderRadius: '2px' }} />
+                        </div>
+                    </div>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
+                        <img src={playlist?.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                </div>
+
+                {/* Full hero (not scrolled) */}
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 3rem', gap: '2.5rem', opacity: scrolled ? 0 : 1, transition: 'opacity 0.2s ease', pointerEvents: scrolled ? 'none' : 'auto' }}>
+                    <img src={playlist?.thumbnail} alt="" style={{ width: '280px', aspectRatio: '16/9', borderRadius: '16px', objectFit: 'cover', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }} />
                     <div style={{ flex: 1 }}>
                         <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.5rem', cursor: 'pointer' }}>
                             <ChevronLeft size={16} /> Dashboard
                         </button>
-                        <h1 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem', lineHeight: '1.2' }}>{playlist?.playlistTitle}</h1>
+                        <h1 style={{ fontSize: '2.2rem', fontWeight: '800', marginBottom: '1rem', lineHeight: '1.2' }}>{playlist?.playlistTitle}</h1>
                         <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.7)' }}>
                                 <PlayCircle size={20} style={{ color: 'var(--primary)' }} /> <span>{videos.length} Lectures</span>
@@ -422,7 +283,7 @@ const PlaylistDetails = () => {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.7)' }}>
                                     <div style={{ position: 'relative' }}>
                                         <Users size={20} style={{ color: '#22c55e' }} />
-                                        <div style={{ position: 'absolute', top: 0, right: 0, width: '6px', height: '6px', background: '#22c55e', borderRadius: '50%', border: '1px solid black' }}></div>
+                                        <div style={{ position: 'absolute', top: 0, right: 0, width: '6px', height: '6px', background: '#22c55e', borderRadius: '50%', border: '1px solid black' }} />
                                     </div>
                                     <span>{presenceCount} studying now</span>
                                 </div>
@@ -434,284 +295,101 @@ const PlaylistDetails = () => {
                                 <span style={{ fontWeight: '700', color: 'var(--primary)' }}>{Math.round(progress?.percent || 0)}%</span>
                             </div>
                             <div className="progress-container" style={{ height: '8px', background: 'rgba(255,255,255,0.1)' }}>
-                                <div className="progress-bar" style={{ width: `${progress?.percent || 0}%`, height: '100%' }}></div>
+                                <div className="progress-bar" style={{ width: `${progress?.percent || 0}%`, height: '100%' }} />
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Guest Banner */}
-            {!user && (
-                <div style={{
-                    background: 'rgba(99, 102, 241, 0.1)',
-                    border: '1px solid rgba(99, 102, 241, 0.2)',
-                    padding: '1.2rem',
-                    borderRadius: '20px',
-                    marginBottom: '2.5rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    backdropFilter: 'blur(10px)'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-                        <div style={{ fontSize: '1.8rem' }}>👋</div>
-                        <div>
-                            <p style={{ fontWeight: '800', fontSize: '1.1rem', marginBottom: '0.2rem', color: 'white' }}>Welcome to Guest Mode!</p>
-                            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>Your progress is saved locally. <Link to="/signup" style={{ color: 'var(--primary)', fontWeight: '800', textDecoration: 'none', borderBottom: '1px solid var(--primary)' }}>Create an account</Link> to sync across devices.</p>
-                        </div>
+            {/* Filter Bar */}
+            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 2rem', background: 'rgba(10,10,12,0.97)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)', gap: '1rem', zIndex: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                        {['all', 'pending', 'completed'].map(f => (
+                            <button key={f} onClick={() => setFilter(f)} style={{ padding: '0.4rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', background: filter === f ? 'var(--primary)' : 'transparent', color: filter === f ? 'white' : 'var(--text-muted)', border: 'none', cursor: 'pointer', transition: 'all 0.2s' }}>
+                                {f.charAt(0).toUpperCase() + f.slice(1)}
+                            </button>
+                        ))}
+                    </div>
+                    <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                        <button onClick={() => setViewMode('list')} title="List View" style={{ padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', background: viewMode === 'list' ? 'rgba(255,255,255,0.05)' : 'transparent', color: viewMode === 'list' ? 'var(--primary)' : 'var(--text-muted)', border: 'none', display: 'flex' }}>
+                            <AlignLeft size={18} />
+                        </button>
+                        <button onClick={() => setViewMode('tree')} title="Skill Tree" style={{ padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', background: viewMode === 'tree' ? 'rgba(255,255,255,0.05)' : 'transparent', color: viewMode === 'tree' ? 'var(--primary)' : 'var(--text-muted)', border: 'none', display: 'flex' }}>
+                            <GitGraph size={18} />
+                        </button>
                     </div>
                 </div>
-            )}
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="input-glass" style={{ width: '160px', padding: '0.5rem', fontSize: '0.85rem' }}>
+                    <option value="position">Playlist Order</option>
+                    <option value="date">By Schedule</option>
+                    <option value="duration">Longest First</option>
+                </select>
+            </div>
 
-            {/* Content Multi-Column Layout */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: '2.5rem', alignItems: 'start' }}>
+            {/* Content Row */}
+            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: user ? 'minmax(0, 1fr) 360px' : '1fr', gap: '0', overflow: 'hidden' }}>
 
-                {/* Main Content Area: Curriculum */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Scrollable Video List */}
+                <div onScroll={e => setScrolled(e.currentTarget.scrollTop > 80)} style={{ overflowY: 'auto', padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-                    {/* Toolbar & Filters */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <h2 style={{ fontSize: '1.5rem', fontWeight: '800' }}>Curriculum</h2>
-                                <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
-                                    {['all', 'pending', 'completed'].map(f => (
-                                        <button
-                                            key={f}
-                                            onClick={() => setFilter(f)}
-                                            style={{
-                                                padding: '0.4rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600',
-                                                background: filter === f ? 'var(--primary)' : 'transparent',
-                                                color: filter === f ? 'white' : 'var(--text-muted)',
-                                                border: 'none', cursor: 'pointer', transition: 'all 0.2s'
-                                            }}
-                                        >
-                                            {f.charAt(0).toUpperCase() + f.slice(1)}
-                                        </button>
-                                    ))}
+                    {/* Guest Banner */}
+                    {!user && (
+                        <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)', padding: '1.2rem', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(10px)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+                                <div style={{ fontSize: '1.8rem' }}>👋</div>
+                                <div>
+                                    <p style={{ fontWeight: '800', fontSize: '1.1rem', marginBottom: '0.2rem', color: 'white' }}>Welcome to Guest Mode!</p>
+                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>Your progress is saved locally. <Link to="/signup" style={{ color: 'var(--primary)', fontWeight: '800', textDecoration: 'none', borderBottom: '1px solid var(--primary)' }}>Create an account</Link> to sync across devices.</p>
                                 </div>
                             </div>
-
-                            {/* View Toggle */}
-                            <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
-                                <button
-                                    onClick={() => setViewMode('list')}
-                                    style={{
-                                        padding: '0.4rem', borderRadius: '6px', cursor: 'pointer',
-                                        background: viewMode === 'list' ? 'rgba(255,255,255,0.05)' : 'transparent',
-                                        color: viewMode === 'list' ? 'var(--primary)' : 'var(--text-muted)',
-                                        border: 'none', display: 'flex'
-                                    }}
-                                    title="List View"
-                                >
-                                    <AlignLeft size={18} />
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('tree')}
-                                    style={{
-                                        padding: '0.4rem', borderRadius: '6px', cursor: 'pointer',
-                                        background: viewMode === 'tree' ? 'rgba(255,255,255,0.05)' : 'transparent',
-                                        color: viewMode === 'tree' ? 'var(--primary)' : 'var(--text-muted)',
-                                        border: 'none', display: 'flex'
-                                    }}
-                                    title="Skill Tree"
-                                >
-                                    <GitGraph size={18} />
-                                </button>
-                            </div>
                         </div>
+                    )}
 
-                        <div style={{ display: 'flex', gap: '0.75rem' }}>
-                            <select
-                                value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value)}
-                                className="input-glass"
-                                style={{ width: '160px', padding: '0.5rem', fontSize: '0.85rem' }}
-                            >
-                                <option value="position">Playlist Order</option>
-                                <option value="date">By Schedule</option>
-                                <option value="duration">Longest First</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Curriculum View Condition */}
                     {viewMode === 'list' ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            {filteredVideos.map((video) => {
-                                const schedule = schedulesMap[video._id];
-                                const isCompleted = schedule?.status === 'completed';
-                                const isPlanned = schedule && schedule.scheduledDate;
-
-                                return (
-                                    <div key={video._id} id={`video-${video._id}`} className="glass-hover" style={{
-                                        padding: '1rem', borderRadius: '16px',
-                                        display: 'flex', alignItems: 'center', gap: '1.5rem',
-                                        background: isCompleted ? 'rgba(34, 197, 94, 0.05)' : 'var(--bg-card)',
-                                        border: isCompleted ? '2px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--glass-border)',
-                                        opacity: isCompleted ? 0.9 : 1,
-                                        transition: 'all 0.3s ease'
-                                    }} onMouseEnter={(e) => !isCompleted && (e.currentTarget.style.borderColor = 'var(--primary)')} onMouseLeave={(e) => !isCompleted && (e.currentTarget.style.borderColor = 'var(--glass-border)')}>
-                                        <Link to={`/focus/${video._id}`} style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1, textDecoration: 'none', color: 'inherit' }}>
-                                            <div style={{ fontSize: '1.2rem', fontWeight: '900', color: isCompleted ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.03)', width: '30px', textAlign: 'center' }}>
-                                                {(video.position + 1).toString().padStart(2, '0')}
-                                            </div>
-                                            {video.thumbnail && <img src={video.thumbnail} alt="" style={{ width: '120px', height: '68px', borderRadius: '10px', objectFit: 'cover' }} />}
-                                            <div style={{ flex: 1 }}>
-                                                <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', fontWeight: '700', color: isCompleted ? '#86efac' : 'inherit' }}>{video.title}</h3>
-                                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                        <Clock size={14} /> {video.duration || '0:00'}
-                                                    </div>
-                                                    {isPlanned && (
-                                                        <span style={{ color: isCompleted ? '#86efac' : 'var(--primary)', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                            <Calendar size={14} /> {formatDate(schedule.scheduledDate.split('T')[0])}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </Link>
-
-                                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                            {user && (
-                                                !isPlanned ? (
-                                                    <button
-                                                        onClick={() => handleQuickSchedule(video._id)}
-                                                        disabled={isCompleted}
-                                                        className="btn-secondary"
-                                                        style={{
-                                                            padding: '0.5rem 1.2rem',
-                                                            borderRadius: '10px',
-                                                            opacity: isCompleted ? 0.5 : 1,
-                                                            cursor: isCompleted ? 'not-allowed' : 'pointer'
-                                                        }}
-                                                    >
-                                                        Plan
-                                                    </button>
-                                                ) : (
-                                                    <button onClick={() => handleRemoveSchedule(video._id)} style={{ background: 'none', color: 'var(--danger)', opacity: 0.5, cursor: 'pointer' }} title="Remove from plan"><XCircle size={22} /></button>
-                                                )
-                                            )}
-
-                                            <button
-                                                onClick={() => handleToggleCompletion(video._id)}
-                                                style={{
-                                                    width: '42px', height: '42px', borderRadius: '12px',
-                                                    background: isCompleted ? '#16a34a' : 'rgba(255,255,255,0.03)',
-                                                    color: 'white', border: isCompleted ? 'none' : '1px solid var(--glass-border)',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s'
-                                                }}
-                                                title={isCompleted ? "Mark as Pending" : "Mark as Completed"}
-                                            >
-                                                <CheckCircle size={24} fill={isCompleted ? "white" : "none"} strokeWidth={isCompleted ? 0 : 2} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                            {filteredVideos.map(video => (
+                                <VideoCard
+                                    key={video._id}
+                                    video={video}
+                                    schedule={schedulesMap[video._id]}
+                                    user={user}
+                                    activeDate={activeDate}
+                                    formatDate={formatDate}
+                                    onSchedule={handleQuickSchedule}
+                                    onRemoveSchedule={handleRemoveSchedule}
+                                    onToggleCompletion={handleToggleCompletion}
+                                />
+                            ))}
                         </div>
                     ) : (
                         <SkillTree videos={filteredVideos} schedulesMap={schedulesMap} />
                     )}
                 </div>
 
-                {/* Sidebar: Planner & Agenda (Only for Logged-in Users) */}
+                {/* Sidebar: Planner & Agenda */}
                 {user && (
-                    <aside style={{ position: 'sticky', top: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-
-                        {/* Calendar Design (Retained/Fine-tuned) */}
-                        <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                                <div>
-                                    <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Study Planner</span>
-                                    <h2 style={{ fontSize: '1.2rem', fontWeight: '800' }}>{viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
-                                </div>
-                                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                                    <button
-                                        onClick={handleGoToToday}
-                                        className="btn-secondary"
-                                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.7rem', fontWeight: '800', borderRadius: '8px' }}
-                                    >
-                                        Today
-                                    </button>
-                                    <div style={{ display: 'flex', gap: '0.2rem' }}>
-                                        <button onClick={() => changeMonth(-1)} className="btn-secondary" style={{ padding: '0.35rem', borderRadius: '8px' }}><ChevronLeft size={16} /></button>
-                                        <button onClick={() => changeMonth(1)} className="btn-secondary" style={{ padding: '0.35rem', borderRadius: '8px' }}><ChevronRight size={16} /></button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div style={{ gridTemplateColumns: 'repeat(7, 1fr)', display: 'grid', gap: '0.4rem', marginBottom: '0.75rem' }}>
-                                {weekdayNames.map((day, i) => <div key={i} style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: '800', color: 'rgba(255,255,255,0.2)' }}>{day}</div>)}
-                            </div>
-                            <div style={{ gridTemplateColumns: 'repeat(7, 1fr)', display: 'grid', gap: '0.4rem' }}>
-                                {getCalendarDays().map((d, i) => {
-                                    const isToday = getTodayLocal() === d.full;
-                                    const isActive = activeDate === d.full;
-                                    return (
-                                        <button key={i} onClick={() => setActiveDate(d.full)} style={{
-                                            borderRadius: '10px', aspectRatio: '1/1', fontSize: '0.9rem', cursor: 'pointer',
-                                            background: isActive ? 'var(--primary)' : (isToday ? 'rgba(99, 102, 241, 0.1)' : 'transparent'),
-                                            color: isActive ? 'white' : (d.currentMonth ? 'var(--text-main)' : 'rgba(255,255,255,0.1)'),
-                                            border: isToday && !isActive ? '1px solid var(--primary)' : '1px solid transparent',
-                                            fontWeight: (isActive || isToday) ? '800' : '500'
-                                        }}>{d.day}</button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Daily Agenda */}
-                        <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                                <h3 style={{ fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                    <Clock size={18} style={{ color: 'var(--primary)' }} /> Agenda
-                                </h3>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '800', padding: '0.3rem 0.8rem', background: 'rgba(99,102,241,0.1)', borderRadius: '12px' }}>
-                                    {formatDate(activeDate)}
-                                </span>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                {plannedToday.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '2rem 1rem', opacity: 0.5 }}>
-                                        <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🍃</div>
-                                        <p style={{ fontSize: '0.8rem', fontWeight: '500' }}>No tasks for this day.</p>
-                                    </div>
-                                ) : (
-                                    plannedToday.map(video => {
-                                        const schedule = schedulesMap[video._id];
-                                        const isComp = schedule?.status === 'completed';
-                                        return (
-                                            <div key={video._id} style={{
-                                                padding: '0.8rem', fontSize: '0.85rem', display: 'flex', gap: '0.8rem', alignItems: 'center',
-                                                borderRadius: '16px', background: isComp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.03)',
-                                                border: isComp ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--glass-border)',
-                                                transition: 'all 0.3s'
-                                            }}>
-                                                <div style={{
-                                                    width: '24px', height: '24px', borderRadius: '6px',
-                                                    background: isComp ? '#16a34a' : 'var(--primary)',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    color: 'white', fontSize: '0.7rem', fontWeight: '900', flexShrink: 0
-                                                }}>
-                                                    {isComp ? <CheckCircle size={14} /> : (video.position + 1)}
-                                                </div>
-                                                <div style={{ flex: 1 }}>
-                                                    <p style={{ fontWeight: '700', lineHeight: '1.2', color: isComp ? '#86efac' : 'inherit' }}>{video.title}</p>
-                                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{video.duration}</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-                            {message && <div style={{ marginTop: '1.25rem', padding: '0.75rem', borderRadius: '12px', background: 'rgba(99,102,241,0.1)', fontSize: '0.8rem', color: 'white', textAlign: 'center', fontWeight: '700' }}>{message}</div>}
+                    <aside style={{ overflowY: 'auto', borderLeft: '1px solid rgba(255,255,255,0.05)', padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <CalendarPanel
+                                viewDate={viewDate}
+                                activeDate={activeDate}
+                                getTodayLocal={getTodayLocal}
+                                onDayClick={setActiveDate}
+                                onChangeMonth={offset => { const d = new Date(viewDate); d.setMonth(d.getMonth() + offset); setViewDate(d); }}
+                                onGoToToday={() => { setViewDate(new Date()); setActiveDate(getTodayLocal()); }}
+                            />
+                            <AgendaPanel
+                                plannedToday={plannedToday}
+                                activeDate={activeDate}
+                                formatDate={formatDate}
+                                message={message}
+                            />
                         </div>
                     </aside>
                 )}
             </div>
-
-
         </div>
     );
 };

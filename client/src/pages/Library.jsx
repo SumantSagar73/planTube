@@ -68,9 +68,10 @@ const Library = () => {
 
         try {
             if (item.type === 'video') {
-                await api.put(`/videos/${item.dbId || item._id}/pin`);
+                // Use the database-backed Video ID for pinning
+                await api.put(`/videos/${item.videoDbId}/pin`);
             } else {
-                await api.put(`/playlists/${item._id}/pin`);
+                await api.put(`/playlists/${item.dbId || item._id}/pin`);
             }
             sessionStorage.setItem('library_items', JSON.stringify(items));
         } catch (err) {
@@ -89,7 +90,9 @@ const Library = () => {
                     if (item.type === 'custom') {
                         await api.delete(`/custom-playlists/${item._id}`);
                     } else if (item.type === 'video') {
-                        await api.delete(`/videos/${item.dbId || item._id}`);
+                        // Standalone videos are also backed by a dummy Playlist (VIDEO_...)
+                        // and a UserPlaylist link. So we remove the playlist link.
+                        await api.delete(`/playlists/${item.dbId}`);
                     } else {
                         await api.delete(`/playlists/${item._id}`);
                     }

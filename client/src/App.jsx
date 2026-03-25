@@ -37,11 +37,7 @@ const AppRoutes = () => {
                     <Route path="/signup" element={<Signup />} />
                     <Route
                         path="/focus/:videoId"
-                        element={
-                            <ProtectedRoute>
-                                <FocusMode />
-                            </ProtectedRoute>
-                        }
+                        element={<FocusMode />}
                     />
                     <Route
                         path="/*"

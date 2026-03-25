@@ -1,4 +1,5 @@
 const Video = require('../models/Video');
+const SharedVideo = require('../models/SharedVideo');
 const axios = require('axios');
 const { parseDuration, formatDuration, parseChapters } = require('../utils/videoUtils');
 
@@ -44,7 +45,7 @@ exports.getVideoById = async (req, res) => {
             query = { videoId: id };
         }
 
-        const video = await Video.findOne(query);
+        const video = await Video.findOne(query).populate('sharedVideoId');
         if (!video) return res.status(404).json({ msg: 'Video not found' });
         res.json(video);
     } catch (err) {
@@ -58,13 +59,19 @@ exports.togglePin = async (req, res) => {
         const video = await Video.findById(req.params.id);
         if (!video) return res.status(404).json({ msg: 'Video not found' });
 
-        video.isPinned = !video.isPinned;
-        await video.save();
+        const isPinned = !video.isPinned;
+        
+        // Use findOneAndUpdate to avoid triggering validation for all fields
+        const updatedVideo = await Video.findOneAndUpdate(
+            { _id: req.params.id },
+            { $set: { isPinned } },
+            { new: true }
+        );
 
-        res.json(video);
+        res.json(updatedVideo);
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
+        console.error('Toggle Pin Error:', err.message);
+        res.status(500).send('Server error: ' + err.message);
     }
 };
 

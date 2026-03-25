@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import {
-    CheckCircle, ChevronLeft, RefreshCw, XCircle,
-    AlignLeft, List as ListIcon, Play, Users, Zap
-} from 'lucide-react';
-import YouTube from 'react-youtube';
+import { CheckCircle, RefreshCw, XCircle, AlignLeft, Zap } from 'lucide-react';
 import { cache } from '../utils/cache';
 import FocusSidebar from '../components/Focus/FocusSidebar';
 import FocusControls from '../components/Focus/FocusControls';
-import GhostPlayer from '../components/Focus/GhostPlayer';
-import ReactDOM from 'react-dom/client';
+import FocusTopBar from '../components/Focus/FocusTopBar';
+import FocusPlayerSlot from '../components/Focus/FocusPlayerSlot';
+import socket from '../services/socket';
+import { useAuth } from '../context/AuthContext';
 
 const FocusMode = () => {
     const { videoId } = useParams();
@@ -39,10 +37,9 @@ const FocusMode = () => {
     const [showSidebar, setShowSidebar] = useState(false);
     const [sidebarTab, setSidebarTab] = useState('chapters');
     const [zenMode, setZenMode] = useState(false);
-    const [presenceCount, setPresenceCount] = useState(1);
+    const [presenceCount, setPresenceCount] = useState(0);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-    const [isGhostMode, setIsGhostMode] = useState(false);
-    const [ghostPosition, setGhostPosition] = useState({ x: window.innerWidth - 420, y: 30 });
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     const playerRef = useRef(null);
     const mainSlotRef = useRef(null);
@@ -108,6 +105,7 @@ const FocusMode = () => {
             };
 
             setVideo(payload.video);
+            console.log("YouTube ID:", payload.video.youtubeVideoId || payload.video.videoId);
             setPlaylist(payload.playlist);
             setAllVideos(payload.allVideos);
             cache.set(`video_${videoId}`, payload);
@@ -180,6 +178,15 @@ const FocusMode = () => {
         setVolume(event.target.getVolume());
         setPlaybackRate(event.target.getPlaybackRate());
 
+        // Allow native browser PiP on the YouTube iframe
+        const iframe = event.target.getIframe();
+        if (iframe) {
+            iframe.setAttribute(
+                "allow",
+                "autoplay; fullscreen; picture-in-picture; encrypted-media"
+            );
+        }
+
         const t = event.target.getCurrentTime();
         lastTickTimeRef.current = t;
 
@@ -204,6 +211,7 @@ const FocusMode = () => {
     };
 
     const togglePlay = () => {
+        if (!playerRef.current) return;
         if (isPlaying) playerRef.current.pauseVideo();
         else playerRef.current.playVideo();
     };
@@ -229,16 +237,17 @@ const FocusMode = () => {
     const handleSeekChange = (e) => {
         const newTime = parseFloat(e.target.value);
         setCurrentTime(newTime);
-        playerRef.current.seekTo(newTime);
+        if (playerRef.current) playerRef.current.seekTo(newTime);
     };
 
     const handleVolumeChange = (e) => {
         const newVol = parseInt(e.target.value);
         setVolume(newVol);
-        playerRef.current.setVolume(newVol);
+        if (playerRef.current) playerRef.current.setVolume(newVol);
     };
 
     const toggleSpeed = () => {
+        if (!playerRef.current) return;
         const speeds = [1, 1.25, 1.5, 2];
         const nextIdx = (speeds.indexOf(playbackRate) + 1) % speeds.length;
         const newSpeed = speeds[nextIdx];
@@ -271,9 +280,40 @@ const FocusMode = () => {
         }
     };
 
-    const handleToggleGhostMode = () => {
-        setIsGhostMode(!isGhostMode);
+    const handleToggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            if (mainSlotRef.current?.requestFullscreen) {
+                mainSlotRef.current.requestFullscreen();
+            } else if (mainSlotRef.current?.webkitRequestFullscreen) {
+                mainSlotRef.current.webkitRequestFullscreen();
+            } else if (mainSlotRef.current?.msRequestFullscreen) {
+                mainSlotRef.current.msRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
     };
+
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement || !!document.webkitFullscreenElement || !!document.msFullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+        };
+    }, []);
+
 
     const handleSeek = (seconds) => {
         if (playerRef.current) {
@@ -291,7 +331,8 @@ const FocusMode = () => {
             rel: 0,
             modestbranding: 1,
             iv_load_policy: 3,
-            disablekb: 1,
+            enablejsapi: 1,
+            playsinline: 1,
             origin: window.location.origin
         },
     }), []);
@@ -308,6 +349,8 @@ const FocusMode = () => {
         fetchVideoData();
     }, [videoId]);
 
+    const { user } = useAuth();
+
     useEffect(() => {
         const handleResize = () => {
             setCompactMode(window.innerWidth < 1000);
@@ -317,24 +360,80 @@ const FocusMode = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Presence & Heartbeat - Independent of playback
+    // Real-time Presence with WebSockets
     useEffect(() => {
-        if (!videoId) return;
+        if (!video) return;
 
-        const sendHeartbeat = () => {
-            api.post('/presence/heartbeat', { videoId })
-                .then(res => setPresenceCount(res.data.count))
-                .catch(err => console.warn('Heartbeat failed', err));
+        // Get the YouTube ID for presence tracking
+        // Use sharedVideo.youtubeId (new structure) or video.videoId (legacy structure)
+        const youtubeId = video.sharedVideo?.youtubeId || video.videoId;
+        if (!youtubeId) {
+            console.warn('⚠️ No YouTube ID found for presence tracking');
+            return;
+        }
+
+        // Ensure socket is connected
+        if (!socket.connected) {
+            console.log('🔌 Connecting socket for presence tracking...');
+            socket.connect();
+        }
+
+        // Generate/Get visitorId for anonymous tracking
+        let visitorId = sessionStorage.getItem('visitor_id');
+        if (!visitorId) {
+            visitorId = 'vis_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem('visitor_id', visitorId);
+        }
+
+        // Join video room using YouTube ID (shared across all users)
+        console.log('👥 Joining video room:', youtubeId, 'User:', user?._id || visitorId);
+        socket.emit('join_video', {
+            videoId: youtubeId,
+            userId: user?._id,
+            visitorId: !user ? visitorId : null
+        });
+
+        // Listen for updates
+        const handlePresenceUpdate = (data) => {
+            console.log('📊 Presence update received:', data);
+            if (data.videoId === youtubeId) {
+                console.log('✅ Updating presence count to:', data.count);
+                setPresenceCount(data.count);
+            } else {
+                console.log('⚠️ videoId mismatch:', data.videoId, 'expected:', youtubeId);
+            }
         };
 
-        // Send immediately on mount/videoId change
-        sendHeartbeat();
+        socket.on('presence_update', handlePresenceUpdate);
 
-        // Then poll every 30 seconds
-        const heartbeatInterval = setInterval(sendHeartbeat, 30000);
+        // Log connection status
+        socket.on('connect', () => {
+            console.log('✅ Socket connected successfully');
+            // Re-join the room on reconnect
+            socket.emit('join_video', {
+                videoId: youtubeId,
+                userId: user?._id,
+                visitorId: !user ? visitorId : null
+            });
+        });
 
-        return () => clearInterval(heartbeatInterval);
-    }, [videoId]);
+        socket.on('disconnect', () => {
+            console.log('❌ Socket disconnected');
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('❌ Socket connection error:', error);
+        });
+
+        return () => {
+            console.log('👋 Leaving video room:', youtubeId);
+            socket.emit('leave_video', { videoId: youtubeId });
+            socket.off('presence_update', handlePresenceUpdate);
+            socket.off('connect');
+            socket.off('disconnect');
+            socket.off('connect_error');
+        };
+    }, [video, user]);
 
     useEffect(() => {
         if (isPlaying && !isDragging) {
@@ -447,176 +546,33 @@ const FocusMode = () => {
             onMouseLeave={() => isPlaying && setIsHovering(false)}
             onClick={() => !isHovering && togglePlay()}
         >
-            {/* 1. Full Screen Video Player / Ghost Player Wrapper */}
-            <div
-                ref={mainSlotRef}
-                id="main-player-slot"
-                style={{
-                    width: isGhostMode ? '400px' : '100%',
-                    height: isGhostMode ? '225px' : '100%',
-                    position: isGhostMode ? 'fixed' : 'absolute',
-                    left: isGhostMode ? `${ghostPosition.x}px` : 0,
-                    top: isGhostMode ? `${ghostPosition.y + 36}px` : 0,
-                    zIndex: isGhostMode ? 10000 : 0,
-                    pointerEvents: isGhostMode || !isPlaying ? 'auto' : 'none',
-                    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                    borderRadius: isGhostMode ? '0 0 16px 16px' : 0,
-                    overflow: 'hidden',
-                    background: '#000'
-                }}
-            >
-                <div className="youtube-player-container" style={{ width: '100%', height: '100%' }}>
-                    <YouTube
-                        videoId={(video.youtubeVideoId || video.videoId)}
-                        opts={playerOptions}
-                        onStateChange={handlePlayerStateChange}
-                        onReady={handlePlayerReady}
-                        onEnd={handleVideoEnd}
-                        className="youtube-player"
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            transform: isGhostMode ? 'none' : 'scale(1.01)'
-                        }}
-                    />
-                </div>
-            </div>
+            <FocusPlayerSlot
+                mainSlotRef={mainSlotRef}
+                video={video}
+                playerOptions={playerOptions}
+                handlePlayerStateChange={handlePlayerStateChange}
+                handlePlayerReady={handlePlayerReady}
+                handleVideoEnd={handleVideoEnd}
+                isPlaying={isPlaying}
+                videoLoading={videoLoading}
+                initialLoading={initialLoading}
+                togglePlay={togglePlay}
+            />
 
-            {/* Ghost Mode Frame Overlay */}
-            {isGhostMode && (
-                <GhostPlayer
-                    video={video}
-                    isPlaying={isPlaying}
-                    playbackRate={playbackRate}
-                    onTogglePlay={togglePlay}
-                    onToggleSpeed={toggleSpeed}
-                    onNext={handleNextVideo}
-                    onPrev={handlePrevVideo}
-                    onClose={() => setIsGhostMode(false)}
-                    onPositionChange={setGhostPosition}
-                />
-            )}
 
-            {/* Pause Overlay Layer */}
-            {!isPlaying && !videoLoading && !initialLoading && !isGhostMode && (
-                <div
-                    style={{
-                        position: 'absolute',
-                        inset: 0,
-                        zIndex: 10,
-                        background: 'rgba(0,0,0,0.4)',
-                        backdropFilter: 'blur(8px)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.5s ease',
-                        cursor: 'pointer'
-                    }}
-                    onClick={togglePlay}
-                >
-                    <div style={{
-                        width: '100px',
-                        height: '100px',
-                        borderRadius: '50%',
-                        background: 'rgba(255,255,255,0.1)',
-                        border: '1px solid rgba(255,255,255,0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: '2rem',
-                        transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-                    }} className="hover:scale-110">
-                        <Play size={48} fill="white" style={{ marginLeft: '6px' }} />
-                    </div>
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: '800', opacity: 0.8, color: 'white' }}>{video.title}</h2>
-                    <p style={{ color: 'rgba(255,255,255,0.5)', marginTop: '0.5rem' }}>Paused - Click to Resume</p>
-                </div>
-            )}
-
-            {/* Click Mask */}
-            {isPlaying && !isGhostMode && (
-                <div
-                    style={{ position: 'absolute', inset: 0, zIndex: 5 }}
-                    onClick={togglePlay}
-                />
-            )}
-
-            {/* Loading Overlay */}
-            {videoLoading && !isGhostMode && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.5)' }}>
-                    <div className="spinner" style={{ width: '50px', height: '50px', border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                </div>
-            )}
-
-            {/* 2. Top Bar (Title & Back) */}
-            <div
-                style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    padding: compactMode ? '0.5rem' : '1.5rem',
-                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'start',
-                    opacity: (showControls && !isGhostMode) ? 1 : 0,
-                    transform: `translateY(${(showControls && !isGhostMode) ? '0' : '-100%'})`,
-                    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                    pointerEvents: (showControls && !isGhostMode) ? 'auto' : 'none',
-                    zIndex: 30
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <button
-                        onClick={() => {
-                            if (playlist?.playlistId?.startsWith('VIDEO_')) navigate('/library');
-                            else navigate(`/playlist/${playlist?._id}`);
-                        }}
-                        className="glass-hover"
-                        style={{
-                            background: 'rgba(0,0,0,0.5)',
-                            color: 'white',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '50%',
-                            width: '40px',
-                            height: '40px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <ChevronLeft size={20} />
-                    </button>
-                    {!compactMode && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                            <div>
-                                <h2 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)', maxWidth: isMobile ? '160px' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {video.title}
-                                </h2>
-                                {playlist && !isMobile && (
-                                    <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <ListIcon size={12} /> {playlist.playlistTitle}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="glass" style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}>
-                                <div style={{ position: 'relative' }}>
-                                    <Users size={14} color="var(--primary)" />
-                                    <div style={{ position: 'absolute', top: -2, right: -2, width: '4px', height: '4px', background: '#22c55e', borderRadius: '50%' }}></div>
-                                </div>
-                                <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'white' }}>{presenceCount}</span>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
+            <FocusTopBar
+                showControls={showControls}
+                compactMode={compactMode}
+                isMobile={isMobile}
+                video={video}
+                playlist={playlist}
+                presenceCount={presenceCount}
+                navigate={navigate}
+            />
 
             {/* 3. Control Deck */}
             <FocusControls
-                showControls={showControls && !isGhostMode}
+                showControls={showControls}
                 isMobile={isMobile}
                 compactMode={compactMode}
                 video={video}
@@ -646,13 +602,14 @@ const FocusMode = () => {
                 setSidebarTab={setSidebarTab}
                 setShowSidebar={setShowSidebar}
                 formatTime={formatTime}
-                isGhostMode={isGhostMode}
-                handleToggleGhostMode={handleToggleGhostMode}
+                isFullscreen={isFullscreen}
+                handleToggleFullscreen={handleToggleFullscreen}
+                isLoading={videoLoading || !playerRef.current}
             />
 
             {/* 4. Sidebar Panel */}
             <FocusSidebar
-                showSidebar={showSidebar && !isGhostMode}
+                showSidebar={showSidebar}
                 setShowSidebar={setShowSidebar}
                 sidebarTab={sidebarTab}
                 setSidebarTab={setSidebarTab}
@@ -681,8 +638,13 @@ const FocusMode = () => {
                     height: 40px;
                     animation: spin 1s linear infinite;
                 }
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
+                .spinner-small {
+                    border: 2px solid rgba(0,0,0,0.1);
+                    border-top-color: black;
+                    border-radius: 50%;
+                    width: 20px;
+                    height: 20px;
+                    animation: spin 1s linear infinite;
                 }
                 .icon-btn-deck {
                     background: transparent;

@@ -2,7 +2,7 @@ import React from 'react';
 import {
     ChevronLeft, ChevronRight, Play, CheckCircle,
     Eye, EyeOff, Map, AlignLeft, List as ListIcon,
-    Zap
+    Maximize, ExternalLink
 } from 'lucide-react';
 
 const FocusControls = ({
@@ -36,8 +36,9 @@ const FocusControls = ({
     setSidebarTab,
     setShowSidebar,
     formatTime,
-    isGhostMode,
-    handleToggleGhostMode
+    isFullscreen,
+    handleToggleFullscreen,
+    isLoading
 }) => {
     return (
         <div
@@ -135,7 +136,7 @@ const FocusControls = ({
             {/* Controls Row */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', width: '100%' }}>
                 {/* Left Group: Volume & Speed */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, opacity: isLoading ? 0.4 : 1, pointerEvents: isLoading ? 'none' : 'auto' }}>
                     <button onClick={toggleSpeed} className="icon-btn-deck text-xs font-bold" style={{ width: '40px', fontSize: '0.8rem' }} title="Playback Speed">
                         {playbackRate}x
                     </button>
@@ -156,7 +157,7 @@ const FocusControls = ({
                 </div>
 
                 {/* Center Group: Navigation */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', opacity: isLoading ? 0.6 : 1, pointerEvents: isLoading ? 'none' : 'auto' }}>
                     <button onClick={handlePrevVideo} disabled={currentIndex <= 0} className="icon-btn-deck" style={{ opacity: currentIndex <= 0 ? 0.3 : 1, cursor: currentIndex <= 0 ? 'default' : 'pointer' }}>
                         <ChevronLeft size={24} />
                     </button>
@@ -170,7 +171,9 @@ const FocusControls = ({
                             boxShadow: '0 0 20px rgba(255,255,255,0.3)'
                         }}
                     >
-                        {isPlaying ? (
+                        {isLoading ? (
+                            <div className="spinner-small" style={{ width: '20px', height: '20px', border: '2px solid rgba(0,0,0,0.1)', borderTop: '2px solid black', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                        ) : isPlaying ? (
                             <div style={{ width: '14px', height: '16px', display: 'flex', justifyContent: 'space-between' }}>
                                 <div style={{ width: '5px', height: '100%', background: 'black', borderRadius: '2px' }} />
                                 <div style={{ width: '5px', height: '100%', background: 'black', borderRadius: '2px' }} />
@@ -199,12 +202,21 @@ const FocusControls = ({
                         {zenMode ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
 
+
                     <button
-                        onClick={handleToggleGhostMode}
-                        className={`icon-btn-deck ${isGhostMode ? 'active' : ''}`}
-                        title={isGhostMode ? "Disable Ghost Mode" : "Enable Ghost Mode (Floating Mini Player)"}
+                        onClick={() => window.open(`https://www.youtube.com/watch?v=${video.youtubeVideoId || video.videoId}`, '_blank')}
+                        className="icon-btn-deck"
+                        title="Watch on YouTube"
                     >
-                        <Zap size={18} fill={isGhostMode ? "white" : "none"} />
+                        <ExternalLink size={18} />
+                    </button>
+
+                    <button
+                        onClick={handleToggleFullscreen}
+                        className={`icon-btn-deck ${isFullscreen ? 'active' : ''}`}
+                        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                    >
+                        <Maximize size={18} />
                     </button>
 
                     <button

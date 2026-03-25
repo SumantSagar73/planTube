@@ -1,6 +1,7 @@
 const Playlist = require('../models/Playlist');
 const UserPlaylist = require('../models/UserPlaylist');
 const Video = require('../models/Video');
+const SharedVideo = require('../models/SharedVideo');
 const Schedule = require('../models/Schedule');
 const axios = require('axios');
 
@@ -135,8 +136,44 @@ exports.importPlaylist = async (req, res) => {
                 });
                 await playlist.save();
 
-                const videoDocs = data.videos.map(v => ({ ...v, playlistId: playlist._id }));
-                await Video.insertMany(videoDocs);
+                // Process each video: find or create SharedVideo, then create Video junction
+                for (let i = 0; i < data.videos.length; i++) {
+                    const videoData = data.videos[i];
+
+                    // Find or create SharedVideo
+                    let sharedVideo = await SharedVideo.findOne({ youtubeId: videoData.videoId });
+                    if (!sharedVideo) {
+                        sharedVideo = new SharedVideo({
+                            youtubeId: videoData.videoId,
+                            title: videoData.title,
+                            thumbnail: videoData.thumbnail,
+                            duration: videoData.duration,
+                            description: videoData.description,
+                            chapters: videoData.chapters
+                        });
+                        await sharedVideo.save();
+                        console.log(`✅ Created SharedVideo for YouTube ID: ${videoData.videoId}`);
+                    } else {
+                        console.log(`♻️ Reusing SharedVideo for YouTube ID: ${videoData.videoId}`);
+                    }
+
+                    // Create Video junction record
+                    const video = new Video({
+                        sharedVideoId: sharedVideo._id,
+                        playlistId: playlist._id,
+                        position: videoData.position,
+                        // Keep deprecated fields for backward compatibility
+                        videoId: videoData.videoId,
+                        title: videoData.title,
+                        thumbnail: videoData.thumbnail,
+                        duration: videoData.duration,
+                        description: videoData.description,
+                        chapters: videoData.chapters
+                    });
+                    await video.save();
+                }
+
+                console.log(`📦 Imported playlist with ${data.videos.length} videos`);
             }
 
             // 2. Link to user if logged in
@@ -152,7 +189,9 @@ exports.importPlaylist = async (req, res) => {
                 await userPlaylist.save();
             }
 
-            const videos = await Video.find({ playlistId: playlist._id }).sort('position');
+            const videos = await Video.find({ playlistId: playlist._id })
+                .populate('sharedVideoId')
+                .sort('position');
             return res.json({ playlist, videos });
         }
 
@@ -172,7 +211,34 @@ exports.importPlaylist = async (req, res) => {
                 });
                 await playlist.save();
 
-                const video = new Video({ ...videoData, playlistId: playlist._id });
+                // Find or create SharedVideo
+                let sharedVideo = await SharedVideo.findOne({ youtubeId: cleanVideoId });
+                if (!sharedVideo) {
+                    sharedVideo = new SharedVideo({
+                        youtubeId: cleanVideoId,
+                        title: videoData.title,
+                        thumbnail: videoData.thumbnail,
+                        duration: videoData.duration,
+                        description: videoData.description,
+                        chapters: videoData.chapters
+                    });
+                    await sharedVideo.save();
+                    console.log(`✅ Created SharedVideo for YouTube ID: ${cleanVideoId}`);
+                }
+
+                // Create Video junction record
+                const video = new Video({
+                    sharedVideoId: sharedVideo._id,
+                    playlistId: playlist._id,
+                    position: 0,
+                    // Keep deprecated fields for backward compatibility
+                    videoId: videoData.videoId,
+                    title: videoData.title,
+                    thumbnail: videoData.thumbnail,
+                    duration: videoData.duration,
+                    description: videoData.description,
+                    chapters: videoData.chapters
+                });
                 await video.save();
             }
 
@@ -180,7 +246,8 @@ exports.importPlaylist = async (req, res) => {
             if (req.user) {
                 let userPlaylist = await UserPlaylist.findOne({ userId: req.user.id, playlistId: playlist._id });
                 if (userPlaylist) {
-                    const video = await Video.findOne({ playlistId: playlist._id });
+                    const video = await Video.findOne({ playlistId: playlist._id })
+                        .populate('sharedVideoId');
                     return res.json({ playlist, video });
                 }
                 userPlaylist = new UserPlaylist({
@@ -190,7 +257,8 @@ exports.importPlaylist = async (req, res) => {
                 await userPlaylist.save();
             }
 
-            const video = await Video.findOne({ playlistId: playlist._id });
+            const video = await Video.findOne({ playlistId: playlist._id })
+                .populate('sharedVideoId');
             return res.json({ playlist, video });
         }
 
@@ -295,7 +363,9 @@ exports.getPlaylistById = async (req, res) => {
 
             // Simplified: If it exists globally, allow viewing videos. 
             // Personal settings (goal, pinning) come from UserPlaylist (userLink).
-            const videos = await Video.find({ playlistId: playlist._id }).sort('position');
+            const videos = await Video.find({ playlistId: playlist._id })
+                .populate('sharedVideoId')
+                .sort('position');
             return res.json({
                 playlist: {
                     ...playlist.toObject(),
@@ -361,7 +431,9 @@ exports.getUserPlaylists = async (req, res) => {
 
 exports.getPlaylistVideos = async (req, res) => {
     try {
-        const videos = await Video.find({ playlistId: req.params.id }).sort('position');
+        const videos = await Video.find({ playlistId: req.params.id })
+            .populate('sharedVideoId')
+            .sort('position');
         res.json(videos);
     } catch (err) {
         console.error(err.message);
@@ -376,7 +448,8 @@ exports.deletePlaylist = async (req, res) => {
 
         if (userPlaylist) {
             // Delete associated schedules (personal to user)
-            const videos = await Video.find({ playlistId: req.params.id });
+            const videos = await Video.find({ playlistId: req.params.id })
+                .populate('sharedVideoId');
             const videoIds = videos.map(v => v._id);
             await Schedule.deleteMany({ videoId: { $in: videoIds }, userId: req.user.id });
 
@@ -411,7 +484,8 @@ exports.syncPlaylist = async (req, res) => {
 
         // Handle standalone video 'playlists'
         if (playlist.playlistId.startsWith('VIDEO_')) {
-            const video = await Video.findOne({ playlistId: playlist._id });
+            const video = await Video.findOne({ playlistId: playlist._id })
+                .populate('sharedVideoId');
             if (!video) return res.status(404).json({ msg: 'Video not found' });
 
             const newData = await fetchSingleVideoData(video.videoId);
@@ -484,7 +558,8 @@ exports.getLibraryStats = async (req, res) => {
             .filter(up => up.playlistId && up.playlistId.playlistId.startsWith('VIDEO_'))
             .map(up => up.playlistId._id);
 
-        const standaloneVideos = await Video.find({ playlistId: { $in: standalonePlaylistIds } });
+        const standaloneVideos = await Video.find({ playlistId: { $in: standalonePlaylistIds } })
+            .populate('sharedVideoId');
         const videoDocIdMap = {};
         standaloneVideos.forEach(v => videoDocIdMap[v.playlistId.toString()] = v._id);
 

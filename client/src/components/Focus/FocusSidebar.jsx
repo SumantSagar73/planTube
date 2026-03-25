@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     CheckCircle, Map, AlignLeft, List as ListIcon,
-    ChevronDown, Play, Users
+    ChevronDown, Play, Users, Copy, Check, Settings
 } from 'lucide-react';
 
 const FocusSidebar = ({
@@ -22,8 +22,24 @@ const FocusSidebar = ({
     isMobile,
     compactMode,
     chapterRefs,
-    presenceCount
+    presenceCount,
+    captionTracks = [],
+    currentCaptionTrack,
+    audioTracks = [],
+    currentAudioTrack,
+    setCaptionTrack,
+    setAudioTrack
 }) => {
+    const [copyDone, setCopyDone] = useState(false);
+
+    const handleCopyDescription = () => {
+        if (!video?.description) return;
+        navigator.clipboard.writeText(video.description).then(() => {
+            setCopyDone(true);
+            setTimeout(() => setCopyDone(false), 2000);
+        });
+    };
+
     if (!video) return null;
 
     return (
@@ -56,7 +72,7 @@ const FocusSidebar = ({
             <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--primary)' }}>
-                        {sidebarTab === 'chapters' ? 'Video Map' : (sidebarTab === 'playlist' ? 'Playlist' : 'About')}
+                        {sidebarTab === 'chapters' ? 'Video Map' : (sidebarTab === 'playlist' ? 'Playlist' : (sidebarTab === 'settings' ? 'Settings' : 'About'))}
                     </h3>
                     {compactMode && (
                         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
@@ -65,6 +81,7 @@ const FocusSidebar = ({
                             {playlist && playlist.playlistId !== 'SINGLES' && !playlist.playlistId?.startsWith('VIDEO_') && (
                                 <button onClick={() => setSidebarTab('playlist')} style={{ color: sidebarTab === 'playlist' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Playlist</button>
                             )}
+                            <button onClick={() => setSidebarTab('settings')} style={{ color: sidebarTab === 'settings' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Settings</button>
                         </div>
                     )}
                 </div>
@@ -80,13 +97,21 @@ const FocusSidebar = ({
             {/* Sidebar Content */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
                 {sidebarTab === 'chapters' && video.chapters && video.chapters.length > 0 && !compactMode && (
-                    <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden', marginBottom: '1.5rem' }}>
-                        <div style={{
-                            width: `${schedule ? (schedule.completedChapters?.length / video.chapters.length) * 100 : 0}%`,
-                            height: '100%',
-                            background: 'var(--primary)',
-                            transition: 'width 0.3s ease'
-                        }} />
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)' }}>Course Progress</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--primary)' }}>
+                                {schedule ? Math.round((schedule.completedChapters?.length / video.chapters.length) * 100) : 0}%
+                            </span>
+                        </div>
+                        <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{
+                                width: `${schedule ? (schedule.completedChapters?.length / video.chapters.length) * 100 : 0}%`,
+                                height: '100%',
+                                background: 'var(--primary)',
+                                transition: 'width 0.3s ease'
+                            }} />
+                        </div>
                     </div>
                 )}
 
@@ -232,18 +257,113 @@ const FocusSidebar = ({
                             })}
                         </div>
                     </div>
-                ) : (
-                    <div style={{ color: 'var(--text-main)', fontSize: '0.9rem', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                        {video.description ? (
-                            video.description.split(/((?:https?:\/\/|www\.)[^\s]+)/g).map((part, i) => {
-                                if (part.match(/^(https?:\/\/|www\.)/)) {
-                                    const url = part.startsWith('www.') ? 'https://' + part : part;
-                                    return <a key={i} href={url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{part}</a>;
-                                }
-                                return part;
-                            })
-                        ) : <p style={{ opacity: 0.5 }}>No description available.</p>}
+                ) : sidebarTab === 'settings' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        {/* Captions Section */}
+                        <div>
+                            <h4 style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Captions & Subtitles</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <div 
+                                    onClick={() => setCaptionTrack(null)}
+                                    className="glass-hover"
+                                    style={{
+                                        padding: '0.75rem', borderRadius: '12px',
+                                        background: !currentCaptionTrack ? 'var(--primary)' : 'rgba(255, 255, 255, 0.02)',
+                                        border: !currentCaptionTrack ? '1px solid var(--primary)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                        cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                    }}
+                                >
+                                    <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>Off</span>
+                                    {!currentCaptionTrack && <Check size={16} />}
+                                </div>
+                                {captionTracks.map((track) => {
+                                    const isActive = currentCaptionTrack && currentCaptionTrack.languageCode === track.languageCode && currentCaptionTrack.kind === track.kind;
+                                    return (
+                                        <div 
+                                            key={`${track.languageCode}-${track.kind}`}
+                                            onClick={() => setCaptionTrack(track)}
+                                            className="glass-hover"
+                                            style={{
+                                                padding: '0.75rem', borderRadius: '12px',
+                                                background: isActive ? 'var(--primary)' : 'rgba(255, 255, 255, 0.02)',
+                                                border: isActive ? '1px solid var(--primary)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                                cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>
+                                                {track.name || track.languageName} {track.kind === 'asr' ? '(Auto-generated)' : ''}
+                                            </span>
+                                            {isActive && <Check size={16} />}
+                                        </div>
+                                    );
+                                })}
+                                {captionTracks.length === 0 && (
+                                    <p style={{ opacity: 0.5, fontSize: '0.8rem' }}>No captions available for this video.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Audio Tracks Section */}
+                        {audioTracks.length > 0 && (
+                            <div>
+                                <h4 style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Audio Language</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {audioTracks.map((track) => {
+                                        const isActive = currentAudioTrack && currentAudioTrack.languageCode === track.languageCode;
+                                        return (
+                                            <div 
+                                                key={track.languageCode}
+                                                onClick={() => setAudioTrack(track)}
+                                                className="glass-hover"
+                                                style={{
+                                                    padding: '0.75rem', borderRadius: '12px',
+                                                    background: isActive ? 'var(--primary)' : 'rgba(255, 255, 255, 0.02)',
+                                                    border: isActive ? '1px solid var(--primary)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                                    cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                                }}
+                                            >
+                                                <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>{track.name || track.languageName}</span>
+                                                {isActive && <Check size={16} />}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
+                ) : (
+                    <>
+                        {/* Copy description button */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+                            <button
+                                onClick={handleCopyDescription}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                    background: copyDone ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)',
+                                    border: copyDone ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(255,255,255,0.1)',
+                                    color: copyDone ? '#4ade80' : 'rgba(255,255,255,0.6)',
+                                    borderRadius: '8px', padding: '0.35rem 0.75rem',
+                                    fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                title="Copy description to clipboard"
+                            >
+                                {copyDone ? <Check size={13} /> : <Copy size={13} />}
+                                {copyDone ? 'Copied!' : 'Copy'}
+                            </button>
+                        </div>
+                        <div style={{ color: 'var(--text-main)', fontSize: '0.9rem', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            {video.description ? (
+                                video.description.split(/((?:https?:\/\/|www\.)[^\s]+)/g).map((part, i) => {
+                                    if (part.match(/^(https?:\/\/|www\.)/)) {
+                                        const url = part.startsWith('www.') ? 'https://' + part : part;
+                                        return <a key={i} href={url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{part}</a>;
+                                    }
+                                    return part;
+                                })
+                            ) : <p style={{ opacity: 0.5 }}>No description available.</p>}
+                        </div>
+                    </>
                 )}
             </div>
         </div>
