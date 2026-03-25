@@ -40,8 +40,11 @@ const FocusMode = () => {
     const [presenceCount, setPresenceCount] = useState(0);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [miniPlayer, setMiniPlayer] = useState(false);
+    const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
     const playerRef = useRef(null);
+    const containerRef = useRef(null);
     const mainSlotRef = useRef(null);
     const watchedTimeRef = useRef({});
     const lastTickTimeRef = useRef(0);
@@ -282,12 +285,12 @@ const FocusMode = () => {
 
     const handleToggleFullscreen = () => {
         if (!document.fullscreenElement) {
-            if (mainSlotRef.current?.requestFullscreen) {
-                mainSlotRef.current.requestFullscreen();
-            } else if (mainSlotRef.current?.webkitRequestFullscreen) {
-                mainSlotRef.current.webkitRequestFullscreen();
-            } else if (mainSlotRef.current?.msRequestFullscreen) {
-                mainSlotRef.current.msRequestFullscreen();
+            if (containerRef.current?.requestFullscreen) {
+                containerRef.current.requestFullscreen();
+            } else if (containerRef.current?.webkitRequestFullscreen) {
+                containerRef.current.webkitRequestFullscreen();
+            } else if (containerRef.current?.msRequestFullscreen) {
+                containerRef.current.msRequestFullscreen();
             }
         } else {
             if (document.exitFullscreen) {
@@ -319,6 +322,55 @@ const FocusMode = () => {
         if (playerRef.current) {
             playerRef.current.seekTo(seconds, true);
             setCurrentTime(seconds);
+        }
+    };
+
+    const toggleNativePiP = () => {
+        try {
+            if (playerRef.current) {
+                const iframe = playerRef.current.getIframe();
+                if (iframe && iframe.requestPictureInPicture) {
+                    iframe.requestPictureInPicture().catch(() => {});
+                }
+            }
+        } catch (e) {}
+    };
+
+    const cycleSpeedUp = () => {
+        if (!playerRef.current) return;
+        const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
+        const currIdx = speeds.indexOf(playbackRate);
+        const nextIdx = currIdx < speeds.length - 1 ? currIdx + 1 : currIdx;
+        const newSpeed = speeds[nextIdx];
+        setPlaybackRate(newSpeed);
+        playerRef.current.setPlaybackRate(newSpeed);
+    };
+
+    const cycleSpeedDown = () => {
+        if (!playerRef.current) return;
+        const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
+        const currIdx = speeds.indexOf(playbackRate);
+        const nextIdx = currIdx > 0 ? currIdx - 1 : 0;
+        const newSpeed = speeds[nextIdx];
+        setPlaybackRate(newSpeed);
+        playerRef.current.setPlaybackRate(newSpeed);
+    };
+
+    const adjustVolume = (delta) => {
+        setVolume(prev => {
+            const newVol = Math.max(0, Math.min(100, prev + delta));
+            if (playerRef.current) playerRef.current.setVolume(newVol);
+            return newVol;
+        });
+    };
+
+    const toggleMute = () => {
+        if (playerRef.current) {
+            if (playerRef.current.isMuted()) {
+                playerRef.current.unMute();
+            } else {
+                playerRef.current.mute();
+            }
         }
     };
 
@@ -493,6 +545,35 @@ const FocusMode = () => {
         };
     }, [isPlaying, isDragging, activeChapterIndex, videoId, schedule?._id]);
 
+    // Keyboard Shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            const key = e.key.toLowerCase();
+            if (key === 'f') { handleToggleFullscreen(); e.preventDefault(); }
+            if (key === 'z') { setZenMode(prev => !prev); e.preventDefault(); }
+            if (key === 'm') { toggleMute(); e.preventDefault(); }
+            if (key === 'c') { handleToggleComplete(); e.preventDefault(); }
+            if (key === 's') { setShowSidebar(prev => !prev); e.preventDefault(); }
+            if (key === 'p' && !e.shiftKey) { setMiniPlayer(prev => !prev); e.preventDefault(); }
+            if (key === '/' || key === '?') { setShowShortcutsHelp(prev => !prev); e.preventDefault(); }
+            if (key === 'escape') { setShowShortcutsHelp(false); setMiniPlayer(false); }
+            if (key === ' ' || key === 'k') { togglePlay(); e.preventDefault(); }
+            if (key === 'j') { handleSeek(Math.max(0, currentTime - 10)); e.preventDefault(); }
+            if (key === 'l') { handleSeek(Math.min(duration, currentTime + 10)); e.preventDefault(); }
+            if (key === 'arrowleft') { handleSeek(Math.max(0, currentTime - 5)); e.preventDefault(); }
+            if (key === 'arrowright') { handleSeek(Math.min(duration, currentTime + 5)); e.preventDefault(); }
+            if (key === 'arrowup') { adjustVolume(10); e.preventDefault(); }
+            if (key === 'arrowdown') { adjustVolume(-10); e.preventDefault(); }
+            if (e.key === '>') { cycleSpeedUp(); e.preventDefault(); }
+            if (e.key === '<') { cycleSpeedDown(); e.preventDefault(); }
+            if (e.shiftKey && (key === 'n')) { handleNextVideo(); e.preventDefault(); }
+            if (e.shiftKey && (key === 'p')) { handlePrevVideo(); e.preventDefault(); }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [currentTime, duration, miniPlayer, showShortcutsHelp]);
+
     // Derived State for UI
     const showControls = !isPlaying || showSidebar || (!zenMode) || isHovering;
 
@@ -534,6 +615,7 @@ const FocusMode = () => {
 
     return (
         <div
+            ref={containerRef}
             style={{
                 height: '100vh',
                 width: '100vw',
@@ -557,6 +639,10 @@ const FocusMode = () => {
                 videoLoading={videoLoading}
                 initialLoading={initialLoading}
                 togglePlay={togglePlay}
+                miniPlayer={miniPlayer}
+                onExpandMiniPlayer={() => setMiniPlayer(false)}
+                onCloseMiniPlayer={() => setMiniPlayer(false)}
+                toggleNativePiP={toggleNativePiP}
             />
 
 
@@ -605,6 +691,8 @@ const FocusMode = () => {
                 isFullscreen={isFullscreen}
                 handleToggleFullscreen={handleToggleFullscreen}
                 isLoading={videoLoading || !playerRef.current}
+                miniPlayer={miniPlayer}
+                setMiniPlayer={setMiniPlayer}
             />
 
             {/* 4. Sidebar Panel */}

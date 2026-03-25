@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
     ChevronLeft, ChevronRight, Play, CheckCircle,
     Eye, EyeOff, Map, AlignLeft, List as ListIcon,
-    Maximize, ExternalLink
+    Maximize, ExternalLink, Monitor
 } from 'lucide-react';
 
 const FocusControls = ({
@@ -38,8 +38,22 @@ const FocusControls = ({
     formatTime,
     isFullscreen,
     handleToggleFullscreen,
-    isLoading
+    isLoading,
+    miniPlayer,
+    setMiniPlayer
 }) => {
+    const [hoverTime, setHoverTime] = useState(null);
+    const [hoverPos, setHoverPos] = useState(0);
+    const timelineRef = useRef(null);
+
+    const handleTimelineMouseMove = (e) => {
+        if (!timelineRef.current || duration <= 0) return;
+        const rect = timelineRef.current.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        setHoverTime(pct * duration);
+        setHoverPos(pct * 100);
+    };
+
     return (
         <div
             style={{
@@ -89,7 +103,33 @@ const FocusControls = ({
                     {formatTime(currentTime)}
                 </span>
 
-                <div style={{ flex: 1, position: 'relative', height: '20px', display: 'flex', alignItems: 'center' }}>
+                <div
+                    ref={timelineRef}
+                    onMouseMove={handleTimelineMouseMove}
+                    onMouseLeave={() => setHoverTime(null)}
+                    style={{ flex: 1, position: 'relative', height: '20px', display: 'flex', alignItems: 'center' }}
+                >
+                    {/* Time Tooltip */}
+                    {hoverTime !== null && (
+                        <div style={{
+                            position: 'absolute', bottom: '100%',
+                            left: `${hoverPos}%`, transform: 'translateX(-50%)',
+                            marginBottom: '8px', background: 'rgb(255,255,255)',
+                            color: 'black', padding: '3px 7px', borderRadius: '5px',
+                            fontSize: '0.72rem', fontWeight: '700', fontFamily: 'monospace',
+                            whiteSpace: 'nowrap', pointerEvents: 'none',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)', zIndex: 100
+                        }}>
+                            {formatTime(hoverTime)}
+                            <div style={{
+                                position: 'absolute', top: '100%', left: '50%',
+                                transform: 'translateX(-50%)',
+                                borderLeft: '5px solid transparent',
+                                borderRight: '5px solid transparent',
+                                borderTop: '5px solid rgb(255,255,255)'
+                            }} />
+                        </div>
+                    )}
                     {/* Chapter Markers */}
                     {duration > 0 && video?.chapters?.map((chapter, i) => (
                         <div
@@ -190,6 +230,14 @@ const FocusControls = ({
 
                 {/* Right Group: Actions & Toggles */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'flex-end' }}>
+                    <button
+                        onClick={() => setMiniPlayer(!miniPlayer)}
+                        className={`icon-btn-deck ${miniPlayer ? 'active' : ''}`}
+                        title="Mini Player (P)"
+                    >
+                        <Monitor size={18} />
+                    </button>
+
                     <button
                         onClick={() => {
                             const newZen = !zenMode;

@@ -3,39 +3,10 @@ const CustomPlaylistVideo = require('../models/CustomPlaylistVideo');
 const Video = require('../models/Video'); // For importing/duplicating videos if needed
 const axios = require('axios');
 
-const { parseDuration, parseChapters } = require('../utils/videoUtils');
+const { fetchSingleVideoData, fetchPlaylistData } = require('../utils/youtubeUtils');
 
-// Fetch single video details from YouTube API
-
-// Fetch single video details from YouTube API
-const fetchVideoDetails = async (videoId) => {
-    const apiKey = process.env.YOUTUBE_API_KEY;
-    if (!apiKey) throw new Error('YouTube API Key is missing');
-
-    const res = await axios.get(`https://www.googleapis.com/youtube/v3/videos`, {
-        params: {
-            part: 'snippet,contentDetails',
-            id: videoId,
-            key: apiKey
-        }
-    });
-
-    if (!res.data.items.length) throw new Error('Video not found');
-
-    const item = res.data.items[0];
-    const durationSeconds = parseDuration(item.contentDetails.duration);
-    const description = item.snippet.description || '';
-    const chapters = parseChapters(description);
-
-    return {
-        youtubeVideoId: item.id,
-        title: item.snippet.title,
-        thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '',
-        duration: durationSeconds,
-        description,
-        chapters
-    };
-};
+// Update to use the correct helper name internally if needed, or just use the imported one
+const fetchVideoDetails = fetchSingleVideoData;
 
 exports.createPlaylist = async (req, res) => {
     try {
@@ -294,5 +265,83 @@ exports.syncCustomVideo = async (req, res) => {
     } catch (err) {
         console.error('Sync Error:', err.message);
         res.status(500).json({ msg: 'Sync Failed: ' + err.message });
+    }
+};
+
+exports.importYoutubePlaylistToCustom = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { playlistUrl } = req.body;
+
+        const playlist = await CustomPlaylist.findOne({ _id: id, creatorId: req.user.id });
+        if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
+
+        const url = new URL(playlistUrl);
+        const youtubePlaylistId = url.searchParams.get('list');
+        if (!youtubePlaylistId) return res.status(400).json({ msg: 'Invalid YouTube Playlist URL' });
+
+        const data = await fetchPlaylistData(youtubePlaylistId);
+
+        // Find current last order
+        const lastVideo = await CustomPlaylistVideo.findOne({ playlistId: playlist._id }).sort('-orderIndex');
+        let currentOrder = lastVideo ? lastVideo.orderIndex + 1 : 0;
+
+        const newVideos = data.videos.map((v, index) => ({
+            playlistId: playlist._id,
+            youtubeVideoId: v.videoId,
+            title: v.title,
+            thumbnail: v.thumbnail,
+            duration: v.durationSecs || 0,
+            orderIndex: currentOrder + index,
+            description: v.description,
+            chapters: v.chapters
+        }));
+
+        await CustomPlaylistVideo.insertMany(newVideos);
+        res.json({ msg: `Successfully imported ${newVideos.length} videos`, count: newVideos.length });
+
+    } catch (err) {
+        console.error('YT Playlist Import Error:', err.message);
+        res.status(500).json({ msg: 'Import Failed: ' + err.message });
+    }
+};
+
+exports.addPlanTubePlaylistToCustom = async (req, res) => {
+    try {
+        const { id } = req.params; // Custom Playlist ID
+        const { sourcePlaylistId } = req.body; // Internal Playlist ID
+
+        const targetPlaylist = await CustomPlaylist.findOne({ _id: id, creatorId: req.user.id });
+        if (!targetPlaylist) return res.status(404).json({ msg: 'Target custom playlist not found' });
+
+        // Find videos from the source playlist
+        // Note: These are 'Video' documents which might refer to 'SharedVideo'
+        const sourceVideos = await Video.find({ playlistId: sourcePlaylistId }).populate('sharedVideoId').sort('position');
+        if (!sourceVideos.length) return res.status(404).json({ msg: 'Source playlist is empty or not found' });
+
+        // Find current last order
+        const lastVideo = await CustomPlaylistVideo.findOne({ playlistId: targetPlaylist._id }).sort('-orderIndex');
+        let currentOrder = lastVideo ? lastVideo.orderIndex + 1 : 0;
+
+        const newVideos = sourceVideos.map((v, index) => {
+            const vidData = v.sharedVideoId || v;
+            return {
+                playlistId: targetPlaylist._id,
+                youtubeVideoId: vidData.youtubeId || vidData.videoId,
+                title: vidData.title,
+                thumbnail: vidData.thumbnail,
+                duration: vidData.durationSecs || 0, // Need to be careful with string vs number durations
+                orderIndex: currentOrder + index,
+                description: vidData.description,
+                chapters: vidData.chapters
+            };
+        });
+
+        await CustomPlaylistVideo.insertMany(newVideos);
+        res.json({ msg: `Successfully added ${newVideos.length} videos from library`, count: newVideos.length });
+
+    } catch (err) {
+        console.error('Library Import Error:', err.message);
+        res.status(500).json({ msg: 'Import Failed: ' + err.message });
     }
 };

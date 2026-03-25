@@ -60,7 +60,7 @@ exports.togglePin = async (req, res) => {
         if (!video) return res.status(404).json({ msg: 'Video not found' });
 
         const isPinned = !video.isPinned;
-        
+
         // Use findOneAndUpdate to avoid triggering validation for all fields
         const updatedVideo = await Video.findOneAndUpdate(
             { _id: req.params.id },

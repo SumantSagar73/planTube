@@ -10,7 +10,9 @@ const {
     reorderVideos,
     removeVideo,
     getPublicPlaylist,
-    syncCustomVideo
+    syncCustomVideo,
+    importYoutubePlaylistToCustom,
+    addPlanTubePlaylistToCustom
 } = require('../controllers/customPlaylistController');
 
 // Helper to decide which controller to use based on playlist ID format
@@ -48,6 +50,8 @@ router.post('/:id/videos', auth, addVideoToPlaylist);
 router.put('/:id/videos/reorder', auth, reorderVideos);
 router.delete('/:playlistId/videos/:videoId', auth, removeVideo);
 router.put('/:id/videos/:videoId/sync', auth, syncCustomVideo);
+router.post('/:id/import-youtube', auth, importYoutubePlaylistToCustom);
+router.post('/:id/import-library', auth, addPlanTubePlaylistToCustom);
 
 // Visibility
 router.put('/:id/visibility', auth, updateVisibility);

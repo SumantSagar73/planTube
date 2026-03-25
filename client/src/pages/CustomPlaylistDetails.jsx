@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
     ArrowLeft, Plus, Trash2, GripVertical, Check, Copy,
-    Globe, Lock, Share2, ExternalLink, RefreshCw
+    Globe, Lock, Share2, ExternalLink, RefreshCw,
+    Search, Inbox, Layout, Layers
 } from 'lucide-react';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import AlertModal from '../components/Shared/AlertModal';
@@ -18,6 +19,13 @@ const CustomPlaylistDetails = () => {
     const [loading, setLoading] = useState(true);
     const [addUrl, setAddUrl] = useState('');
     const [adding, setAdding] = useState(false);
+    
+    // Import States
+    const [importUrl, setImportUrl] = useState('');
+    const [importing, setImporting] = useState(false);
+    const [showLibraryModal, setShowLibraryModal] = useState(false);
+    const [libraryPlaylists, setLibraryPlaylists] = useState([]);
+    const [loadingLibrary, setLoadingLibrary] = useState(false);
 
     // Modal States
     const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', success: false });
@@ -96,6 +104,50 @@ const CustomPlaylistDetails = () => {
             showAlert('Add Failed', err.response?.data?.msg || err.message);
         } finally {
             setAdding(false);
+        }
+    };
+
+    const handleImportYoutubePlaylist = async (e) => {
+        e.preventDefault();
+        if (!importUrl) return;
+        setImporting(true);
+        try {
+            const res = await api.post(`/playlists/${id}/import-youtube`, { playlistUrl: importUrl });
+            showAlert('Import Successful', res.data.msg, true);
+            setImportUrl('');
+            fetchData(); // Refresh list
+        } catch (err) {
+            console.error(err);
+            showAlert('Import Failed', err.response?.data?.msg || err.message);
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    const fetchLibraryPlaylists = async () => {
+        setLoadingLibrary(true);
+        try {
+            const res = await api.get('/playlists/my');
+            setLibraryPlaylists(res.data || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoadingLibrary(false);
+        }
+    };
+
+    const handleImportFromLibrary = async (sourcePlaylistId) => {
+        setImporting(true);
+        setShowLibraryModal(false);
+        try {
+            const res = await api.post(`/playlists/${id}/import-library`, { sourcePlaylistId });
+            showAlert('Added from Library', res.data.msg, true);
+            fetchData();
+        } catch (err) {
+            console.error(err);
+            showAlert('Import Failed', err.response?.data?.msg || err.message);
+        } finally {
+            setImporting(false);
         }
     };
 
@@ -230,13 +282,52 @@ const CustomPlaylistDetails = () => {
                 </div>
             </div>
 
-            {/* Add Video */}
+            {/* Course Builder Tools */}
+            <div className="glass" style={{ padding: '1.5rem', borderRadius: '16px', marginBottom: '2rem' }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.2rem', fontWeight: '700' }}>
+                    <Layout size={18} /> Course Builder Tools
+                </h3>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                    {/* Import from YT */}
+                    <div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Import Full YouTube Playlist</p>
+                        <form onSubmit={handleImportYoutubePlaylist} style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                                type="text"
+                                value={importUrl}
+                                onChange={e => setImportUrl(e.target.value)}
+                                placeholder="Paste YouTube Playlist URL..."
+                                className="input-glass"
+                                style={{ flex: 1, fontSize: '0.85rem' }}
+                            />
+                            <button type="submit" disabled={importing} className="btn-secondary" style={{ padding: '0.75rem' }}>
+                                {importing ? <RefreshCw className="spin" size={16} /> : <Plus size={16} />}
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* Import from Library */}
+                    <div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Add from My Library</p>
+                        <button 
+                            onClick={() => { fetchLibraryPlaylists(); setShowLibraryModal(true); }}
+                            className="btn-secondary"
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', height: '42px' }}
+                        >
+                            <Inbox size={18} /> Select Playlist from Library
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Add Single Video */}
             <form onSubmit={handleAddVideo} style={{ marginBottom: '2rem', display: 'flex', gap: '1rem' }}>
                 <input
                     type="text"
                     value={addUrl}
                     onChange={e => setAddUrl(e.target.value)}
-                    placeholder="Paste YouTube Video URL here..."
+                    placeholder="Add single video URL..."
                     className="input-glass"
                     style={{ flex: 1, padding: '1rem 1.5rem', fontSize: '1rem' }}
                 />
@@ -327,8 +418,90 @@ const CustomPlaylistDetails = () => {
                 confirmText={confirmState.confirmText}
                 danger={confirmState.danger}
             />
+
+            {/* Library Selector Modal */}
+            {showLibraryModal && (
+                <div 
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                        background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', zIndex: 1000, padding: '1rem'
+                    }}
+                    onClick={() => setShowLibraryModal(false)}
+                >
+                    <div 
+                        className="glass"
+                        style={{ maxWidth: '600px', width: '100%', padding: '2rem', borderRadius: '24px', position: 'relative' }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <Inbox size={24} color="var(--primary)" /> Import from Library
+                        </h2>
+                        
+                        <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {loadingLibrary ? (
+                                <div style={{ textAlign: 'center', padding: '2rem' }}>Loading playlists...</div>
+                            ) : libraryPlaylists.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '2rem' }}>No playlists found.</div>
+                            ) : (
+                                libraryPlaylists.map(lib => (
+                                    <button
+                                        key={lib._id}
+                                        onClick={() => handleImportFromLibrary(lib.originalId || lib._id)}
+                                        className="glass glass-hover"
+                                        style={{ 
+                                            display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem',
+                                            width: '100%', border: 'none', textAlign: 'left', cursor: 'pointer',
+                                            borderRadius: '12px'
+                                        }}
+                                    >
+                                        <img src={lib.thumbnail} alt="" style={{ width: '60px', borderRadius: '8px' }} />
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ fontWeight: '600', color: 'white' }}>{lib.title || lib.playlistTitle}</p>
+                                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{lib.videoCount || 0} videos</p>
+                                        </div>
+                                        <Plus size={18} />
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                        
+                        <button 
+                            onClick={() => setShowLibraryModal(false)}
+                            className="btn-secondary"
+                            style={{ marginTop: '1.5rem', width: '100%' }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
 export default CustomPlaylistDetails;
+
+const style = `
+    .glass-hover {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    .glass-hover:hover {
+        background: rgba(255, 255, 255, 0.1) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    }
+    .spin {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+
+if (typeof document !== 'undefined') {
+    const styleSheet = document.createElement("style");
+    styleSheet.innerText = style;
+    document.head.appendChild(styleSheet);
+}
