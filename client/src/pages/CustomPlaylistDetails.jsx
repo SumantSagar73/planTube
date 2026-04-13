@@ -249,7 +249,7 @@ const CustomPlaylistDetails = () => {
                                 onClick={handleVisibilityToggle}
                                 style={{
                                     background: playlist.visibility === 'link' ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
-                                    color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '8px',
+                                    color: 'var(--text-main)', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '8px',
                                     fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s'
                                 }}
                             >
@@ -458,7 +458,7 @@ const CustomPlaylistDetails = () => {
                                     >
                                         <img src={lib.thumbnail} alt="" style={{ width: '60px', borderRadius: '8px' }} />
                                         <div style={{ flex: 1 }}>
-                                            <p style={{ fontWeight: '600', color: 'white' }}>{lib.title || lib.playlistTitle}</p>
+                                            <p style={{ fontWeight: '600', color: 'var(--text-main)' }}>{lib.title || lib.playlistTitle}</p>
                                             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{lib.videoCount || 0} videos</p>
                                         </div>
                                         <Plus size={18} />

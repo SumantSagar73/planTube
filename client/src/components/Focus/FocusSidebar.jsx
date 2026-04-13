@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     CheckCircle, Map, AlignLeft, List as ListIcon,
-    ChevronDown, Play, Users, Copy, Check, Settings
+    ChevronRight, Play, Users, Copy, Check, Settings,
+    FileText, Type, Bold, Italic, ListOrdered, List, Code, Image, Trash2
 } from 'lucide-react';
 
 const FocusSidebar = ({
@@ -28,9 +29,55 @@ const FocusSidebar = ({
     audioTracks = [],
     currentAudioTrack,
     setCaptionTrack,
-    setAudioTrack
+    setAudioTrack,
+    currentTime,
+    formatTime,
+    notes = [],
+    onSaveNote,
+    onDeleteNote,
+    isAddingNote,
+    setIsAddingNote,
+    noteText,
+    setNoteText
 }) => {
     const [copyDone, setCopyDone] = useState(false);
+    const textareaRef = useRef(null);
+
+    const handleFormat = (type) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        let selected = text.substring(start, end);
+        let replacement = '';
+
+        switch (type) {
+            case 'bold': replacement = `**${selected}**`; break;
+            case 'italic': replacement = `*${selected}*`; break;
+            case 'list': replacement = `\n- ${selected}`; break;
+            case 'code': replacement = `\`${selected}\``; break;
+            default: return;
+        }
+
+        const newText = text.substring(0, start) + replacement + text.substring(end);
+        setNoteText(newText);
+        textarea.focus();
+    };
+
+    const renderFormattedText = (text) => {
+        return text.split('\n').map((line, i) => (
+            <p key={i} style={{ margin: '0.25rem 0' }}>
+                {line.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g).map((part, j) => {
+                    if (part.startsWith('**') && part.endsWith('**')) return <strong key={j}>{part.slice(2, -2)}</strong>;
+                    if (part.startsWith('*') && part.endsWith('*')) return <em key={j}>{part.slice(1, -1)}</em>;
+                    if (part.startsWith('`') && part.endsWith('`')) return <code key={j} style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: '4px' }}>{part.slice(1, -1)}</code>;
+                    return part;
+                })}
+            </p>
+        ));
+    };
 
     const handleCopyDescription = () => {
         if (!video?.description) return;
@@ -45,59 +92,58 @@ const FocusSidebar = ({
     return (
         <div
             style={{
-                position: 'absolute',
-                bottom: '0',
-                right: '0',
-                width: isMobile ? '100%' : '400px',
-                height: isMobile ? (showSidebar ? '75vh' : '0') : 'calc(100vh - 100px)',
-                maxHeight: isMobile ? '75vh' : '700px',
+                position: 'relative',
+                width: isMobile ? (showSidebar ? '100vw' : '0') : (showSidebar ? '400px' : '0'),
+                height: isMobile ? (showSidebar ? '75vh' : '0') : '100vh',
                 background: 'rgba(10, 10, 12, 0.98)',
                 backdropFilter: 'blur(40px)',
-                borderTopLeftRadius: '32px',
-                borderTopRightRadius: isMobile ? '32px' : '0',
-                borderLeft: isMobile ? 'none' : '1px solid var(--glass-border)',
-                borderTop: '1px solid var(--glass-border)',
-                transform: `translateY(${showSidebar ? '0' : '100%'})`,
+                borderLeft: !showSidebar ? 'none' : (isMobile ? 'none' : '1px solid var(--glass-border)'),
                 opacity: showSidebar ? 1 : 0,
                 transition: 'all 0.6s cubic-bezier(0.23, 1, 0.32, 1)',
                 zIndex: 50,
                 display: 'flex',
                 flexDirection: 'column',
-                boxShadow: '-10px -10px 40px rgba(0,0,0,0.5)',
-                pointerEvents: showSidebar ? 'auto' : 'none',
-                overflow: 'hidden'
+                boxShadow: showSidebar ? '-10px 0 40px rgba(0,0,0,0.5)' : 'none',
+                overflow: 'hidden',
+                flexShrink: 0
             }}
         >
-            {/* Sidebar Header */}
-            <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--primary)' }}>
-                        {sidebarTab === 'chapters' ? 'Video Map' : (sidebarTab === 'playlist' ? 'Playlist' : (sidebarTab === 'settings' ? 'Settings' : 'About'))}
-                    </h3>
-                    {compactMode && (
-                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-                            <button onClick={() => setSidebarTab('chapters')} style={{ color: sidebarTab === 'chapters' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Chapters</button>
-                            <button onClick={() => setSidebarTab('description')} style={{ color: sidebarTab === 'description' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Info</button>
-                            {playlist && playlist.playlistId !== 'SINGLES' && !playlist.playlistId?.startsWith('VIDEO_') && (
-                                <button onClick={() => setSidebarTab('playlist')} style={{ color: sidebarTab === 'playlist' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Playlist</button>
-                            )}
-                            <button onClick={() => setSidebarTab('settings')} style={{ color: sidebarTab === 'settings' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Settings</button>
-                        </div>
-                    )}
+            <div style={{ width: isMobile ? '100vw' : '400px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--primary)' }}>
+                            {sidebarTab === 'chapters' ? 'Video Map' : (sidebarTab === 'playlist' ? 'Playlist' : (sidebarTab === 'settings' ? 'Settings' : (sidebarTab === 'notes' ? 'My Notes' : 'About')))}
+                        </h3>
+                        {compactMode && (
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                                 {playlist && playlist.playlistId !== 'SINGLES' && !playlist.playlistId?.startsWith('VIDEO_') && (
+                                    <button onClick={() => setSidebarTab('playlist')} style={{ color: sidebarTab === 'playlist' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Playlist</button>
+                                )}
+                                <button onClick={() => setSidebarTab('notes')} style={{ color: sidebarTab === 'notes' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Notes</button>
+                                <button onClick={() => setSidebarTab('settings')} style={{ color: sidebarTab === 'settings' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Settings</button>
+                            </div>
+                        )}
+                    </div>
+                    <button
+                        onClick={() => setShowSidebar(false)}
+                        className="icon-btn-deck"
+                        style={{ width: '32px', height: '32px', background: 'rgba(255,255,255,0.05)' }}
+                    >
+                        <ChevronRight size={18} />
+                    </button>
                 </div>
-                <button
-                    onClick={() => setShowSidebar(false)}
-                    className="icon-btn-deck"
-                    style={{ width: '32px', height: '32px', background: 'rgba(255,255,255,0.05)' }}
-                >
-                    <ChevronDown size={18} />
-                </button>
-            </div>
 
-            {/* Sidebar Content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
                 {sidebarTab === 'chapters' && video.chapters && video.chapters.length > 0 && !compactMode && (
-                    <div style={{ marginBottom: '1.5rem' }}>
+                    <div style={{
+                        position: 'sticky',
+                        top: '-1.25rem',
+                        background: 'rgba(10, 10, 12, 1)',
+                        padding: '1.25rem 0',
+                        zIndex: 10,
+                        marginBottom: '0.5rem',
+                        borderBottom: '1px solid rgba(255,255,255,0.05)'
+                    }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                             <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)' }}>Course Progress</span>
                             <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--primary)' }}>
@@ -204,7 +250,15 @@ const FocusSidebar = ({
                     </>
                 ) : sidebarTab === 'playlist' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div style={{ padding: '0 0.5rem' }}>
+                        <div style={{
+                            position: 'sticky',
+                            top: '-1.25rem',
+                            background: 'rgba(10, 10, 12, 1)',
+                            padding: '1.25rem 0.5rem',
+                            zIndex: 10,
+                            marginBottom: '1rem',
+                            borderBottom: '1px solid rgba(255,255,255,0.05)'
+                        }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                                 <span>Playlist Progress</span>
                                 <span>{Math.round((playlistSchedules.filter(s => s.status === 'completed').length / (allVideos.length || 1)) * 100)}%</span>
@@ -229,7 +283,7 @@ const FocusSidebar = ({
                                 return (
                                     <div
                                         key={v._id}
-                                        onClick={() => navigate(`/focus/${v._id}`)}
+                                        onClick={() => navigate(`/focus/${v._id}${playlist?._id ? `?playlistId=${playlist._id}` : ''}`)}
                                         className="glass-hover"
                                         style={{
                                             padding: '0.75rem', borderRadius: '12px',
@@ -259,11 +313,10 @@ const FocusSidebar = ({
                     </div>
                 ) : sidebarTab === 'settings' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        {/* Captions Section */}
                         <div>
                             <h4 style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Captions & Subtitles</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                <div 
+                                <div
                                     onClick={() => setCaptionTrack(null)}
                                     className="glass-hover"
                                     style={{
@@ -279,7 +332,7 @@ const FocusSidebar = ({
                                 {captionTracks.map((track) => {
                                     const isActive = currentCaptionTrack && currentCaptionTrack.languageCode === track.languageCode && currentCaptionTrack.kind === track.kind;
                                     return (
-                                        <div 
+                                        <div
                                             key={`${track.languageCode}-${track.kind}`}
                                             onClick={() => setCaptionTrack(track)}
                                             className="glass-hover"
@@ -303,7 +356,6 @@ const FocusSidebar = ({
                             </div>
                         </div>
 
-                        {/* Audio Tracks Section */}
                         {audioTracks.length > 0 && (
                             <div>
                                 <h4 style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Audio Language</h4>
@@ -311,7 +363,7 @@ const FocusSidebar = ({
                                     {audioTracks.map((track) => {
                                         const isActive = currentAudioTrack && currentAudioTrack.languageCode === track.languageCode;
                                         return (
-                                            <div 
+                                            <div
                                                 key={track.languageCode}
                                                 onClick={() => setAudioTrack(track)}
                                                 className="glass-hover"
@@ -331,9 +383,127 @@ const FocusSidebar = ({
                             </div>
                         )}
                     </div>
+                ) : sidebarTab === 'notes' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        {!isAddingNote ? (
+                            <button
+                                onClick={() => setIsAddingNote(true)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                                    background: 'rgba(99, 102, 241, 0.1)', border: '1px dashed var(--primary)',
+                                    color: 'var(--primary)', padding: '1rem', borderRadius: '12px',
+                                    cursor: 'pointer', fontWeight: '700', fontSize: '0.9rem'
+                                }}
+                            >
+                                <span style={{ fontSize: '1.2rem' }}>+</span> Create new note at {formatTime(currentTime)}
+                            </button>
+                        ) : (
+                            <div style={{
+                                background: 'rgba(255,255,255,0.02)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '16px',
+                                overflow: 'hidden'
+                            }}>
+                                <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                        <div style={{ background: 'var(--primary)', color: 'white', padding: '2px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '900' }}>
+                                            {formatTime(currentTime)}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button onClick={() => handleFormat('bold')} className="toolbar-btn" title="Bold"><Bold size={14} /></button>
+                                            <button onClick={() => handleFormat('italic')} className="toolbar-btn" title="Italic"><Italic size={14} /></button>
+                                            <button onClick={() => handleFormat('list')} className="toolbar-btn" title="Bullet List"><List size={14} /></button>
+                                            <button onClick={() => handleFormat('code')} className="toolbar-btn" title="Code"><Code size={14} /></button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <textarea
+                                    ref={textareaRef}
+                                    value={noteText}
+                                    onChange={(e) => setNoteText(e.target.value)}
+                                    autoFocus
+                                    placeholder="Keep track of what you learn..."
+                                    style={{
+                                        width: '100%', minHeight: '120px', background: 'transparent',
+                                        border: 'none', color: 'white', padding: '1rem',
+                                        fontSize: '0.9rem', outline: 'none', resize: 'vertical'
+                                    }}
+                                />
+                                <div style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', background: 'rgba(0,0,0,0.2)' }}>
+                                    <button
+                                        onClick={() => { setIsAddingNote(false); setNoteText(''); }}
+                                        style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (noteText.trim()) {
+                                                onSaveNote(noteText);
+                                                setNoteText('');
+                                                setIsAddingNote(false);
+                                            }
+                                        }}
+                                        disabled={!noteText.trim()}
+                                        style={{
+                                            background: noteText.trim() ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                            color: 'white', border: 'none', padding: '0.4rem 1rem',
+                                            borderRadius: '8px', cursor: noteText.trim() ? 'pointer' : 'default',
+                                            fontSize: '0.85rem', fontWeight: '700'
+                                        }}
+                                    >
+                                        Save note
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {notes.length > 0 ? (
+                                notes.map((note) => (
+                                    <div
+                                        key={note.id}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.03)',
+                                            border: '1px solid rgba(255,255,255,0.05)',
+                                            borderRadius: '12px',
+                                            padding: '1rem'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                            <button
+                                                onClick={() => handleSeek(note.time)}
+                                                style={{
+                                                    background: 'var(--primary)', color: 'white', border: 'none',
+                                                    padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem',
+                                                    fontWeight: '800', cursor: 'pointer'
+                                                }}
+                                            >
+                                                {formatTime(note.time)}
+                                            </button>
+                                            <button
+                                                onClick={() => onDeleteNote(note.id)}
+                                                style={{ background: 'none', border: 'none', color: 'rgba(239,68,68,0.5)', cursor: 'pointer' }}
+                                                title="Delete note"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                        <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)', lineHeight: '1.6', wordBreak: 'break-word' }}>
+                                            {renderFormattedText(note.text)}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '3rem 1rem', opacity: 0.3 }}>
+                                    <FileText size={48} style={{ marginBottom: '1rem' }} />
+                                    <p style={{ fontSize: '0.9rem' }}>No notes yet. Capture your thoughts!</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 ) : (
-                    <>
-                        {/* Copy description button */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
                             <button
                                 onClick={handleCopyDescription}
@@ -363,11 +533,30 @@ const FocusSidebar = ({
                                 })
                             ) : <p style={{ opacity: 0.5 }}>No description available.</p>}
                         </div>
-                    </>
+                    </div>
                 )}
             </div>
+            <style>{`
+                .toolbar-btn {
+                    background: none;
+                    border: none;
+                    color: rgba(255,255,255,0.5);
+                    cursor: pointer;
+                    padding: 4px;
+                    border-radius: 4px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s;
+                }
+                .toolbar-btn:hover {
+                    background: rgba(255,255,255,0.1);
+                    color: white;
+                }
+            `}</style>
         </div>
-    );
+    </div>
+);
 };
 
 export default FocusSidebar;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { CheckCircle, RefreshCw, XCircle, AlignLeft, Zap } from 'lucide-react';
 import { cache } from '../utils/cache';
@@ -7,11 +7,25 @@ import FocusSidebar from '../components/Focus/FocusSidebar';
 import FocusControls from '../components/Focus/FocusControls';
 import FocusTopBar from '../components/Focus/FocusTopBar';
 import FocusPlayerSlot from '../components/Focus/FocusPlayerSlot';
+import KeyboardShortcutsHelp from '../components/Focus/KeyboardShortcutsHelp';
 import socket from '../services/socket';
 import { useAuth } from '../context/AuthContext';
 
 const FocusMode = () => {
     const { videoId } = useParams();
+    const [searchParams] = useSearchParams();
+    const urlPlaylistId = searchParams.get('playlistId');
+    // Sticky context: save/load playlist context from session storage
+    const sessionPlaylistId = sessionStorage.getItem('active_playlist_id');
+    const effectivePlaylistId = urlPlaylistId || sessionPlaylistId;
+    
+    // Save to session if found in URL
+    useEffect(() => {
+        if (urlPlaylistId) {
+            sessionStorage.setItem('active_playlist_id', urlPlaylistId);
+        }
+    }, [urlPlaylistId]);
+
     const navigate = useNavigate();
     const [video, setVideo] = useState(null);
     const [playlist, setPlaylist] = useState(null);
@@ -35,13 +49,18 @@ const FocusMode = () => {
     const timeIntervalRef = useRef(null);
 
     const [showSidebar, setShowSidebar] = useState(false);
-    const [sidebarTab, setSidebarTab] = useState('chapters');
-    const [zenMode, setZenMode] = useState(false);
+    const [sidebarTab, setSidebarTab] = useState('playlist');
     const [presenceCount, setPresenceCount] = useState(0);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [miniPlayer, setMiniPlayer] = useState(false);
     const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+    const [isAddingNote, setIsAddingNote] = useState(false);
+    const [noteText, setNoteText] = useState('');
+    const [notes, setNotes] = useState(() => {
+        const saved = localStorage.getItem(`notes_${videoId}`);
+        return saved ? JSON.parse(saved) : [];
+    });
 
     const playerRef = useRef(null);
     const containerRef = useRef(null);
@@ -71,7 +90,9 @@ const FocusMode = () => {
         else setVideoLoading(true);
 
         try {
-            const cachedVideo = cache.get(`video_${videoId}`);
+            const currentContextId = urlPlaylistId || sessionPlaylistId;
+            const cacheKey = `video_${videoId}${currentContextId ? `_pl_${currentContextId}` : ''}`;
+            const cachedVideo = cache.get(cacheKey);
             if (cachedVideo) {
                 setVideo(cachedVideo.video);
                 setPlaylist(cachedVideo.playlist);
@@ -86,18 +107,25 @@ const FocusMode = () => {
             let playlistData = null;
             let videosData = [];
 
-            try {
-                const playlistRes = await api.get(`/playlists/${videoRes.data.playlistId}`);
-                if (playlistRes.data.videos) {
-                    playlistData = playlistRes.data.playlist;
-                    videosData = playlistRes.data.videos;
-                } else {
-                    playlistData = playlistRes.data;
-                    const videosRes = await api.get(`/playlists/${videoRes.data.playlistId}/videos`);
-                    videosData = videosRes.data;
+            // Stage fallback for playlist identification
+            const pId = urlPlaylistId || sessionPlaylistId || videoRes.data.playlistId || videoRes.data.sharedVideo?.playlistId;
+
+            if (pId) {
+                try {
+                    const playlistRes = await api.get(`/playlists/${pId}`);
+                    if (playlistRes.data.videos) {
+                        playlistData = playlistRes.data.playlist;
+                        videosData = playlistRes.data.videos;
+                    } else {
+                        playlistData = playlistRes.data;
+                        const videosRes = await api.get(`/playlists/${pId}/videos`);
+                        videosData = videosRes.data;
+                    }
+                } catch (pErr) {
+                    console.warn("Failed to fetch playlist details", pErr);
+                    videosData = [videoRes.data];
                 }
-            } catch (pErr) {
-                console.warn("Failed to fetch playlist details", pErr);
+            } else {
                 videosData = [videoRes.data];
             }
 
@@ -111,7 +139,9 @@ const FocusMode = () => {
             console.log("YouTube ID:", payload.video.youtubeVideoId || payload.video.videoId);
             setPlaylist(payload.playlist);
             setAllVideos(payload.allVideos);
-            cache.set(`video_${videoId}`, payload);
+            
+            const cacheKeyToSave = `video_${videoId}${pId ? `_pl_${pId}` : ''}`;
+            cache.set(cacheKeyToSave, payload);
             await fetchSchedule(payload.video);
 
             setInitialLoading(false);
@@ -224,17 +254,40 @@ const FocusMode = () => {
         if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
         hoverTimeoutRef.current = setTimeout(() => {
             if (isPlaying) setIsHovering(false);
-        }, zenMode ? 1000 : 2500);
+        }, 2000);
     };
 
     const handlePlayerStateChange = (event) => {
         setIsPlaying(event.data === 1);
         if (event.data === 1) {
             if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-            hoverTimeoutRef.current = setTimeout(() => setIsHovering(false), zenMode ? 1000 : 2500);
+            hoverTimeoutRef.current = setTimeout(() => setIsHovering(false), 2000);
         } else {
             setIsHovering(true);
         }
+    };
+
+    const handleSaveNote = (text) => {
+        const newNote = {
+            id: Date.now(),
+            videoId,
+            time: currentTime,
+            text,
+            createdAt: new Date().toISOString()
+        };
+        const updatedNotes = [...notes, newNote].sort((a, b) => a.time - b.time);
+        setNotes(updatedNotes);
+        localStorage.setItem(`notes_${videoId}`, JSON.stringify(updatedNotes));
+        
+        // Reset editor state
+        setNoteText('');
+        setIsAddingNote(false);
+    };
+
+    const handleDeleteNote = (noteId) => {
+        const updatedNotes = notes.filter(n => n.id !== noteId);
+        setNotes(updatedNotes);
+        localStorage.setItem(`notes_${videoId}`, JSON.stringify(updatedNotes));
     };
 
     const handleSeekChange = (e) => {
@@ -271,15 +324,19 @@ const FocusMode = () => {
         const currentIndex = allVideos.findIndex(v => v._id === videoId || v.videoId === videoId);
         if (currentIndex < allVideos.length - 1 && currentIndex !== -1) {
             const nextVideo = allVideos[currentIndex + 1];
-            navigate(`/focus/${nextVideo.videoId || nextVideo._id}`);
+            const pId = playlist?._id || urlPlaylistId || sessionPlaylistId;
+            const query = pId ? `?playlistId=${pId}` : '';
+            navigate(`/focus/${nextVideo.videoId || nextVideo._id}${query}`);
         }
     };
 
     const handlePrevVideo = () => {
         const currentIndex = allVideos.findIndex(v => (v._id === videoId || v.videoId === videoId));
-        if (currentIndex > 0) {
+        if (currentIndex > 0 && currentIndex !== -1) {
             const prevVideo = allVideos[currentIndex - 1];
-            navigate(`/focus/${prevVideo.videoId || prevVideo._id}`);
+            const pId = playlist?._id || urlPlaylistId || sessionPlaylistId;
+            const query = pId ? `?playlistId=${pId}` : '';
+            navigate(`/focus/${prevVideo.videoId || prevVideo._id}${query}`);
         }
     };
 
@@ -301,6 +358,30 @@ const FocusMode = () => {
                 document.msExitFullscreen();
             }
         }
+    };
+
+    const checkUnsavedNotes = () => {
+        if (isAddingNote && noteText.trim() !== '') {
+            return window.confirm("You have an unsaved note. Are you sure you want to discard it?");
+        }
+        return true;
+    };
+
+    const safeSetSidebarTab = (tab) => {
+        if (tab === sidebarTab) {
+            // If already on this tab, just toggle sidebar
+            safeSetShowSidebar(!showSidebar);
+            return;
+        }
+
+        if (sidebarTab === 'notes' && !checkUnsavedNotes()) return;
+        setSidebarTab(tab);
+        if (!showSidebar) setShowSidebar(true);
+    };
+
+    const safeSetShowSidebar = (show) => {
+        if (!show && sidebarTab === 'notes' && !checkUnsavedNotes()) return;
+        setShowSidebar(show);
     };
 
     useEffect(() => {
@@ -551,7 +632,6 @@ const FocusMode = () => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             const key = e.key.toLowerCase();
             if (key === 'f') { handleToggleFullscreen(); e.preventDefault(); }
-            if (key === 'z') { setZenMode(prev => !prev); e.preventDefault(); }
             if (key === 'm') { toggleMute(); e.preventDefault(); }
             if (key === 'c') { handleToggleComplete(); e.preventDefault(); }
             if (key === 's') { setShowSidebar(prev => !prev); e.preventDefault(); }
@@ -575,7 +655,7 @@ const FocusMode = () => {
     }, [currentTime, duration, miniPlayer, showShortcutsHelp]);
 
     // Derived State for UI
-    const showControls = !isPlaying || showSidebar || (!zenMode) || isHovering;
+    const showControls = !isPlaying || showSidebar || isHovering;
 
     if (initialLoading) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#09090b', color: 'white' }}>
@@ -620,87 +700,101 @@ const FocusMode = () => {
                 height: '100vh',
                 width: '100vw',
                 background: 'black',
-                position: 'relative',
+                display: 'flex',
                 overflow: 'hidden',
                 cursor: showControls ? 'default' : 'none'
             }}
             onMouseMove={handleMouseMove}
             onMouseLeave={() => isPlaying && setIsHovering(false)}
-            onClick={() => !isHovering && togglePlay()}
         >
-            <FocusPlayerSlot
-                mainSlotRef={mainSlotRef}
-                video={video}
-                playerOptions={playerOptions}
-                handlePlayerStateChange={handlePlayerStateChange}
-                handlePlayerReady={handlePlayerReady}
-                handleVideoEnd={handleVideoEnd}
-                isPlaying={isPlaying}
-                videoLoading={videoLoading}
-                initialLoading={initialLoading}
-                togglePlay={togglePlay}
-                miniPlayer={miniPlayer}
-                onExpandMiniPlayer={() => setMiniPlayer(false)}
-                onCloseMiniPlayer={() => setMiniPlayer(false)}
-                toggleNativePiP={toggleNativePiP}
-            />
+            {/* Left Side: Video Content Area */}
+            <div style={{ 
+                flex: 1, 
+                position: 'relative', 
+                height: '100%', 
+                overflow: 'hidden',
+                transition: 'all 0.6s cubic-bezier(0.23, 1, 0.32, 1)'
+            }}>
+                <FocusPlayerSlot
+                    mainSlotRef={mainSlotRef}
+                    video={video}
+                    playerOptions={playerOptions}
+                    handlePlayerStateChange={handlePlayerStateChange}
+                    handlePlayerReady={handlePlayerReady}
+                    handleVideoEnd={handleVideoEnd}
+                    isPlaying={isPlaying}
+                    videoLoading={videoLoading}
+                    initialLoading={initialLoading}
+                    togglePlay={togglePlay}
+                    miniPlayer={miniPlayer}
+                    onExpandMiniPlayer={() => setMiniPlayer(false)}
+                    onCloseMiniPlayer={() => setMiniPlayer(false)}
+                    toggleNativePiP={toggleNativePiP}
+                />
 
+                <FocusTopBar
+                    showControls={showControls}
+                    compactMode={compactMode}
+                    isMobile={isMobile}
+                    video={video}
+                    playlist={playlist}
+                    presenceCount={presenceCount}
+                    navigate={navigate}
+                    toggleShortcutsHelp={() => setShowShortcutsHelp(prev => !prev)}
+                />
 
-            <FocusTopBar
-                showControls={showControls}
-                compactMode={compactMode}
-                isMobile={isMobile}
-                video={video}
-                playlist={playlist}
-                presenceCount={presenceCount}
-                navigate={navigate}
-            />
+                {showShortcutsHelp && <KeyboardShortcutsHelp onClose={() => setShowShortcutsHelp(false)} />}
 
-            {/* 3. Control Deck */}
-            <FocusControls
-                showControls={showControls}
-                isMobile={isMobile}
-                compactMode={compactMode}
-                video={video}
-                activeChapterIndex={activeChapterIndex}
-                currentTime={currentTime}
-                duration={duration}
-                playbackRate={playbackRate}
-                volume={volume}
-                isPlaying={isPlaying}
-                isCompleted={isCompleted}
-                zenMode={zenMode}
-                showSidebar={showSidebar}
-                sidebarTab={sidebarTab}
-                currentIndex={currentIndex}
-                allVideos={allVideos}
-                playlist={playlist}
-                handleSeekChange={handleSeekChange}
-                setIsDragging={setIsDragging}
-                toggleSpeed={toggleSpeed}
-                handleVolumeChange={handleVolumeChange}
-                handlePrevVideo={handlePrevVideo}
-                togglePlay={togglePlay}
-                handleNextVideo={handleNextVideo}
-                setZenMode={setZenMode}
-                setIsHovering={setIsHovering}
-                handleToggleComplete={handleToggleComplete}
-                setSidebarTab={setSidebarTab}
-                setShowSidebar={setShowSidebar}
-                formatTime={formatTime}
-                isFullscreen={isFullscreen}
-                handleToggleFullscreen={handleToggleFullscreen}
-                isLoading={videoLoading || !playerRef.current}
-                miniPlayer={miniPlayer}
-                setMiniPlayer={setMiniPlayer}
-            />
+                <FocusControls
+                    showControls={showControls}
+                    isMobile={isMobile}
+                    compactMode={compactMode}
+                    video={video}
+                    activeChapterIndex={activeChapterIndex}
+                    currentTime={currentTime}
+                    duration={duration}
+                    playbackRate={playbackRate}
+                    volume={volume}
+                    isPlaying={isPlaying}
+                    isCompleted={isCompleted}
+                    showSidebar={showSidebar}
+                    sidebarTab={sidebarTab}
+                    currentIndex={currentIndex}
+                    allVideos={allVideos}
+                    playlist={playlist}
+                    handleSeekChange={handleSeekChange}
+                    setIsDragging={setIsDragging}
+                    toggleSpeed={toggleSpeed}
+                    handleVolumeChange={handleVolumeChange}
+                    handlePrevVideo={handlePrevVideo}
+                    togglePlay={togglePlay}
+                    handleNextVideo={handleNextVideo}
+                    setIsHovering={setIsHovering}
+                    handleToggleComplete={handleToggleComplete}
+                    setSidebarTab={safeSetSidebarTab}
+                    setShowSidebar={safeSetShowSidebar}
+                    formatTime={formatTime}
+                    isFullscreen={isFullscreen}
+                    handleToggleFullscreen={handleToggleFullscreen}
+                    isLoading={videoLoading || !playerRef.current}
+                    miniPlayer={miniPlayer}
+                    setMiniPlayer={setMiniPlayer}
+                />
 
-            {/* 4. Sidebar Panel */}
+                {!showControls && (
+                    <div 
+                        style={{ position: 'absolute', inset: 0, zIndex: 5, cursor: 'none' }} 
+                        onClick={togglePlay} 
+                    />
+                )}
+            </div>
+
+            {/* Right Side: Sidebar Panel */}
             <FocusSidebar
                 showSidebar={showSidebar}
-                setShowSidebar={setShowSidebar}
+                setShowSidebar={safeSetShowSidebar}
                 sidebarTab={sidebarTab}
-                setSidebarTab={setSidebarTab}
+                setSidebarTab={safeSetSidebarTab}
                 video={video}
                 playlist={playlist}
                 allVideos={allVideos}
@@ -715,6 +809,15 @@ const FocusMode = () => {
                 compactMode={compactMode}
                 chapterRefs={chapterRefs}
                 presenceCount={presenceCount}
+                currentTime={currentTime}
+                formatTime={formatTime}
+                notes={notes}
+                onSaveNote={handleSaveNote}
+                onDeleteNote={handleDeleteNote}
+                isAddingNote={isAddingNote}
+                setIsAddingNote={setIsAddingNote}
+                noteText={noteText}
+                setNoteText={setNoteText}
             />
 
             <style>{`

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Clock, Calendar, CheckCircle, XCircle } from 'lucide-react';
 
-const VideoCard = ({ video, schedule, user, activeDate, formatDate, onSchedule, onRemoveSchedule, onToggleCompletion }) => {
+const VideoCard = ({ video, playlistId, schedule, user, activeDate, formatDate, onSchedule, onRemoveSchedule, onToggleCompletion }) => {
     const isCompleted = schedule?.status === 'completed';
     const isPlanned = schedule && schedule.scheduledDate;
 
@@ -24,7 +24,7 @@ const VideoCard = ({ video, schedule, user, activeDate, formatDate, onSchedule, 
             onMouseLeave={e => !isCompleted && (e.currentTarget.style.borderColor = 'var(--glass-border)')}
         >
             <Link
-                to={`/focus/${video._id}`}
+                to={`/focus/${video._id}${playlistId ? `?playlistId=${playlistId}` : ''}`}
                 style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1, textDecoration: 'none', color: 'inherit' }}
             >
                 <div style={{ fontSize: '1.2rem', fontWeight: '900', color: isCompleted ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.03)', width: '30px', textAlign: 'center' }}>

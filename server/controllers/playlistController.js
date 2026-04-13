@@ -367,6 +367,8 @@ exports.deletePlaylist = async (req, res) => {
         const CustomPlaylist = require('../models/CustomPlaylist');
         const CustomPlaylistVideo = require('../models/CustomPlaylistVideo');
 
+        const customPlaylist = await CustomPlaylist.findOne({ _id: req.params.id, creatorId: req.user.id });
+
         if (customPlaylist) {
             // Delete associated schedules for these custom videos
             const customVideos = await CustomPlaylistVideo.find({ playlistId: customPlaylist._id });
@@ -387,7 +389,10 @@ exports.deletePlaylist = async (req, res) => {
 
 exports.syncPlaylist = async (req, res) => {
     try {
-        const playlist = await Playlist.findOne({ _id: req.params.id, userId: req.user.id });
+        const userPlaylist = await UserPlaylist.findOne({ playlistId: req.params.id, userId: req.user.id });
+        if (!userPlaylist) return res.status(404).json({ msg: 'Playlist not found in your library' });
+
+        const playlist = await Playlist.findById(req.params.id);
         if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
 
         // Handle standalone video 'playlists'
@@ -560,7 +565,8 @@ exports.syncVideo = async (req, res) => {
         const Video = require('../models/Video');
         const Playlist = require('../models/Playlist');
 
-        if (!importedPlaylist) return res.status(404).json({ msg: 'Playlist/Video not found' });
+        const userPlaylist = await UserPlaylist.findOne({ playlistId: id, userId: req.user.id });
+        if (!userPlaylist) return res.status(404).json({ msg: 'Playlist not found in your library' });
 
         const video = await Video.findOne({ _id: videoId, playlistId: id });
         if (!video) return res.status(404).json({ msg: 'Video not found' });

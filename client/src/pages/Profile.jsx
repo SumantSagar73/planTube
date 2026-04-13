@@ -245,7 +245,7 @@ const Profile = () => {
                             width: '100px', height: '100px', borderRadius: '24px',
                             background: 'var(--primary)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '2.5rem', fontWeight: '900', color: 'white',
+                            fontSize: '2.5rem', fontWeight: '900', color: 'var(--text-main)',
                             boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)'
                         }}>
                             {profile.name?.charAt(0).toUpperCase() || 'U'}
@@ -460,7 +460,7 @@ const Profile = () => {
                     <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
                         <AlertCircle size={28} color="#ef4444" />
                     </div>
-                    <h3 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '1rem', color: 'white' }}>Delete Account?</h3>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '1rem', color: 'var(--text-main)' }}>Delete Account?</h3>
                     <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: '1.5' }}>
                         This action cannot be undone. All your playlists, progress, and focus metrics will be permanently deleted.
                     </p>

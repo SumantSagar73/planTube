@@ -3,7 +3,7 @@ import { Play, Users, Target, Rocket, ChevronRight, Zap, Shield, Sparkles } from
 
 const Home = () => {
     return (
-        <div style={{ background: 'var(--bg-main)', minHeight: '100vh', color: 'white' }}>
+        <div style={{ background: 'var(--bg-main)', minHeight: '100vh', color: 'var(--text-main)' }}>
             {/* Hero Section */}
             <section style={{
                 padding: '8rem 5vw 6rem',

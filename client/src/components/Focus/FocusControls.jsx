@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
     ChevronLeft, ChevronRight, Play, CheckCircle,
     Eye, EyeOff, Map, AlignLeft, List as ListIcon,
-    Maximize, ExternalLink, Monitor
+    Maximize, ExternalLink, Monitor, FileText
 } from 'lucide-react';
 
 const FocusControls = ({
@@ -17,7 +17,6 @@ const FocusControls = ({
     volume,
     isPlaying,
     isCompleted,
-    zenMode,
     showSidebar,
     sidebarTab,
     currentIndex,
@@ -30,7 +29,6 @@ const FocusControls = ({
     handlePrevVideo,
     togglePlay,
     handleNextVideo,
-    setZenMode,
     setIsHovering,
     handleToggleComplete,
     setSidebarTab,
@@ -58,9 +56,10 @@ const FocusControls = ({
         <div
             style={{
                 position: 'absolute',
-                bottom: isMobile ? '1rem' : (compactMode ? '1.5rem' : '2.5rem'),
-                left: '50%',
-                transform: `translate(-50%, ${showControls ? '0' : '120px'})`,
+                bottom: '0',
+                left: '0',
+                right: '0',
+                transform: `translateY(${showControls ? '0' : '100%'})`,
                 opacity: showControls ? 1 : 0,
                 transition: 'all 0.4s cubic-bezier(0.23, 1, 0.32, 1)',
                 zIndex: 40,
@@ -69,14 +68,13 @@ const FocusControls = ({
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: isMobile ? '0.25rem' : '0.5rem',
-                padding: isMobile ? '0.6rem 1rem' : '0.8rem 1.2rem',
-                background: 'rgba(20, 20, 20, 0.9)',
+                padding: isMobile ? '0.6rem 1rem' : '1.2rem 2rem',
+                background: 'rgba(10, 10, 12, 0.95)',
                 backdropFilter: 'blur(30px)',
-                borderRadius: isMobile ? '28px' : '24px',
-                border: '1px solid rgba(255,255,255,0.08)',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-                width: isMobile ? '92vw' : 'auto',
-                minWidth: isMobile ? 'auto' : 'min(600px, 90vw)'
+                borderRadius: '0',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 -10px 50px rgba(0,0,0,0.5)',
+                width: '100%',
             }}
         >
             {/* Active Chapter Label */}
@@ -239,19 +237,6 @@ const FocusControls = ({
                     </button>
 
                     <button
-                        onClick={() => {
-                            const newZen = !zenMode;
-                            setZenMode(newZen);
-                            if (newZen && isPlaying) setIsHovering(false);
-                        }}
-                        className={`icon-btn-deck ${zenMode ? 'active' : ''}`}
-                        title={zenMode ? "Disable Concentration Mode" : "Enable Concentration Mode"}
-                    >
-                        {zenMode ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-
-
-                    <button
                         onClick={() => window.open(`https://www.youtube.com/watch?v=${video.youtubeVideoId || video.videoId}`, '_blank')}
                         className="icon-btn-deck"
                         title="Watch on YouTube"
@@ -277,31 +262,38 @@ const FocusControls = ({
                         <span>{isCompleted ? 'Done' : 'Mark'}</span>
                     </button>
 
-                    {/* Sidebar Tabs - Always visible for accessibility */}
                     <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 0.5rem' }}></div>
-                    <button
-                        onClick={() => { setSidebarTab('chapters'); setShowSidebar(!showSidebar || sidebarTab !== 'chapters'); }}
-                        className={`icon-btn-deck ${showSidebar && sidebarTab === 'chapters' ? 'active' : ''}`}
-                        title="Chapters"
-                    >
-                        <Map size={18} />
-                    </button>
-                    <button
-                        onClick={() => { setSidebarTab('description'); setShowSidebar(!showSidebar || sidebarTab !== 'description'); }}
-                        className={`icon-btn-deck ${showSidebar && sidebarTab === 'description' ? 'active' : ''}`}
-                        title="Info"
-                    >
-                        <AlignLeft size={18} />
-                    </button>
+
                     {playlist && playlist.playlistId !== 'SINGLES' && !playlist.playlistId?.startsWith('VIDEO_') && (
                         <button
-                            onClick={() => { setSidebarTab('playlist'); setShowSidebar(!showSidebar || sidebarTab !== 'playlist'); }}
+                            onClick={() => setSidebarTab('playlist')}
                             className={`icon-btn-deck ${showSidebar && sidebarTab === 'playlist' ? 'active' : ''}`}
                             title="Playlist"
                         >
                             <ListIcon size={18} />
                         </button>
                     )}
+                    <button
+                        onClick={() => setSidebarTab('chapters')}
+                        className={`icon-btn-deck ${showSidebar && sidebarTab === 'chapters' ? 'active' : ''}`}
+                        title="Video Map"
+                    >
+                        <Map size={18} />
+                    </button>
+                    <button
+                        onClick={() => setSidebarTab('notes')}
+                        className={`icon-btn-deck ${showSidebar && sidebarTab === 'notes' ? 'active' : ''}`}
+                        title="Notes"
+                    >
+                        <FileText size={18} />
+                    </button>
+                    <button
+                        onClick={() => setSidebarTab('description')}
+                        className={`icon-btn-deck ${showSidebar && sidebarTab === 'description' ? 'active' : ''}`}
+                        title="About"
+                    >
+                        <AlignLeft size={18} />
+                    </button>
                 </div>
             </div>
         </div>

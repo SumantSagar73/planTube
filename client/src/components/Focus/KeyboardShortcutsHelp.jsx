@@ -3,10 +3,10 @@ import { X, Keyboard } from 'lucide-react';
 
 const SHORTCUTS = [
     { keys: ['Space', 'K'], label: 'Play / Pause' },
-    { keys: ['←', 'J'], label: 'Seek back 10s' },
-    { keys: ['→', 'L'], label: 'Seek forward 10s' },
-    { keys: ['↑'], label: 'Volume up 10%' },
-    { keys: ['↓'], label: 'Volume down 10%' },
+    { keys: ['Left', 'J'], label: 'Seek back 10s' },
+    { keys: ['Right', 'L'], label: 'Seek forward 10s' },
+    { keys: ['Up'], label: 'Volume up 10%' },
+    { keys: ['Down'], label: 'Volume down 10%' },
     { keys: ['M'], label: 'Mute / Unmute' },
     { keys: ['F'], label: 'Fullscreen' },
     { keys: ['Z'], label: 'Zen Mode' },
@@ -22,7 +22,6 @@ const SHORTCUTS = [
 const KeyboardShortcutsHelp = ({ onClose }) => {
     return (
         <>
-            {/* Backdrop */}
             <div
                 onClick={onClose}
                 style={{
@@ -34,7 +33,6 @@ const KeyboardShortcutsHelp = ({ onClose }) => {
                 }}
             />
 
-            {/* Panel */}
             <div
                 style={{
                     position: 'fixed',
@@ -53,7 +51,6 @@ const KeyboardShortcutsHelp = ({ onClose }) => {
                     animation: 'shortcutsFadeIn 0.2s ease',
                 }}
             >
-                {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <div style={{
@@ -87,7 +84,6 @@ const KeyboardShortcutsHelp = ({ onClose }) => {
                     </button>
                 </div>
 
-                {/* Shortcut Grid */}
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr',
@@ -135,7 +131,6 @@ const KeyboardShortcutsHelp = ({ onClose }) => {
                     ))}
                 </div>
 
-                {/* Footer hint */}
                 <p style={{ textAlign: 'center', marginTop: '1.25rem', marginBottom: 0, fontSize: '0.72rem', color: 'rgba(255,255,255,0.25)' }}>
                     Press <kbd style={{ padding: '0.1rem 0.4rem', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '4px', fontSize: '0.7rem' }}>?</kbd> to close
                 </p>

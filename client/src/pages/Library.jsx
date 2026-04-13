@@ -88,7 +88,7 @@ const Library = () => {
             async () => {
                 try {
                     if (item.type === 'custom') {
-                        await api.delete(`/custom-playlists/${item._id}`);
+                        await api.delete(`/playlists/${item._id}`);
                     } else if (item.type === 'video') {
                         // Standalone videos are also backed by a dummy Playlist (VIDEO_...)
                         // and a UserPlaylist link. So we remove the playlist link.
@@ -115,11 +115,7 @@ const Library = () => {
 
         setSyncingIds(prev => new Set(prev).add(item._id));
         try {
-            if (item.type === 'video') {
-                await api.put(`/videos/${item.dbId || item._id}/sync`);
-            } else {
-                await api.put(`/playlists/${item._id}/sync`);
-            }
+            await api.put(`/playlists/${item.dbId || item._id}/sync`);
             fetchLibrary(false);
             showAlert('Success', `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} synced with YouTube`, true);
         } catch (err) {
@@ -163,7 +159,7 @@ const Library = () => {
             {/* Focal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3rem' }}>
                 <div>
-                    <h1 style={{ fontSize: '3.5rem', fontWeight: '950', marginBottom: '0.5rem', letterSpacing: '-2px', color: 'white' }}>
+                    <h1 style={{ fontSize: '3.5rem', fontWeight: '950', marginBottom: '0.5rem', letterSpacing: '-2px', color: 'var(--text-main)' }}>
                         Vault <span style={{ color: 'var(--primary)' }}>.</span>
                     </h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem', fontWeight: '500' }}>

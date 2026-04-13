@@ -110,7 +110,7 @@ const LibraryItem = ({
                         fontSize: '1.05rem', fontWeight: '900', marginBottom: '0.6rem',
                         height: '2.8rem', overflow: 'hidden', lineClamp: 2,
                         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                        lineHeight: '1.3', color: 'white'
+                        lineHeight: '1.3', color: 'var(--text-main)'
                     }}>
                         {item.title}
                     </h3>

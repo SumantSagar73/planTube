@@ -353,6 +353,7 @@ const PlaylistDetails = () => {
                                 <VideoCard
                                     key={video._id}
                                     video={video}
+                                    playlistId={id}
                                     schedule={schedulesMap[video._id]}
                                     user={user}
                                     activeDate={activeDate}

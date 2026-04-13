@@ -30,9 +30,12 @@ app.use(cors({
 app.use(express.json());
 
 // Database Connection
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('MongoDB Connected'))
-    .catch(err => console.log('MongoDB Connection Error:', err));
+const mongoUri = process.env.MONGODB_URI;
+
+if (!mongoUri) {
+    console.error('MONGODB_URI is not set. The server will not start without a database connection.');
+    process.exit(1);
+}
 
 // Routes
 app.get('/', (req, res) => {
@@ -178,6 +181,21 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+    try {
+        await mongoose.connect(mongoUri, {
+            serverSelectionTimeoutMS: 10000
+        });
+
+        console.log('MongoDB Connected');
+
+        server.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+    } catch (err) {
+        console.error('MongoDB Connection Error:', err.message);
+        process.exit(1);
+    }
+};
+
+startServer();

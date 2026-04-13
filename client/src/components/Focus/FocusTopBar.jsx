@@ -96,7 +96,6 @@ const FocusTopBar = ({ showControls, compactMode, isMobile, video, playlist, pre
             )}
         </div>
 
-        {/* Keyboard shortcuts hint pill — top right */}
         {!isMobile && (
             <button
                 onClick={toggleShortcutsHelp}
@@ -127,6 +126,7 @@ const FocusTopBar = ({ showControls, compactMode, isMobile, video, playlist, pre
                 <span>shortcuts</span>
             </button>
         )}
+
     </div>
 );
 

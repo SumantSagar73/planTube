@@ -77,7 +77,12 @@ const FocusPlayerSlot = ({
                     onReady={handlePlayerReady}
                     onEnd={handleVideoEnd}
                     className="youtube-player"
-                    style={{ width: '100%', height: '100%', transform: miniPlayer ? 'scale(1)' : 'scale(1.01)' }}
+                    style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        transform: miniPlayer ? 'scale(1)' : 'scale(1.15)',
+                        transition: 'transform 0.5s ease'
+                    }}
                 />
             </div>
 
