@@ -46,6 +46,16 @@ const VideoCard = ({ video, playlistId, schedule, user, activeDate, formatDate, 
                                 <Calendar size={14} /> {formatDate(schedule.scheduledDate.split('T')[0])}
                             </span>
                         )}
+                        {video.tags && video.tags.length > 0 && (
+                            <div style={{ display: 'flex', gap: '0.25rem', overflow: 'hidden', flex: 1, whiteSpace: 'nowrap' }}>
+                                {video.tags.map(tag => (
+                                    <span key={tag} style={{ background: 'rgba(99, 102, 241, 0.15)', color: 'var(--primary)', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                        #{tag}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
                     </div>
                 </div>
             </Link>

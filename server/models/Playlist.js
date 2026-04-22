@@ -24,7 +24,11 @@ const playlistSchema = new mongoose.Schema({
     goal: {
         targetDate: Date,
         createdAt: Date
-    }
+    },
+    tags: [{
+        type: String,
+        trim: true
+    }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Playlist', playlistSchema);

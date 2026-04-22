@@ -1,0 +1,158 @@
+import React, { useState, useEffect } from 'react';
+import { X, User, Mail, Calendar, BookOpen, Layers, Activity as ActivityIcon, Clock } from 'lucide-react';
+import adminService from '../../services/adminService';
+import LoadingScreen from '../Shared/LoadingScreen';
+
+const UserDetailsModal = ({ userId, onClose }) => {
+    const [details, setDetails] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchDetails = async () => {
+            try {
+                const data = await adminService.getUserDetails(userId);
+                setDetails(data);
+            } catch (err) {
+                console.error('Error fetching user details:', err);
+                onClose();
+            } finally {
+                setLoading(false);
+            }
+        };
+        if (userId) fetchDetails();
+    }, [userId]);
+
+    if (!userId) return null;
+    if (loading) return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <LoadingScreen message="Extracting user identity profile..." />
+        </div>
+    );
+
+    const { user, playlists, groups, activity } = details;
+
+    return (
+        <div style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            background: 'rgba(0,0,0,0.85)', 
+            backdropFilter: 'blur(8px)',
+            zIndex: 1000, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            padding: '2rem'
+        }}>
+            <div className="glass-card" style={{ 
+                width: '100%', 
+                maxWidth: '900px', 
+                maxHeight: '85vh', 
+                background: '#0f172a',
+                borderRadius: '32px',
+                border: '1px solid rgba(255,255,255,0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+            }}>
+                {/* Modal Header */}
+                <div style={{ 
+                    padding: '2rem', 
+                    background: 'rgba(255,255,255,0.02)', 
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                        <div style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '20px',
+                            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.5rem',
+                            fontWeight: '900'
+                        }}>
+                            {user.name.charAt(0)}
+                        </div>
+                        <div>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: '900' }}>{user.name}</h2>
+                            <p style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Mail size={14} /> {user.email} • {user.role.toUpperCase()}
+                            </p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={onClose}
+                        style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '10px', borderRadius: '12px', cursor: 'pointer' }}
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {/* Modal Content */}
+                <div style={{ padding: '2rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+                    
+                    {/* Basic Info Row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '20px', textAlign: 'center' }}>
+                            <BookOpen size={24} color="#6366f1" style={{ margin: '0 auto 10px' }} />
+                            <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{playlists.length}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Playlists</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '20px', textAlign: 'center' }}>
+                            <Layers size={24} color="#22c55e" style={{ margin: '0 auto 10px' }} />
+                            <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{groups.length}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Groups</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '20px', textAlign: 'center' }}>
+                            <Calendar size={24} color="#eab308" style={{ margin: '0 auto 10px' }} />
+                            <div style={{ fontSize: '1.2rem', fontWeight: '800' }}>{new Date(user.createdAt).toLocaleDateString()}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Joined Date</div>
+                        </div>
+                    </div>
+
+                    {/* Playlists and Groups Split */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                        {/* Playlists Column */}
+                        <div>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <BookOpen size={18} /> Library Contents
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {playlists.map(p => (
+                                    <div key={p._id} style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px', fontSize: '0.9rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                        {p.playlistId?.playlistTitle || 'Untitled Playlist'}
+                                    </div>
+                                ))}
+                                {playlists.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No playlists added yet.</p>}
+                            </div>
+                        </div>
+
+                        {/* Recent Activity */}
+                        <div>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <ActivityIcon size={18} /> Recent Interactions
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {activity.map(a => (
+                                    <div key={a._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '10px', fontSize: '0.8rem' }}>
+                                        <span>Study Session</span>
+                                        <span style={{ color: '#818cf8', fontWeight: '700' }}>{Math.round(a.seconds / 60)} mins</span>
+                                    </div>
+                                ))}
+                                {activity.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No recent activity records.</p>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default UserDetailsModal;

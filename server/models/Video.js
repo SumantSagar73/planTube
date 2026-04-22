@@ -47,7 +47,15 @@ const videoSchema = new mongoose.Schema({
     isPinned: {
         type: Boolean,
         default: false
-    }
+    },
+    tags: [{
+        type: String,
+        trim: true
+    }],
+    customResources: [{
+        label: String,
+        url: String
+    }]
 }, { timestamps: true });
 
 // Virtual to populate shared video data

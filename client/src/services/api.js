@@ -5,12 +5,19 @@ const api = axios.create({
     baseURL: apiUrl,
 });
 
-// Add token to headers
+// Add token and impersonation headers
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
+    const impersonateId = localStorage.getItem('impersonate_user_id');
+
     if (token) {
         config.headers['x-auth-token'] = token;
     }
+    
+    if (impersonateId) {
+        config.headers['x-impersonate-user'] = impersonateId;
+    }
+
     return config;
 });
 

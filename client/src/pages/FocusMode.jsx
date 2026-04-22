@@ -7,6 +7,7 @@ import FocusSidebar from '../components/Focus/FocusSidebar';
 import FocusControls from '../components/Focus/FocusControls';
 import FocusTopBar from '../components/Focus/FocusTopBar';
 import FocusPlayerSlot from '../components/Focus/FocusPlayerSlot';
+import FocusLeftRail from '../components/Focus/FocusLeftRail';
 import KeyboardShortcutsHelp from '../components/Focus/KeyboardShortcutsHelp';
 import socket from '../services/socket';
 import { useAuth } from '../context/AuthContext';
@@ -57,6 +58,18 @@ const FocusMode = () => {
     const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
     const [isAddingNote, setIsAddingNote] = useState(false);
     const [noteText, setNoteText] = useState('');
+    
+    // Advanced Focus Features
+    const [isMonkMode, setIsMonkMode] = useState(false);
+    const [ambientSound, setAmbientSound] = useState('none');
+    const [glassBlur, setGlassBlur] = useState(20);
+    const [accentColor, setAccentColor] = useState('#6366f1'); // Default Indigo
+    const [pomodoro, setPomodoro] = useState({
+        isActive: false,
+        secondsLeft: 25 * 60,
+        mode: 'focus'
+    });
+
     const [notes, setNotes] = useState(() => {
         const saved = localStorage.getItem(`notes_${videoId}`);
         return saved ? JSON.parse(saved) : [];
@@ -253,17 +266,19 @@ const FocusMode = () => {
         setIsHovering(true);
         if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
         hoverTimeoutRef.current = setTimeout(() => {
-            if (isPlaying) setIsHovering(false);
+            setIsHovering(false); // Hide after 2s regardless of play state
         }, 2000);
     };
 
     const handlePlayerStateChange = (event) => {
         setIsPlaying(event.data === 1);
-        if (event.data === 1) {
-            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-            hoverTimeoutRef.current = setTimeout(() => setIsHovering(false), 2000);
-        } else {
-            setIsHovering(true);
+        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+        
+        // Always set a timeout to hide controls, even on pause
+        hoverTimeoutRef.current = setTimeout(() => setIsHovering(false), 2000);
+        
+        if (event.data !== 1) {
+            setIsHovering(true); // Temporarily show on pause
         }
     };
 
@@ -282,6 +297,44 @@ const FocusMode = () => {
         // Reset editor state
         setNoteText('');
         setIsAddingNote(false);
+    };
+
+    const handleUpdateChapters = async (newChapters) => {
+        try {
+            const res = await api.put(`/videos/${videoId}/chapters`, { chapters: newChapters });
+            // Update local state and cache
+            const updatedVideo = { ...video, chapters: newChapters, sharedVideo: { ...video.sharedVideo, chapters: newChapters } };
+            setVideo(updatedVideo);
+            
+            const pId = urlPlaylistId || sessionPlaylistId || video.playlistId;
+            const cacheKey = `video_${videoId}${pId ? `_pl_${pId}` : ''}`;
+            const cachedData = cache.get(cacheKey);
+            if (cachedData) {
+                cache.set(cacheKey, { ...cachedData, video: updatedVideo });
+            }
+        } catch (err) {
+            console.error('Error updating chapters:', err);
+            alert('Failed to save chapters');
+        }
+    };
+
+    const handleUpdateVideo = async (updateData) => {
+        try {
+            const res = await api.put(`/videos/${videoId}`, updateData);
+            // Update local state and cache
+            const updatedVideo = { ...video, ...res.data };
+            setVideo(updatedVideo);
+            
+            const pId = urlPlaylistId || sessionPlaylistId || video.playlistId;
+            const cacheKey = `video_${videoId}${pId ? `_pl_${pId}` : ''}`;
+            const cachedData = cache.get(cacheKey);
+            if (cachedData) {
+                cache.set(cacheKey, { ...cachedData, video: updatedVideo });
+            }
+        } catch (err) {
+            console.error('Error updating video metadata:', err);
+            alert('Failed to save changes');
+        }
     };
 
     const handleDeleteNote = (noteId) => {
@@ -507,19 +560,13 @@ const FocusMode = () => {
 
         // Ensure socket is connected
         if (!socket.connected) {
-            console.log('🔌 Connecting socket for presence tracking...');
             socket.connect();
         }
 
         // Generate/Get visitorId for anonymous tracking
-        let visitorId = sessionStorage.getItem('visitor_id');
-        if (!visitorId) {
-            visitorId = 'vis_' + Math.random().toString(36).substr(2, 9);
-            sessionStorage.setItem('visitor_id', visitorId);
-        }
+        const visitorId = sessionStorage.getItem('visitor_id') || ('vis_' + Math.random().toString(36).substr(2, 9));
+        if (!sessionStorage.getItem('visitor_id')) sessionStorage.setItem('visitor_id', visitorId);
 
-        // Join video room using YouTube ID (shared across all users)
-        console.log('👥 Joining video room:', youtubeId, 'User:', user?._id || visitorId);
         socket.emit('join_video', {
             videoId: youtubeId,
             userId: user?._id,
@@ -528,12 +575,8 @@ const FocusMode = () => {
 
         // Listen for updates
         const handlePresenceUpdate = (data) => {
-            console.log('📊 Presence update received:', data);
             if (data.videoId === youtubeId) {
-                console.log('✅ Updating presence count to:', data.count);
                 setPresenceCount(data.count);
-            } else {
-                console.log('⚠️ videoId mismatch:', data.videoId, 'expected:', youtubeId);
             }
         };
 
@@ -541,8 +584,6 @@ const FocusMode = () => {
 
         // Log connection status
         socket.on('connect', () => {
-            console.log('✅ Socket connected successfully');
-            // Re-join the room on reconnect
             socket.emit('join_video', {
                 videoId: youtubeId,
                 userId: user?._id,
@@ -550,16 +591,13 @@ const FocusMode = () => {
             });
         });
 
-        socket.on('disconnect', () => {
-            console.log('❌ Socket disconnected');
-        });
+        socket.on('disconnect', () => {});
 
         socket.on('connect_error', (error) => {
             console.error('❌ Socket connection error:', error);
         });
 
         return () => {
-            console.log('👋 Leaving video room:', youtubeId);
             socket.emit('leave_video', { videoId: youtubeId });
             socket.off('presence_update', handlePresenceUpdate);
             socket.off('connect');
@@ -654,8 +692,75 @@ const FocusMode = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [currentTime, duration, miniPlayer, showShortcutsHelp]);
 
-    // Derived State for UI
-    const showControls = !isPlaying || showSidebar || isHovering;
+    // Pomodoro Timer Effect
+    useEffect(() => {
+        let interval = null;
+        if (pomodoro.isActive && pomodoro.secondsLeft > 0) {
+            interval = setInterval(() => {
+                setPomodoro(prev => ({
+                    ...prev,
+                    secondsLeft: prev.secondsLeft - 1
+                }));
+            }, 1000);
+        } else if (pomodoro.secondsLeft === 0) {
+            clearInterval(interval);
+            // Play a subtle sound?
+            const audio = new Audio('https://www.soundjay.com/buttons/sounds/btn-01.mp3');
+            audio.play().catch(() => {});
+            
+            // Switch modes
+            const nextMode = pomodoro.mode === 'focus' ? 'shortBreak' : 'focus';
+            const nextSeconds = nextMode === 'focus' ? 25 * 60 : 5 * 60;
+            setPomodoro(prev => ({
+                ...prev,
+                isActive: false,
+                mode: nextMode,
+                secondsLeft: nextSeconds
+            }));
+            alert(`${pomodoro.mode === 'focus' ? 'Deep Work' : 'Break'} session finished!`);
+        }
+        return () => clearInterval(interval);
+    }, [pomodoro.isActive, pomodoro.secondsLeft]);
+
+    // Ambient Audio Logic
+    const audioRef = useRef(null);
+    useEffect(() => {
+        const audioUrls = {
+            none: null,
+            rain: 'https://cdn.pixabay.com/audio/2021/09/06/audio_4966141a4a.mp3', // Pixabay rain
+            lofi: 'https://stream.zeno.fm/0r0xa792kwzuv',
+            waves: 'https://cdn.pixabay.com/audio/2022/03/15/audio_277f722a4d.mp3', // Pixabay waves
+            forest: 'https://cdn.pixabay.com/audio/2022/01/21/audio_31ced43831.mp3' // Pixabay forest
+        };
+
+        if (ambientSound === 'none') {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+            }
+        } else {
+            if (audioRef.current) audioRef.current.pause();
+            audioRef.current = new Audio(audioUrls[ambientSound]);
+            audioRef.current.loop = true;
+            audioRef.current.volume = 0.4;
+            audioRef.current.play().catch(() => {}); // Silent fail for autoplay blocks
+        }
+
+        return () => {
+            if (audioRef.current) audioRef.current.pause();
+        };
+    }, [ambientSound]);
+
+    // Apply Accent Color & Glass Blur
+    useEffect(() => {
+        document.documentElement.style.setProperty('--primary', accentColor);
+        document.documentElement.style.setProperty('--glass-blur', `${glassBlur}px`);
+    }, [accentColor, glassBlur]);
+
+    // Derived State for UI - Show only if sidebar is open or user is actively hovering
+    const showControls = showSidebar || isHovering;
+    const uiHidden = isMonkMode && isPlaying && !isHovering;
+    // Note: showControls still respects !isPlaying because handlePlayerStateChange sets isHovering initially.
 
     if (initialLoading) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#09090b', color: 'white' }}>
@@ -702,18 +807,44 @@ const FocusMode = () => {
                 background: 'black',
                 display: 'flex',
                 overflow: 'hidden',
-                cursor: showControls ? 'default' : 'none'
+                cursor: (showControls && !uiHidden) ? 'default' : 'none',
+                '--primary': accentColor // Dynamic backup
             }}
             onMouseMove={handleMouseMove}
             onMouseLeave={() => isPlaying && setIsHovering(false)}
         >
+            <FocusLeftRail 
+                isMonkMode={isMonkMode}
+                setIsMonkMode={setIsMonkMode}
+                pomodoro={pomodoro}
+                setPomodoro={setPomodoro}
+                ambientSound={ambientSound}
+                setAmbientSound={setAmbientSound}
+                glassBlur={glassBlur}
+                accentColor={accentColor}
+            />
+
+            {/* Monk Mode Vignette */}
+            {isMonkMode && (
+                <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    pointerEvents: 'none',
+                    zIndex: 5,
+                    boxShadow: 'inset 0 0 150px rgba(0,0,0,0.8)',
+                    opacity: isPlaying ? 0.6 : 0,
+                    transition: 'opacity 1s'
+                }} />
+            )}
+
             {/* Left Side: Video Content Area */}
             <div style={{ 
                 flex: 1, 
                 position: 'relative', 
                 height: '100%', 
                 overflow: 'hidden',
-                transition: 'all 0.6s cubic-bezier(0.23, 1, 0.32, 1)'
+                transition: 'all 0.6s cubic-bezier(0.23, 1, 0.32, 1)',
+                marginLeft: isMonkMode ? '12px' : '0'
             }}>
                 <FocusPlayerSlot
                     mainSlotRef={mainSlotRef}
@@ -733,7 +864,7 @@ const FocusMode = () => {
                 />
 
                 <FocusTopBar
-                    showControls={showControls}
+                    showControls={showControls && !uiHidden}
                     compactMode={compactMode}
                     isMobile={isMobile}
                     video={video}
@@ -747,6 +878,7 @@ const FocusMode = () => {
 
                 <FocusControls
                     showControls={showControls}
+                    uiHidden={uiHidden}
                     isMobile={isMobile}
                     compactMode={compactMode}
                     video={video}
@@ -814,10 +946,16 @@ const FocusMode = () => {
                 notes={notes}
                 onSaveNote={handleSaveNote}
                 onDeleteNote={handleDeleteNote}
+                onUpdateChapters={handleUpdateChapters}
+                onUpdateVideo={handleUpdateVideo}
                 isAddingNote={isAddingNote}
                 setIsAddingNote={setIsAddingNote}
                 noteText={noteText}
                 setNoteText={setNoteText}
+                glassBlur={glassBlur}
+                setGlassBlur={setGlassBlur}
+                accentColor={accentColor}
+                setAccentColor={setAccentColor}
             />
 
             <style>{`

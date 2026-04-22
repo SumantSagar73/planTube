@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const dns = require('dns');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,6 +38,12 @@ if (!mongoUri) {
     process.exit(1);
 }
 
+// Prefer IPv4 and known public resolvers to avoid intermittent SRV lookup issues.
+if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+}
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
 // Routes
 app.get('/', (req, res) => {
     res.send('PlanTube API is running...');
@@ -63,6 +70,7 @@ app.use('/api/groups', require('./routes/group'));
 // Analytics Routes
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/presence', require('./routes/presence'));
+app.use('/api/admin', require('./routes/admin'));
 
 const server = require('http').createServer(app);
 const io = require('socket.io')(server, {
@@ -199,3 +207,4 @@ const startServer = async () => {
 };
 
 startServer();
+

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LogOut, Layout, Youtube, User, ChevronDown, Users, Library, ListMusic, Target, Link as LinkIcon, Plus } from 'lucide-react';
+import { LogOut, Layout, Youtube, User, ChevronDown, Users, Library, ListMusic, Target, Link as LinkIcon, Plus, Shield } from 'lucide-react';
 import AlertModal from './AlertModal';
 import ThemeSwitcher from './ThemeSwitcher';
 
@@ -46,7 +46,19 @@ const Navbar = () => {
     };
 
     return (
-        <nav className="glass" style={{ width: '100%', margin: '0', padding: '0.75rem 3vw', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 1000, position: 'fixed', top: 0, left: 0 }}>
+        <nav className="glass" style={{ 
+            width: '100%', 
+            margin: '0', 
+            padding: '0.75rem 3vw', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            zIndex: 9998, // Just below ShadowBanner
+            position: 'fixed', 
+            top: localStorage.getItem('impersonate_user_id') ? '40px' : 0, 
+            left: 0,
+            transition: 'top 0.3s ease'
+        }}>
             {/* Left: Logo */}
             <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)', flexShrink: 0 }}>
                 <Youtube size={32} />
@@ -115,6 +127,12 @@ const Navbar = () => {
                                     <p style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'white' }}>@{user?.username || user?.name}</p>
                                     <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{user?.email}</p>
                                 </div>
+                                {user?.role === 'admin' && (
+                                    <Link to="/admin" style={{ width: '100%', padding: '0.6rem', background: 'none', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px', marginBottom: '0.25rem' }} className="glass-hover">
+                                        <Shield size={16} />
+                                        <span>Admin Panel</span>
+                                    </Link>
+                                )}
                                 <Link to="/profile" style={{ width: '100%', padding: '0.6rem', background: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px', marginBottom: '0.25rem' }} className="glass-hover">
                                     <User size={16} />
                                     <span>My Profile</span>

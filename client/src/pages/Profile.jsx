@@ -240,39 +240,54 @@ const Profile = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
                     {/* User Info Card */}
-                    <div className="glass" style={{ padding: '2rem', borderRadius: '24px', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
-                        <div style={{
-                            width: '100px', height: '100px', borderRadius: '24px',
-                            background: 'var(--primary)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '2.5rem', fontWeight: '900', color: 'var(--text-main)',
-                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)'
-                        }}>
-                            {profile.name?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <div style={{ flex: 1 }}>
+                    <div className="glass" style={{ padding: '2rem', borderRadius: '24px', display: 'flex', gap: '2rem', alignItems: 'flex-start', position: 'relative', overflow: 'hidden' }}>
+                        {/* Background subtle glow for premium feel */}
+                        <div style={{ position: 'absolute', top: '-50px', left: '-50px', width: '200px', height: '200px', background: 'var(--primary)', filter: 'blur(100px)', opacity: 0.15, zIndex: 0 }}></div>
+                        
+                        <img 
+                            src={`https://api.dicebear.com/9.x/notionists/svg?seed=${profile.username || 'user'}&backgroundColor=transparent`}
+                            alt="avatar"
+                            style={{
+                                width: '100px', height: '100px', borderRadius: '24px',
+                                background: 'var(--glass-bg)', border: '1px solid var(--glass-border)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+                                zIndex: 1, padding: '5px'
+                            }}
+                        />
+                        <div style={{ flex: 1, zIndex: 1 }}>
                             {isEditing ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    <input
-                                        placeholder="Full Name"
-                                        value={profile.name}
-                                        onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                                        className="styled-input"
-                                    />
-                                    <input
-                                        placeholder="Username"
-                                        value={profile.username}
-                                        onChange={(e) => setProfile({ ...profile, username: e.target.value })}
-                                        className="styled-input"
-                                    />
-                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                        <button onClick={handleUpdateProfile} className="btn-primary" style={{ padding: '0.6rem 1.25rem' }}>
-                                            <Save size={16} style={{ marginRight: '6px' }} /> Save
+                                    <div style={{ marginBottom: '0.5rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Full Name</label>
+                                        <input
+                                            placeholder="John Doe"
+                                            value={profile.name}
+                                            onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                                            className="styled-input"
+                                            style={{ width: '100%', background: 'rgba(255,255,255,0.05)' }}
+                                        />
+                                    </div>
+                                    <div style={{ marginBottom: '0.5rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Username</label>
+                                        <input
+                                            placeholder="johndoe123"
+                                            value={profile.username}
+                                            onChange={(e) => setProfile({ ...profile, username: e.target.value })}
+                                            className="styled-input"
+                                            style={{ width: '100%', background: 'rgba(255,255,255,0.05)' }}
+                                        />
+                                        <p style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '0.3rem', opacity: 0.8 }}>Username will change your avatar style!</p>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                                        <button onClick={handleUpdateProfile} className="btn-primary" style={{ padding: '0.6rem 1.25rem', flex: 1, justifyContent: 'center' }}>
+                                            <Save size={16} style={{ marginRight: '6px' }} /> Save Changes
                                         </button>
-                                        <button onClick={() => setIsEditing(false)} className="btn-secondary" style={{ padding: '0.6rem 1.25rem' }}>
-                                            <X size={16} />
+                                        <button onClick={() => { setIsEditing(false); fetchProfileData(); }} className="btn-secondary" style={{ padding: '0.6rem 1.25rem', background: 'rgba(255,255,255,0.05)', flex: 1, justifyContent: 'center' }}>
+                                            <X size={16} style={{ marginRight: '6px' }} /> Cancel
                                         </button>
                                     </div>
+
                                 </div>
                             ) : (
                                 <>

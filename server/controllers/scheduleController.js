@@ -150,84 +150,43 @@ exports.getAnalytics = async (req, res) => {
 
         // Current Streak
         const completionDates = completedSchedules
-            .map(s => s.updatedAt) // Return raw timestamp/ISO string
+            .map(s => {
+                // Return YYYY-MM-DD
+                return new Date(s.updatedAt).toISOString().split('T')[0];
+            })
             .sort((a, b) => new Date(b) - new Date(a)); // Sort newest first
 
         const uniqueDates = [...new Set(completionDates)];
 
         let streak = 0;
-        const getTodayStr = () => new Date().toISOString().split('T')[0];
-        const getYesterdayStr = () => {
-            const d = new Date();
-            d.setDate(d.getDate() - 1);
-            return d.toISOString().split('T')[0];
-        };
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        
+        let yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-        const todayStr = getTodayStr();
-        const yesterdayStr = getYesterdayStr();
-
-        // If today is done, start counting. If not, check if yesterday was done to maintain streak.
-        // If neither, streak is 0.
-        let checkIndex = 0;
-        if (uniqueDates[0] === todayStr) {
-            streak++;
-            checkIndex = 1;
-        } else if (uniqueDates[0] !== yesterdayStr) {
-            // Streak broken
-            streak = 0;
-        }
-
-        // Count backwards
-        let currentCheckDate = new Date(uniqueDates[0] === todayStr ? todayStr : yesterdayStr);
-
-        // Simple consecutive check logic
-        // We already handled the first day (today or yesterday) above if applicable.
-        // Let's redo simple loop:
-
-        let streakCount = 0;
-        let expectedDate = new Date();
-        // Check today first
+        // Start streak check either from today or yesterday
+        let expectedDate = null;
         if (uniqueDates.includes(todayStr)) {
-            streakCount++;
-            expectedDate.setDate(expectedDate.getDate() - 1);
+            streak++;
+            expectedDate = new Date(yesterday); // next expected is yesterday for counting backwards
         } else if (uniqueDates.includes(yesterdayStr)) {
-            // Streak alive but not done today
-            expectedDate.setDate(expectedDate.getDate() - 1);
-        } else {
-            // Streak broken
-            expectedDate = null;
+            // Streak is alive from yesterday, but today isn't done yet
+            streak++;
+            expectedDate = new Date(yesterday);
+            expectedDate.setDate(expectedDate.getDate() - 1); // next expected is day before yesterday
         }
 
         if (expectedDate) {
             while (true) {
-                const dateStr = expectedDate.toISOString().split('T')[0];
-                if (uniqueDates.includes(dateStr)) {
-                    streakCount++;
+                const qStr = expectedDate.toISOString().split('T')[0];
+                if (uniqueDates.includes(qStr)) {
+                    streak++;
                     expectedDate.setDate(expectedDate.getDate() - 1);
                 } else {
                     break;
                 }
-            }
-        }
-
-        // Re-implement simplified streak logic properly
-        streak = 0;
-        const now = new Date();
-        let queryDate = new Date(now);
-
-        // Check today
-        if (uniqueDates.includes(queryDate.toISOString().split('T')[0])) {
-            streak++;
-        }
-
-        // Check past days consecutively
-        while (true) {
-            queryDate.setDate(queryDate.getDate() - 1);
-            const qStr = queryDate.toISOString().split('T')[0];
-            if (uniqueDates.includes(qStr)) {
-                streak++;
-            } else {
-                break;
             }
         }
 
@@ -236,6 +195,7 @@ exports.getAnalytics = async (req, res) => {
             totalTime,
             weeklyCompleted,
             streak,
+
             completionHistory: uniqueDates // Array of YYYY-MM-DD strings
         });
     } catch (err) {

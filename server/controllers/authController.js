@@ -21,7 +21,16 @@ exports.register = async (req, res) => {
                 console.error('JWT Sign Error:', err.message);
                 return res.status(500).json({ msg: 'JWT Error: ' + err.message });
             }
-            res.json({ token, user: { id: user.id, name: user.name, username: user.username, email: user.email } });
+            res.json({ 
+                token, 
+                user: { 
+                    id: user.id, 
+                    name: user.name, 
+                    username: user.username, 
+                    email: user.email,
+                    role: user.role 
+                } 
+            });
         });
     } catch (err) {
         console.error('Register Error:', err);
@@ -53,7 +62,16 @@ exports.login = async (req, res) => {
                 console.error('JWT Sign Error:', err.message);
                 return res.status(500).json({ msg: 'JWT Error: ' + err.message });
             }
-            res.json({ token, user: { id: user.id, name: user.name, username: user.username, email: user.email } });
+            res.json({ 
+                token, 
+                user: { 
+                    id: user.id, 
+                    name: user.name, 
+                    username: user.username, 
+                    email: user.email,
+                    role: user.role 
+                } 
+            });
         });
     } catch (err) {
         console.error('Login Error:', err);
