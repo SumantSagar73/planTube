@@ -12,7 +12,15 @@ exports.sharePlaylist = async (req, res) => {
         // Check if group exists and user is a member
         const group = await Group.findById(groupId);
         if (!group) return res.status(404).json({ msg: 'Group not found' });
-        if (!group.members.includes(req.user.id)) {
+        
+        // Safety check for req.user
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ msg: 'User authentication failed' });
+        }
+
+        const isMember = group.members.some(m => m && m.toString() === req.user.id.toString());
+        const isAdmin = req.user.isAdmin;
+        if (!isMember && !isAdmin) {
             return res.status(403).json({ msg: 'You are not a member of this group' });
         }
 
@@ -22,38 +30,31 @@ exports.sharePlaylist = async (req, res) => {
         };
 
         if (playlistId) {
-            // Check if playlist exists and user owns it
             const playlist = await Playlist.findById(playlistId);
             if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
-            if (playlist.userId.toString() !== req.user.id) {
+            if (playlist.userId && playlist.userId.toString() !== req.user.id.toString()) {
                 return res.status(403).json({ msg: 'You can only share your own playlists' });
             }
             sharedData.playlistId = playlistId;
         } else if (videoId) {
-            // Check if video exists
             const video = await Video.findById(videoId);
             if (!video) return res.status(404).json({ msg: 'Video not found' });
-            // For videos, check if it belongs to a SINGLES playlist owned by user
             const playlist = await Playlist.findById(video.playlistId);
-            if (playlist && playlist.userId && playlist.userId.toString() !== req.user.id) {
+            if (playlist && playlist.userId && playlist.userId.toString() !== req.user.id.toString()) {
                 return res.status(403).json({ msg: 'You can only share your own videos' });
             }
             sharedData.videoId = videoId;
-        } else {
-            return res.status(400).json({ msg: 'Either playlistId or videoId is required' });
         }
 
-        // Create group sharing connection
         const groupPlaylist = new GroupPlaylist(sharedData);
-
         await groupPlaylist.save();
         res.json(groupPlaylist);
     } catch (err) {
         if (err.code === 11000) {
             return res.status(400).json({ msg: 'This item is already shared with this group' });
         }
-        console.error('Share error:', err.message);
-        res.status(500).json({ msg: 'Server error' });
+        console.error('Share error:', err);
+        res.status(500).json({ msg: 'Server error: ' + err.message });
     }
 };
 
@@ -65,10 +66,11 @@ exports.getGroupPlaylists = async (req, res) => {
         const group = await Group.findById(groupId);
         if (!group) return res.status(404).json({ msg: 'Group not found' });
 
-        // If logged in, check membership. If guest, allow read-only access.
-        if (req.user) {
-            const isMember = group.members.some(m => m.toString() === String(req.user.id));
-            const isOwner = group.ownerId.toString() === String(req.user.id);
+        // Optional membership logic check (informative only)
+        if (req.user && req.user.id) {
+            const userIdStr = req.user.id.toString();
+            const isMember = group.members.some(m => m && m.toString() === userIdStr);
+            console.log(`Checking membership for user ${userIdStr} in group ${groupId}: ${isMember}`);
         }
 
         const sharedPlaylists = await GroupPlaylist.find({ groupId })
@@ -79,8 +81,8 @@ exports.getGroupPlaylists = async (req, res) => {
 
         res.json(sharedPlaylists);
     } catch (err) {
-        console.error('Get group playlists error:', err.message);
-        res.status(500).json({ msg: 'Server error' });
+        console.error('GetGroupPlaylists Error:', err);
+        res.status(500).json({ msg: 'Server Error', error: err.message });
     }
 };
 
@@ -88,28 +90,20 @@ exports.getGroupPlaylists = async (req, res) => {
 exports.getGroupPlaylistProgress = async (req, res) => {
     try {
         const { groupId, playlistId } = req.params;
-
-        // Check membership
         const group = await Group.findById(groupId).populate('members', 'name email');
         if (!group) return res.status(404).json({ msg: 'Group not found' });
 
-        // If guest or non-member, they can still view progress if they have the link
-        // but let's at least ensure we don't crash on req.user.id
-
-        // Get all videos in this playlist
         const videos = await Video.find({ playlistId });
         const videoIds = videos.map(v => v._id);
         const totalVideos = videos.length;
 
         const progressData = await Promise.all(group.members.map(async (member) => {
-            // Get completed schedules for this user and these videos
             const completedCount = await Schedule.countDocuments({
                 userId: member._id,
                 videoId: { $in: videoIds },
                 status: 'completed'
             });
 
-            // Get last activity
             const lastActivity = await Schedule.findOne({
                 userId: member._id,
                 videoId: { $in: videoIds }
@@ -127,24 +121,17 @@ exports.getGroupPlaylistProgress = async (req, res) => {
 
         res.json(progressData);
     } catch (err) {
-        console.error('Get group progress error:', err.message);
-        res.status(500).json({ msg: 'Server error' });
+        console.error('GetGroupPlaylistProgress Error:', err);
+        res.status(500).json({ msg: 'Server Error', error: err.message });
     }
 };
 
-// Get schedules of all members for a shared playlist (View Only)
+// Get schedules of all members for a shared playlist
 exports.getGroupPlaylistSchedules = async (req, res) => {
     try {
         const { groupId, playlistId } = req.params;
-
         const group = await Group.findById(groupId);
         if (!group) return res.status(404).json({ msg: 'Group not found' });
-
-        // Safety check for guest access
-        if (req.user) {
-            const isMember = group.members.some(m => m.toString() === String(req.user.id));
-            const isOwner = group.ownerId.toString() === String(req.user.id);
-        }
 
         const videos = await Video.find({ playlistId });
         const videoIds = videos.map(v => v._id);
@@ -154,16 +141,15 @@ exports.getGroupPlaylistSchedules = async (req, res) => {
             userId: { $in: group.members }
         }).populate('videoId', 'title').populate('userId', 'name');
 
-        // Organize by user
         const organizedSchedules = {};
         group.members.forEach(memberId => {
-            organizedSchedules[memberId] = schedules.filter(s => s.userId._id.toString() === memberId.toString());
+            organizedSchedules[memberId] = schedules.filter(s => s.userId && s.userId._id.toString() === memberId.toString());
         });
 
         res.json(organizedSchedules);
     } catch (err) {
-        console.error('Get group schedules error:', err.message);
-        res.status(500).json({ msg: 'Server error' });
+        console.error('GetGroupPlaylistSchedules Error:', err);
+        res.status(500).json({ msg: 'Server Error', error: err.message });
     }
 };
 
@@ -171,25 +157,28 @@ exports.getGroupPlaylistSchedules = async (req, res) => {
 exports.unsharePlaylist = async (req, res) => {
     try {
         const { groupId, playlistId } = req.params;
-
         const shared = await GroupPlaylist.findOne({
             groupId,
-            $or: [{ playlistId }, { videoId: playlistId }] // Reusing playlistId param as generic itemId
+            $or: [{ playlistId }, { videoId: playlistId }]
         });
         if (!shared) return res.status(404).json({ msg: 'Shared item not found' });
 
         const group = await Group.findById(groupId);
+        if (!group) return res.status(404).json({ msg: 'Group not found' });
+        
+        if (!req.user || !req.user.id) return res.status(401).json({ msg: 'Auth failed' });
 
-        // Only owner of group or person who shared it can remove
-        if (group.ownerId.toString() !== req.user.id && shared.sharedBy.toString() !== req.user.id) {
+        const requesterId = req.user.id.toString();
+        const isAdmin = req.user.isAdmin;
+        if (group.ownerId.toString() !== requesterId && shared.sharedBy.toString() !== requesterId && !isAdmin) {
             return res.status(403).json({ msg: 'Permission denied' });
         }
 
         await GroupPlaylist.deleteOne({ _id: shared._id });
         res.json({ msg: 'Item removed from group' });
     } catch (err) {
-        console.error('Unshare error:', err.message);
-        res.status(500).json({ msg: 'Server error' });
+        console.error('Unshare Error:', err);
+        res.status(500).json({ msg: 'Server Error', error: err.message });
     }
 };
 
@@ -202,8 +191,9 @@ exports.updatePlaylistPriority = async (req, res) => {
         const group = await Group.findById(groupId);
         if (!group) return res.status(404).json({ msg: 'Group not found' });
 
-        // Only owner can update priority
-        if (group.ownerId.toString() !== req.user.id) {
+        if (!req.user || !req.user.id) return res.status(401).json({ msg: 'Auth failed' });
+
+        if (group.ownerId.toString() !== req.user.id.toString() && !req.user.isAdmin) {
             return res.status(403).json({ msg: 'Only group owner can set priority' });
         }
 
@@ -212,10 +202,9 @@ exports.updatePlaylistPriority = async (req, res) => {
 
         shared.priority = priority;
         await shared.save();
-
         res.json(shared);
     } catch (err) {
-        console.error('Update priority error:', err.message);
-        res.status(500).json({ msg: 'Server error' });
+        console.error('UpdatePriority Error:', err);
+        res.status(500).json({ msg: 'Server Error', error: err.message });
     }
 };

@@ -123,3 +123,48 @@ exports.deleteVideo = async (req, res) => {
         res.status(500).send('Server error');
     }
 };
+
+exports.updateChapters = async (req, res) => {
+    try {
+        const { id } = req.params; // Video ID (junction table)
+        const { chapters } = req.body;
+
+        const video = await Video.findById(id);
+        if (!video) return res.status(404).json({ msg: 'Video not found' });
+
+        const sharedVideo = await SharedVideo.findById(video.sharedVideoId);
+        if (!sharedVideo) return res.status(404).json({ msg: 'Shared metadata not found' });
+
+        sharedVideo.chapters = chapters;
+        await sharedVideo.save();
+
+        res.json(sharedVideo);
+    } catch (err) {
+        console.error('Update Chapters Error:', err.message);
+        res.status(500).json({ msg: 'Failed to update chapters' });
+    }
+};
+
+exports.updateVideo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tags, customResources } = req.body;
+
+        const updateData = {};
+        if (tags) updateData.tags = tags;
+        if (customResources) updateData.customResources = customResources;
+
+        const updatedVideo = await Video.findByIdAndUpdate(
+            id,
+            { $set: updateData },
+            { new: true }
+        ).populate('sharedVideoId');
+
+        if (!updatedVideo) return res.status(404).json({ msg: 'Video not found' });
+
+        res.json(updatedVideo);
+    } catch (err) {
+        console.error('Update Video Metadata Error:', err.message);
+        res.status(500).json({ msg: 'Failed to update video metadata' });
+    }
+};

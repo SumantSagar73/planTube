@@ -15,13 +15,26 @@ import PublicPlaylist from './pages/PublicPlaylist';
 import LibraryPage from './pages/Library';
 import Home from './pages/Home';
 import ImportPage from './pages/ImportPage';
+import AdminDashboard from './pages/AdminDashboard';
+import Social from './pages/Social';
+import PublicProfile from './pages/PublicProfile';
 import Navbar from './components/Shared/Navbar';
+import HelperBot from './components/Shared/HelperBot';
+
 import LoadingScreen from './components/Shared/LoadingScreen';
+import ShadowBanner from './components/Admin/ShadowBanner';
 
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
     if (loading) return <LoadingScreen message="Checking authorization..." />;
     if (!user) return <Navigate to="/login" />;
+    return children;
+};
+
+const AdminRoute = ({ children }) => {
+    const { user, loading } = useAuth();
+    if (loading) return <LoadingScreen message="Verifying admin credentials..." />;
+    if (!user || user.role !== 'admin') return <Navigate to="/" />;
     return children;
 };
 
@@ -33,6 +46,7 @@ const AppRoutes = () => {
     return (
         <Router>
             <div className="app-container">
+                <ShadowBanner />
                 <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
@@ -45,10 +59,19 @@ const AppRoutes = () => {
                         element={
                             <>
                                 <Navbar />
-                                <div className="container" style={{ paddingTop: '5rem' }}>
+                                <HelperBot />
+                                <div className="container" style={{ paddingTop: localStorage.getItem('impersonate_user_id') ? '7.5rem' : '5rem' }}>
                                     <Routes>
                                         <Route path="/" element={user ? <Dashboard /> : <Home />} />
                                         <Route path="/playlist/:id" element={<PlaylistDetails />} />
+                                        <Route
+                                            path="/admin"
+                                            element={
+                                                <AdminRoute>
+                                                    <AdminDashboard />
+                                                </AdminRoute>
+                                            }
+                                        />
                                         <Route
                                             path="/dashboard"
                                             element={
@@ -103,6 +126,23 @@ const AppRoutes = () => {
                                             }
                                         />
                                         <Route path="/shared-playlist/:id" element={<PublicPlaylist />} />
+                                        
+                                        <Route
+                                            path="/social"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <Social />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/profile/:username"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <PublicProfile />
+                                                </ProtectedRoute>
+                                            }
+                                        />
 
 
                                     </Routes>

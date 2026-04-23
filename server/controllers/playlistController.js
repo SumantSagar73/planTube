@@ -348,8 +348,10 @@ exports.getPlaylistVideos = async (req, res) => {
 
 exports.deletePlaylist = async (req, res) => {
     try {
+        const isAdmin = req.user.isAdmin;
         // 1. Try Imported Playlist (Remove UserLink)
-        const userPlaylist = await UserPlaylist.findOne({ playlistId: req.params.id, userId: req.user.id });
+        const query = isAdmin ? { playlistId: req.params.id } : { playlistId: req.params.id, userId: req.user.id };
+        const userPlaylist = await UserPlaylist.findOne(query);
 
         if (userPlaylist) {
             // Delete associated schedules (personal to user)
@@ -367,7 +369,8 @@ exports.deletePlaylist = async (req, res) => {
         const CustomPlaylist = require('../models/CustomPlaylist');
         const CustomPlaylistVideo = require('../models/CustomPlaylistVideo');
 
-        const customPlaylist = await CustomPlaylist.findOne({ _id: req.params.id, creatorId: req.user.id });
+        const customQuery = isAdmin ? { _id: req.params.id } : { _id: req.params.id, creatorId: req.user.id };
+        const customPlaylist = await CustomPlaylist.findOne(customQuery);
 
         if (customPlaylist) {
             // Delete associated schedules for these custom videos
@@ -389,7 +392,9 @@ exports.deletePlaylist = async (req, res) => {
 
 exports.syncPlaylist = async (req, res) => {
     try {
-        const userPlaylist = await UserPlaylist.findOne({ playlistId: req.params.id, userId: req.user.id });
+        const isAdmin = req.user.isAdmin;
+        const query = isAdmin ? { playlistId: req.params.id } : { playlistId: req.params.id, userId: req.user.id };
+        const userPlaylist = await UserPlaylist.findOne(query);
         if (!userPlaylist) return res.status(404).json({ msg: 'Playlist not found in your library' });
 
         const playlist = await Playlist.findById(req.params.id);
@@ -587,5 +592,29 @@ exports.syncVideo = async (req, res) => {
     } catch (err) {
         console.error('Sync Video Error:', err);
         res.status(500).json({ msg: 'Sync Failed' });
+    }
+};
+
+exports.updatePlaylist = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tags } = req.body;
+
+        const playlist = await Playlist.findById(id);
+        if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
+
+        // Authorization check
+        const isAdmin = req.user.isAdmin;
+        if (playlist.userId && playlist.userId.toString() !== req.user.id && !isAdmin) {
+            return res.status(401).json({ msg: 'Not authorized' });
+        }
+
+        if (tags) playlist.tags = tags;
+        await playlist.save();
+
+        res.json(playlist);
+    } catch (err) {
+        console.error('Update Playlist Error:', err.message);
+        res.status(500).json({ msg: 'Server error' });
     }
 };

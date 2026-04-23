@@ -2,11 +2,12 @@ import React, { useState, useRef } from 'react';
 import {
     ChevronLeft, ChevronRight, Play, CheckCircle,
     Eye, EyeOff, Map, AlignLeft, List as ListIcon,
-    Maximize, ExternalLink, Monitor, FileText
+    Maximize, ExternalLink, Monitor, FileText, Zap
 } from 'lucide-react';
 
 const FocusControls = ({
     showControls,
+    uiHidden,
     isMobile,
     compactMode,
     video,
@@ -17,6 +18,7 @@ const FocusControls = ({
     volume,
     isPlaying,
     isCompleted,
+    isFrozen,
     showSidebar,
     sidebarTab,
     currentIndex,
@@ -59,23 +61,21 @@ const FocusControls = ({
                 bottom: '0',
                 left: '0',
                 right: '0',
-                transform: `translateY(${showControls ? '0' : '100%'})`,
-                opacity: showControls ? 1 : 0,
-                transition: 'all 0.4s cubic-bezier(0.23, 1, 0.32, 1)',
-                zIndex: 40,
-                pointerEvents: showControls ? 'auto' : 'none',
+                width: '100%',
+                padding: isMobile ? '0.75rem 1rem' : '1.25rem 2rem',
+                background: 'linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.4) 50%, transparent)',
+                backdropFilter: 'blur(30px) saturate(180%)',
+                borderTop: '1px solid rgba(255,255,255,0.05)',
+                transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)',
+                zIndex: 100,
+                opacity: (showControls && !uiHidden) ? 1 : 0,
+                transform: (showControls && !uiHidden) ? 'translateY(0)' : 'translateY(100%)',
+                pointerEvents: (showControls && !uiHidden) ? 'auto' : 'none',
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center',
-                gap: isMobile ? '0.25rem' : '0.5rem',
-                padding: isMobile ? '0.6rem 1rem' : '1.2rem 2rem',
-                background: 'rgba(10, 10, 12, 0.95)',
-                backdropFilter: 'blur(30px)',
-                borderRadius: '0',
-                borderTop: '1px solid rgba(255,255,255,0.08)',
-                boxShadow: '0 -10px 50px rgba(0,0,0,0.5)',
-                width: '100%',
+                gap: '0.5rem'
             }}
+            onMouseEnter={() => setIsHovering(true)}
         >
             {/* Active Chapter Label */}
             {video?.chapters && activeChapterIndex !== -1 && (
@@ -229,6 +229,14 @@ const FocusControls = ({
                 {/* Right Group: Actions & Toggles */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'flex-end' }}>
                     <button
+                        onClick={() => setIsHovering(false)}
+                        className="icon-btn-deck"
+                        title="Hide UI (Click to clear view)"
+                    >
+                        <EyeOff size={18} />
+                    </button>
+
+                    <button
                         onClick={() => setMiniPlayer(!miniPlayer)}
                         className={`icon-btn-deck ${miniPlayer ? 'active' : ''}`}
                         title="Mini Player (P)"
@@ -254,9 +262,10 @@ const FocusControls = ({
 
                     <button
                         onClick={handleToggleComplete}
+                        disabled={isFrozen}
                         className={`deck-primary-btn ${isCompleted ? 'completed' : ''}`}
-                        title={isCompleted ? "Mark Undone" : "Mark Complete"}
-                        style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }}
+                        title={isFrozen ? "Progress tracking disabled while account is frozen" : (isCompleted ? "Mark Undone" : "Mark Complete")}
+                        style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: isFrozen ? 0.5 : 1, cursor: isFrozen ? 'not-allowed' : 'pointer' }}
                     >
                         <CheckCircle size={16} fill={isCompleted ? "white" : "none"} />
                         <span>{isCompleted ? 'Done' : 'Mark'}</span>
@@ -286,6 +295,13 @@ const FocusControls = ({
                         title="Notes"
                     >
                         <FileText size={18} />
+                    </button>
+                    <button
+                        onClick={() => setSidebarTab('resources')}
+                        className={`icon-btn-deck ${showSidebar && sidebarTab === 'resources' ? 'active' : ''}`}
+                        title="Resources"
+                    >
+                        <Zap size={18} />
                     </button>
                     <button
                         onClick={() => setSidebarTab('description')}

@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import {
     CheckCircle, Map, AlignLeft, List as ListIcon,
     ChevronRight, Play, Users, Copy, Check, Settings,
-    FileText, Type, Bold, Italic, ListOrdered, List, Code, Image, Trash2
+    FileText, Type, Bold, Italic, ListOrdered, List, Code, Image, Trash2, Zap,
+    Tag, X, ExternalLink, RefreshCw
 } from 'lucide-react';
 
 const FocusSidebar = ({
@@ -38,10 +39,100 @@ const FocusSidebar = ({
     isAddingNote,
     setIsAddingNote,
     noteText,
-    setNoteText
+    setNoteText,
+    glassBlur,
+    setGlassBlur,
+    accentColor,
+    setAccentColor,
+    onUpdateChapters,
+    onUpdateVideo,
+    isFrozen
 }) => {
     const [copyDone, setCopyDone] = useState(false);
+    const [isEditingChapters, setIsEditingChapters] = useState(false);
+    const [editableChapters, setEditableChapters] = useState([]);
+    const [newChapter, setNewChapter] = useState({ title: '', timestamp: '' });
+    
+    // Keywords (Tags) state
+    const [tempTag, setTempTag] = useState('');
+    
+    // Custom Resources state
+    const [isAddingResource, setIsAddingResource] = useState(false);
+    const [newResource, setNewResource] = useState({ label: '', url: '' });
+
     const textareaRef = useRef(null);
+
+    const startEditing = () => {
+        setEditableChapters(video.chapters || []);
+        setIsEditingChapters(true);
+    };
+
+    const handleAddTag = (e) => {
+        if (e.key === 'Enter' && tempTag.trim()) {
+            const currentTags = video.tags || [];
+            if (!currentTags.includes(tempTag.trim())) {
+                onUpdateVideo({ tags: [...currentTags, tempTag.trim()] });
+            }
+            setTempTag('');
+        }
+    };
+
+    const handleRemoveTag = (tag) => {
+        const currentTags = video.tags || [];
+        onUpdateVideo({ tags: currentTags.filter(t => t !== tag) });
+    };
+
+    const handleAddResource = () => {
+        if (!newResource.label || !newResource.url) return;
+        const currentResources = video.customResources || [];
+        onUpdateVideo({ customResources: [...currentResources, newResource] });
+        setNewResource({ label: '', url: '' });
+        setIsAddingResource(false);
+    };
+
+    const handleRemoveResource = (idx) => {
+        const currentResources = video.customResources || [];
+        onUpdateVideo({ customResources: currentResources.filter((_, i) => i !== idx) });
+    };
+
+    const handleMarkCurrentTime = () => {
+        const timeStr = formatTime(currentTime);
+        setNewChapter({ ...newChapter, timestamp: timeStr });
+    };
+
+    const addChapter = () => {
+        if (!newChapter.title || !newChapter.timestamp) return;
+        
+        // Parse timestamp string to seconds for sorting
+        const parts = newChapter.timestamp.split(':').reverse();
+        let seconds = 0;
+        if (parts[0]) seconds += parseInt(parts[0]);
+        if (parts[1]) seconds += parseInt(parts[1]) * 60;
+        if (parts[2]) seconds += parseInt(parts[2]) * 3600;
+
+        const updated = [...editableChapters, { ...newChapter, seconds }];
+        updated.sort((a, b) => a.seconds - b.seconds);
+        setEditableChapters(updated);
+        setNewChapter({ title: '', timestamp: '' });
+    };
+
+    const removeChapter = (idx) => {
+        setEditableChapters(editableChapters.filter((_, i) => i !== idx));
+    };
+
+    const saveChapters = () => {
+        onUpdateChapters(editableChapters);
+        setIsEditingChapters(false);
+    };
+
+    const copyForYouTube = () => {
+        const text = editableChapters.length > 0 ? editableChapters : (video.chapters || []);
+        const formatted = text.map(c => `${c.timestamp} ${c.title}`).join('\n');
+        navigator.clipboard.writeText(formatted).then(() => {
+            setCopyDone(true);
+            setTimeout(() => setCopyDone(false), 2000);
+        });
+    };
 
     const handleFormat = (type) => {
         const textarea = textareaRef.current;
@@ -87,6 +178,18 @@ const FocusSidebar = ({
         });
     };
 
+    const extractLinks = (text) => {
+        if (!text) return [];
+        const urlRegex = /((?:https?:\/\/|www\.)[^\s]+)/g;
+        const matches = text.match(urlRegex) || [];
+        return Array.from(new Set(matches)).map(url => {
+            const label = url.replace(/https?:\/\/(www\.)?/, '').split('/')[0];
+            return { url, label };
+        });
+    };
+
+    const resources = extractLinks(video.description);
+
     if (!video) return null;
 
     return (
@@ -112,7 +215,7 @@ const FocusSidebar = ({
                 <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--primary)' }}>
-                            {sidebarTab === 'chapters' ? 'Video Map' : (sidebarTab === 'playlist' ? 'Playlist' : (sidebarTab === 'settings' ? 'Settings' : (sidebarTab === 'notes' ? 'My Notes' : 'About')))}
+                            {sidebarTab === 'chapters' ? 'Video Map' : (sidebarTab === 'playlist' ? 'Playlist' : (sidebarTab === 'settings' ? 'Settings' : (sidebarTab === 'notes' ? 'My Notes' : (sidebarTab === 'resources' ? 'Resources' : 'About'))))}
                         </h3>
                         {compactMode && (
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
@@ -120,6 +223,7 @@ const FocusSidebar = ({
                                     <button onClick={() => setSidebarTab('playlist')} style={{ color: sidebarTab === 'playlist' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Playlist</button>
                                 )}
                                 <button onClick={() => setSidebarTab('notes')} style={{ color: sidebarTab === 'notes' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Notes</button>
+                                <button onClick={() => setSidebarTab('resources')} style={{ color: sidebarTab === 'resources' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Resources</button>
                                 <button onClick={() => setSidebarTab('settings')} style={{ color: sidebarTab === 'settings' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Settings</button>
                             </div>
                         )}
@@ -134,118 +238,257 @@ const FocusSidebar = ({
                 </div>
 
                 <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
-                {sidebarTab === 'chapters' && video.chapters && video.chapters.length > 0 && !compactMode && (
-                    <div style={{
-                        position: 'sticky',
-                        top: '-1.25rem',
-                        background: 'rgba(10, 10, 12, 1)',
-                        padding: '1.25rem 0',
-                        zIndex: 10,
-                        marginBottom: '0.5rem',
-                        borderBottom: '1px solid rgba(255,255,255,0.05)'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)' }}>Course Progress</span>
-                            <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--primary)' }}>
-                                {schedule ? Math.round((schedule.completedChapters?.length / video.chapters.length) * 100) : 0}%
-                            </span>
-                        </div>
-                        <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                            <div style={{
-                                width: `${schedule ? (schedule.completedChapters?.length / video.chapters.length) * 100 : 0}%`,
-                                height: '100%',
-                                background: 'var(--primary)',
-                                transition: 'width 0.3s ease'
-                            }} />
-                        </div>
-                    </div>
-                )}
-
                 {sidebarTab === 'chapters' ? (
                     <>
-                        {video.chapters && video.chapters.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                {video.chapters.map((chapter, idx) => {
-                                    const isDone = schedule?.completedChapters?.includes(idx);
-                                    const isActive = idx === activeChapterIndex;
+                        {/* Keyword Tagging UI */}
+                        <div style={{ marginBottom: '2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>Keywords & Tags</span>
+                                <Tag size={14} style={{ opacity: 0.4 }} />
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                {(video.tags || []).map(tag => (
+                                    <div 
+                                        key={tag}
+                                        style={{ 
+                                            display: 'flex', alignItems: 'center', gap: '4px',
+                                            background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)',
+                                            color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem'
+                                        }}
+                                    >
+                                        #{tag}
+                                        <X 
+                                            size={12} 
+                                            style={{ cursor: 'pointer', opacity: 0.5 }} 
+                                            onClick={() => handleRemoveTag(tag)}
+                                        />
+                                    </div>
+                                ))}
+                                <input 
+                                    type="text"
+                                    placeholder="+ tag..."
+                                    value={tempTag}
+                                    onChange={e => setTempTag(e.target.value)}
+                                    onKeyDown={handleAddTag}
+                                    style={{
+                                        background: 'none', border: 'none', color: 'white',
+                                        fontSize: '0.75rem', outline: 'none', width: '80px',
+                                        padding: '2px 0'
+                                    }}
+                                />
+                            </div>
+                        </div>
 
-                                    return (
-                                        <div
-                                            key={idx}
-                                            ref={el => chapterRefs.current[idx] = el}
-                                            className="glass-hover"
-                                            style={{
-                                                background: isActive ? 'rgba(99, 102, 241, 0.15)' : (isDone ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255, 255, 255, 0.02)'),
-                                                border: isActive ? '1px solid var(--primary)' : (isDone ? '1px solid rgba(34, 197, 94, 0.2)' : '1px solid rgba(255, 255, 255, 0.05)'),
-                                                borderRadius: '16px',
-                                                padding: '0.5rem',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.5rem',
-                                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                position: 'relative',
-                                                overflow: 'hidden',
-                                                transform: isActive ? 'scale(1.02)' : 'scale(1)',
-                                                boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
-                                            }}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>Video Mapping</span>
+                            {!isEditingChapters ? (
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button 
+                                        onClick={copyForYouTube}
+                                        className="glass-hover"
+                                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    >
+                                        {copyDone ? <Check size={14} /> : <Copy size={14} />}
+                                        {copyDone ? 'Copied' : 'Copy for YT'}
+                                    </button>
+                                    <button 
+                                        onClick={startEditing}
+                                        className="glass-hover"
+                                        style={{ background: 'var(--primary)', border: 'none', color: 'white', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+                                    >
+                                        Edit Map
+                                    </button>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button 
+                                        onClick={() => setIsEditingChapters(false)}
+                                        style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: '0.75rem' }}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        onClick={saveChapters}
+                                        style={{ background: '#22c55e', border: 'none', color: 'white', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+                                    >
+                                        Save Map
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {isEditingChapters && (
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '16px', marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                    <input 
+                                        placeholder="00:00" 
+                                        value={newChapter.timestamp}
+                                        onChange={e => setNewChapter({ ...newChapter, timestamp: e.target.value })}
+                                        style={{ width: '70px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '0.4rem', borderRadius: '8px', fontSize: '0.85rem' }}
+                                    />
+                                    <button 
+                                        onClick={handleMarkCurrentTime}
+                                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--primary)', padding: '0 0.5rem', borderRadius: '8px', cursor: 'pointer' }}
+                                        title="Use current player time"
+                                    >
+                                        <Zap size={14} fill="currentColor" />
+                                    </button>
+                                    <input 
+                                        placeholder="Chapter Title..." 
+                                        value={newChapter.title}
+                                        onChange={e => setNewChapter({ ...newChapter, title: e.target.value })}
+                                        style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '0.4rem', borderRadius: '8px', fontSize: '0.85rem' }}
+                                        onKeyDown={e => e.key === 'Enter' && addChapter()}
+                                    />
+                                    <button 
+                                        onClick={addChapter}
+                                        style={{ background: 'var(--primary)', border: 'none', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                                <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Tip: Click the lightning icon to capture current player time</p>
+                            </div>
+                        )}
+
+                        {isEditingChapters ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {editableChapters.map((chapter, idx) => (
+                                    <div 
+                                        key={idx}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}
+                                    >
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 'bold', minWidth: '45px' }}>{chapter.timestamp}</span>
+                                        <span style={{ flex: 1, fontSize: '0.85rem', color: 'white' }}>{chapter.title}</span>
+                                        <button 
+                                            onClick={() => removeChapter(idx)}
+                                            style={{ background: 'none', border: 'none', color: 'rgba(239, 68, 68, 0.5)', cursor: 'pointer' }}
                                         >
-                                            {isActive && (
-                                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: 'var(--primary)' }} />
-                                            )}
-
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); toggleChapter(idx); }}
-                                                style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                    color: isDone ? '#22c55e' : 'rgba(255,255,255,0.2)',
-                                                    display: 'flex',
-                                                    padding: '0.4rem',
-                                                    borderRadius: '10px',
-                                                    transition: 'all 0.2s',
-                                                    zIndex: 2,
-                                                    marginLeft: isActive ? '0.5rem' : '0'
-                                                }}
-                                                className="hover-bg-glass"
-                                                title={isDone ? "Mark as incomplete" : "Mark as complete"}
-                                            >
-                                                <CheckCircle size={20} fill={isDone ? '#22c55e' : 'none'} strokeWidth={isDone ? 2 : 1.5} />
-                                            </button>
-
-                                            <button
-                                                onClick={() => handleSeek(chapter.seconds)}
-                                                style={{
-                                                    flex: 1,
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    textAlign: 'left',
-                                                    padding: '0.5rem',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: '0.1rem',
-                                                    zIndex: 2
-                                                }}
-                                            >
-                                                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: isActive ? 'white' : (isDone ? 'rgba(255,255,255,0.4)' : '#ffffff'), textDecoration: isDone ? 'line-through' : 'none' }}>
-                                                    {chapter.title}
-                                                </span>
-                                                <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)', opacity: (isDone && !isActive) ? 0.5 : 1 }}>
-                                                    {chapter.timestamp}
-                                                </span>
-                                            </button>
-
-                                            {isActive && <div style={{ marginRight: '0.5rem' }}><div className="pulsing-dot" style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }} /></div>}
-                                        </div>
-                                    );
-                                })}
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {editableChapters.length === 0 && <p style={{ textAlign: 'center', opacity: 0.3, fontSize: '0.8rem', padding: '1rem' }}>No chapters added yet.</p>}
                             </div>
                         ) : (
-                            <div style={{ padding: '3rem 1rem', textAlign: 'center', opacity: 0.5 }}>
-                                <Map size={48} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
-                                <p style={{ fontSize: '0.9rem' }}>No chapters found for this video.</p>
-                            </div>
+                            <>
+                                {video.chapters && video.chapters.length > 0 && !compactMode && (
+                                    <div style={{
+                                        position: 'sticky',
+                                        top: '-1.25rem',
+                                        background: 'rgba(10, 10, 12, 1)',
+                                        padding: '1.25rem 0',
+                                        zIndex: 10,
+                                        marginBottom: '0.5rem',
+                                        borderBottom: '1px solid rgba(255,255,255,0.05)'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)' }}>Course Progress</span>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--primary)' }}>
+                                                {schedule ? Math.round((schedule.completedChapters?.length / video.chapters.length) * 100) : 0}%
+                                            </span>
+                                        </div>
+                                        <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                                            <div style={{
+                                                width: `${schedule ? (schedule.completedChapters?.length / video.chapters.length) * 100 : 0}%`,
+                                                height: '100%',
+                                                background: 'var(--primary)',
+                                                transition: 'width 0.3s ease'
+                                            }} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {video.chapters && video.chapters.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        {video.chapters.map((chapter, idx) => {
+                                            const isDone = schedule?.completedChapters?.includes(idx);
+                                            const isActive = idx === activeChapterIndex;
+
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    ref={el => chapterRefs.current[idx] = el}
+                                                    className="glass-hover"
+                                                    style={{
+                                                        background: isActive ? 'rgba(99, 102, 241, 0.15)' : (isDone ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255, 255, 255, 0.02)'),
+                                                        border: isActive ? '1px solid var(--primary)' : (isDone ? '1px solid rgba(34, 197, 94, 0.2)' : '1px solid rgba(255, 255, 255, 0.05)'),
+                                                        borderRadius: '16px',
+                                                        padding: '0.5rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.5rem',
+                                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                        position: 'relative',
+                                                        overflow: 'hidden',
+                                                        transform: isActive ? 'scale(1.02)' : 'scale(1)',
+                                                        boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
+                                                    }}
+                                                >
+                                                    {isActive && (
+                                                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: 'var(--primary)' }} />
+                                                    )}
+
+                                                    <button
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            if (!isFrozen) toggleChapter(idx); 
+                                                        }}
+                                                        disabled={isFrozen}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: isFrozen ? 'not-allowed' : 'pointer',
+                                                            color: isDone ? '#22c55e' : 'rgba(255,255,255,0.2)',
+                                                            display: 'flex',
+                                                            padding: '0.4rem',
+                                                            borderRadius: '10px',
+                                                            transition: 'all 0.2s',
+                                                            zIndex: 2,
+                                                            marginLeft: isActive ? '0.5rem' : '0',
+                                                            opacity: isFrozen ? 0.5 : 1
+                                                        }}
+                                                        className={isFrozen ? "" : "hover-bg-glass"}
+                                                        title={isFrozen ? "Progress tracking disabled while account is frozen" : (isDone ? "Mark as incomplete" : "Mark as complete")}
+                                                    >
+                                                        <CheckCircle size={20} fill={isDone ? '#22c55e' : 'none'} strokeWidth={isDone ? 2 : 1.5} />
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => handleSeek(chapter.seconds)}
+                                                        style={{
+                                                            flex: 1,
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            textAlign: 'left',
+                                                            padding: '0.5rem',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            gap: '0.1rem',
+                                                            zIndex: 2
+                                                        }}
+                                                    >
+                                                        <span style={{ fontSize: '0.9rem', fontWeight: '600', color: isActive ? 'white' : (isDone ? 'rgba(255,255,255,0.4)' : '#ffffff'), textDecoration: isDone ? 'line-through' : 'none' }}>
+                                                            {chapter.title}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)', opacity: (isDone && !isActive) ? 0.5 : 1 }}>
+                                                            {chapter.timestamp}
+                                                        </span>
+                                                    </button>
+
+                                                    {isActive && <div style={{ marginRight: '0.5rem' }}><div className="pulsing-dot" style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }} /></div>}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div style={{ padding: '3rem 1rem', textAlign: 'center', opacity: 0.5 }}>
+                                        <Map size={48} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
+                                        <p style={{ fontSize: '0.9rem' }}>No chapters found for this video.</p>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </>
                 ) : sidebarTab === 'playlist' ? (
@@ -313,6 +556,43 @@ const FocusSidebar = ({
                     </div>
                 ) : sidebarTab === 'settings' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        {/* Appearance Section */}
+                        <div className="glass" style={{ padding: '1.25rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <h4 style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1.5rem' }}>Appearance</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'rgba(255,255,255,0.8)' }}>Glass Blur</span>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '800' }}>{glassBlur}px</span>
+                                    </div>
+                                    <input 
+                                        type="range" min="0" max="80" value={glassBlur} 
+                                        onChange={(e) => setGlassBlur(parseInt(e.target.value))}
+                                        style={{ width: '100%', accentColor: 'var(--primary)' }}
+                                    />
+                                </div>
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'rgba(255,255,255,0.7)' }}>Accent Color</span>
+                                        <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: accentColor, border: '2px solid white' }}></div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        {['#6366f1', '#ec4899', '#22c55e', '#eab308', '#ef4444', '#06b6d4', '#8b5cf6'].map(color => (
+                                            <button 
+                                                key={color}
+                                                onClick={() => setAccentColor(color)}
+                                                style={{
+                                                    width: '32px', height: '32px', borderRadius: '8px',
+                                                    background: color, border: accentColor === color ? '2px solid white' : '1px solid rgba(255,255,255,0.1)',
+                                                    cursor: 'pointer', transition: 'transform 0.2s'
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div>
                             <h4 style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Captions & Subtitles</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -498,6 +778,114 @@ const FocusSidebar = ({
                                 <div style={{ textAlign: 'center', padding: '3rem 1rem', opacity: 0.3 }}>
                                     <FileText size={48} style={{ marginBottom: '1rem' }} />
                                     <p style={{ fontSize: '0.9rem' }}>No notes yet. Capture your thoughts!</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : sidebarTab === 'resources' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        {/* Section: Personal Resources (Editable) */}
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <h4 style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>My Study Materials</h4>
+                                <button 
+                                    onClick={() => setIsAddingResource(!isAddingResource)}
+                                    style={{ background: 'var(--primary)', border: 'none', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 'bold' }}
+                                >
+                                    {isAddingResource ? 'Cancel' : '+ Add'}
+                                </button>
+                            </div>
+
+                            {isAddingResource && (
+                                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '16px', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    <input 
+                                        placeholder="Resource Title (e.g. GitHub Repo)" 
+                                        value={newResource.label}
+                                        onChange={e => setNewResource({ ...newResource, label: e.target.value })}
+                                        style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '0.6rem', borderRadius: '8px', fontSize: '0.85rem' }}
+                                    />
+                                    <input 
+                                        placeholder="URL (https://...)" 
+                                        value={newResource.url}
+                                        onChange={e => setNewResource({ ...newResource, url: e.target.value })}
+                                        style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '0.6rem', borderRadius: '8px', fontSize: '0.85rem' }}
+                                    />
+                                    <button 
+                                        onClick={handleAddResource}
+                                        style={{ background: 'var(--primary)', border: 'none', color: 'white', padding: '0.6rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                                    >
+                                        Pin Resource
+                                    </button>
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                {(video.customResources || []).map((res, i) => (
+                                    <div 
+                                        key={i}
+                                        className="glass-hover"
+                                        style={{
+                                            padding: '1rem', borderRadius: '16px',
+                                            display: 'flex', alignItems: 'center', gap: '1rem',
+                                            border: '1px solid rgba(99, 102, 241, 0.2)',
+                                            background: 'rgba(99, 102, 241, 0.03)',
+                                            transition: 'all 0.2s', position: 'relative'
+                                        }}
+                                    >
+                                        <div style={{ padding: '0.5rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '10px', color: 'var(--primary)' }}>
+                                            <ExternalLink size={20} />
+                                        </div>
+                                        <a href={res.url} target="_blank" rel="noreferrer" style={{ flex: 1, minWidth: 0, textDecoration: 'none' }}>
+                                            <p style={{ fontSize: '0.85rem', fontWeight: '700', color: 'white', margin: 0 }}>{res.label}</p>
+                                        </a>
+                                        <button 
+                                            onClick={() => handleRemoveResource(i)}
+                                            style={{ background: 'none', border: 'none', color: 'rgba(239, 68, 68, 0.4)', cursor: 'pointer', padding: '4px' }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {(!video.customResources || video.customResources.length === 0) && !isAddingResource && (
+                                    <p style={{ textAlign: 'center', opacity: 0.3, fontSize: '0.8rem', padding: '1rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                                        No personal links added yet.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Section: Suggested Resources (Read-only) */}
+                        <div>
+                            <h4 style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Suggested Resources</h4>
+                            {resources.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {resources.map((res, i) => (
+                                        <a 
+                                            key={i}
+                                            href={res.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="glass-hover"
+                                            style={{
+                                                padding: '1rem', borderRadius: '16px',
+                                                textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '1rem',
+                                                border: '1px solid rgba(255,255,255,0.05)', transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            <div style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', color: 'var(--primary)' }}>
+                                                <Zap size={20} />
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <p style={{ fontSize: '0.85rem', fontWeight: '700', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>{res.label}</p>
+                                                <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>{res.url}</p>
+                                            </div>
+                                        </a>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '3rem 1rem', opacity: 0.3 }}>
+                                    <RefreshCw size={48} style={{ marginBottom: '1rem' }} />
+                                    <p style={{ fontSize: '0.9rem' }}>No direct resources found in text.</p>
                                 </div>
                             )}
                         </div>

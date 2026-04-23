@@ -32,7 +32,8 @@ const Dashboard = () => {
     const fetchData = async () => {
         try {
             if (user) {
-                const cachedDashboard = cache.get('dashboard_data');
+                const cacheKey = `dashboard_data_${user._id || user.id}`;
+                const cachedDashboard = cache.get(cacheKey);
                 if (cachedDashboard) {
                     const pinnedItems = cachedDashboard.playlists.filter(item => item.isPinned);
                     setPlaylists(pinnedItems);
@@ -53,7 +54,7 @@ const Dashboard = () => {
                 setTodayTasks(todayRes.data);
                 setAnalytics(analyticsRes.data);
 
-                cache.set('dashboard_data', {
+                cache.set(cacheKey, {
                     playlists: playlistsRes.data,
                     today: todayRes.data,
                     analytics: analyticsRes.data
@@ -79,7 +80,7 @@ const Dashboard = () => {
             } else {
                 await api.put(`/playlists/${item._id}/pin`);
             }
-            cache.invalidate('dashboard_data');
+            cache.invalidate(`dashboard_data_${user._id || user.id}`);
             // Optimistic update
             setPlaylists(prev => {
                 if (item.isPinned) {

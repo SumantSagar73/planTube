@@ -16,6 +16,7 @@ const { auth, optionalAuth } = require('../middleware/auth');
 
 // Unified Library Stats
 router.get('/library', auth, getLibraryStats);
+router.get('/', auth, getUserPlaylists);
 
 router.post('/import', optionalAuth, importPlaylist);
 router.get('/fetch-metadata', auth, require('../controllers/playlistController').fetchMetadata);
@@ -36,7 +37,7 @@ router.put('/:id/pin', auth, require('../controllers/playlistController').toggle
 router.put('/:id/sync', auth, require('../controllers/playlistController').syncPlaylist);
 router.put('/:id/videos/:videoId/sync', auth, require('../controllers/playlistController').syncVideo);
 router.delete('/:id', auth, require('../controllers/playlistController').deletePlaylist);
-router.get('/', auth, getUserPlaylists);
+router.put('/:id', auth, require('../controllers/playlistController').updatePlaylist);
 router.get('/:id', optionalAuth, getPlaylistById);
 router.get('/:id/videos', optionalAuth, getPlaylistVideos);
 

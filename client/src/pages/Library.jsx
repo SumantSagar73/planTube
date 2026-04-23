@@ -5,6 +5,7 @@ import {
     LayoutGrid, List as ListIcon, Search,
     Plus, RefreshCw, Rocket
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import AlertModal from '../components/Shared/AlertModal';
 import ConfirmModal from '../components/Shared/ConfirmModal';
@@ -19,6 +20,7 @@ const Library = () => {
     const [search, setSearch] = useState('');
     const [syncingIds, setSyncingIds] = useState(new Set());
 
+    const { user } = useAuth();
     const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', success: false });
     const [confirmState, setConfirmState] = useState({
         isOpen: false, title: '', description: '', onConfirm: null, danger: false, confirmText: ''
@@ -34,11 +36,14 @@ const Library = () => {
 
     useEffect(() => {
         fetchLibrary();
-    }, []);
+    }, [user]);
 
     const fetchLibrary = async (useCache = true) => {
-        if (useCache) {
-            const cachedItems = sessionStorage.getItem('library_items');
+        const userId = user?.id || user?._id;
+        const cacheKey = `library_items_${userId}`;
+
+        if (useCache && userId) {
+            const cachedItems = sessionStorage.getItem(cacheKey);
             if (cachedItems) {
                 setItems(JSON.parse(cachedItems));
                 setLoading(false);
@@ -48,7 +53,7 @@ const Library = () => {
         try {
             const res = await api.get('/playlists/library');
             setItems(res.data);
-            sessionStorage.setItem('library_items', JSON.stringify(res.data));
+            if (userId) sessionStorage.setItem(cacheKey, JSON.stringify(res.data));
         } catch (err) {
             console.error(err);
         } finally {
@@ -98,7 +103,9 @@ const Library = () => {
                     }
                     const updated = items.filter(i => i._id !== item._id);
                     setItems(updated);
-                    sessionStorage.setItem('library_items', JSON.stringify(updated));
+                    const userId = user?.id || user?._id;
+                    const cacheKey = `library_items_${userId}`;
+                    sessionStorage.setItem(cacheKey, JSON.stringify(updated));
                     setConfirmState({ ...confirmState, isOpen: false });
                 } catch (err) {
                     showAlert('Error', 'Could not delete item');
