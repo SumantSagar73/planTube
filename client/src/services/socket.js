@@ -1,6 +1,12 @@
 import { io } from 'socket.io-client';
 
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const normalizeApiBaseUrl = (rawUrl) => {
+    const fallback = 'http://localhost:5000/api';
+    const value = (rawUrl || fallback).trim().replace(/\/$/, '');
+    return value.endsWith('/api') ? value : `${value}/api`;
+};
+
+const apiUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
 // Remove /api from the end to get the server root for socket.io
 const SOCKET_URL = apiUrl.replace(/\/api$/, '');
 
