@@ -813,16 +813,18 @@ const FocusMode = () => {
             onMouseMove={handleMouseMove}
             onMouseLeave={() => isPlaying && setIsHovering(false)}
         >
-            <FocusLeftRail 
-                isMonkMode={isMonkMode}
-                setIsMonkMode={setIsMonkMode}
-                pomodoro={pomodoro}
-                setPomodoro={setPomodoro}
-                ambientSound={ambientSound}
-                setAmbientSound={setAmbientSound}
-                glassBlur={glassBlur}
-                accentColor={accentColor}
-            />
+            <div data-section="focus-rail">
+                <FocusLeftRail 
+                    isMonkMode={isMonkMode}
+                    setIsMonkMode={setIsMonkMode}
+                    pomodoro={pomodoro}
+                    setPomodoro={setPomodoro}
+                    ambientSound={ambientSound}
+                    setAmbientSound={setAmbientSound}
+                    glassBlur={glassBlur}
+                    accentColor={accentColor}
+                />
+            </div>
 
             {/* Monk Mode Vignette */}
             {isMonkMode && (
@@ -846,22 +848,24 @@ const FocusMode = () => {
                 transition: 'all 0.6s cubic-bezier(0.23, 1, 0.32, 1)',
                 marginLeft: isMonkMode ? '12px' : '0'
             }}>
-                <FocusPlayerSlot
-                    mainSlotRef={mainSlotRef}
-                    video={video}
-                    playerOptions={playerOptions}
-                    handlePlayerStateChange={handlePlayerStateChange}
-                    handlePlayerReady={handlePlayerReady}
-                    handleVideoEnd={handleVideoEnd}
-                    isPlaying={isPlaying}
-                    videoLoading={videoLoading}
-                    initialLoading={initialLoading}
-                    togglePlay={togglePlay}
-                    miniPlayer={miniPlayer}
-                    onExpandMiniPlayer={() => setMiniPlayer(false)}
-                    onCloseMiniPlayer={() => setMiniPlayer(false)}
-                    toggleNativePiP={toggleNativePiP}
-                />
+                <div data-section="focus-player" style={{ width: '100%', height: '100%' }}>
+                    <FocusPlayerSlot
+                        mainSlotRef={mainSlotRef}
+                        video={video}
+                        playerOptions={playerOptions}
+                        handlePlayerStateChange={handlePlayerStateChange}
+                        handlePlayerReady={handlePlayerReady}
+                        handleVideoEnd={handleVideoEnd}
+                        isPlaying={isPlaying}
+                        videoLoading={videoLoading}
+                        initialLoading={initialLoading}
+                        togglePlay={togglePlay}
+                        miniPlayer={miniPlayer}
+                        onExpandMiniPlayer={() => setMiniPlayer(false)}
+                        onCloseMiniPlayer={() => setMiniPlayer(false)}
+                        toggleNativePiP={toggleNativePiP}
+                    />
+                </div>
 
                 <FocusTopBar
                     showControls={showControls && !uiHidden}
@@ -876,43 +880,45 @@ const FocusMode = () => {
 
                 {showShortcutsHelp && <KeyboardShortcutsHelp onClose={() => setShowShortcutsHelp(false)} />}
 
-                <FocusControls
-                    showControls={showControls}
-                    uiHidden={uiHidden}
-                    isMobile={isMobile}
-                    compactMode={compactMode}
-                    video={video}
-                    activeChapterIndex={activeChapterIndex}
-                    currentTime={currentTime}
-                    duration={duration}
-                    playbackRate={playbackRate}
-                    volume={volume}
-                    isPlaying={isPlaying}
-                    isCompleted={isCompleted}
-                    isFrozen={user?.isFrozen}
-                    showSidebar={showSidebar}
-                    sidebarTab={sidebarTab}
-                    currentIndex={currentIndex}
-                    allVideos={allVideos}
-                    playlist={playlist}
-                    handleSeekChange={handleSeekChange}
-                    setIsDragging={setIsDragging}
-                    toggleSpeed={toggleSpeed}
-                    handleVolumeChange={handleVolumeChange}
-                    handlePrevVideo={handlePrevVideo}
-                    togglePlay={togglePlay}
-                    handleNextVideo={handleNextVideo}
-                    setIsHovering={setIsHovering}
-                    handleToggleComplete={handleToggleComplete}
-                    setSidebarTab={safeSetSidebarTab}
-                    setShowSidebar={safeSetShowSidebar}
-                    formatTime={formatTime}
-                    isFullscreen={isFullscreen}
-                    handleToggleFullscreen={handleToggleFullscreen}
-                    isLoading={videoLoading || !playerRef.current}
-                    miniPlayer={miniPlayer}
-                    setMiniPlayer={setMiniPlayer}
-                />
+                <div data-section="focus-controls">
+                    <FocusControls
+                        showControls={showControls}
+                        uiHidden={uiHidden}
+                        isMobile={isMobile}
+                        compactMode={compactMode}
+                        video={video}
+                        activeChapterIndex={activeChapterIndex}
+                        currentTime={currentTime}
+                        duration={duration}
+                        playbackRate={playbackRate}
+                        volume={volume}
+                        isPlaying={isPlaying}
+                        isCompleted={isCompleted}
+                        isFrozen={user?.isFrozen}
+                        showSidebar={showSidebar}
+                        sidebarTab={sidebarTab}
+                        currentIndex={currentIndex}
+                        allVideos={allVideos}
+                        playlist={playlist}
+                        handleSeekChange={handleSeekChange}
+                        setIsDragging={setIsDragging}
+                        toggleSpeed={toggleSpeed}
+                        handleVolumeChange={handleVolumeChange}
+                        handlePrevVideo={handlePrevVideo}
+                        togglePlay={togglePlay}
+                        handleNextVideo={handleNextVideo}
+                        setIsHovering={setIsHovering}
+                        handleToggleComplete={handleToggleComplete}
+                        setSidebarTab={safeSetSidebarTab}
+                        setShowSidebar={safeSetShowSidebar}
+                        formatTime={formatTime}
+                        isFullscreen={isFullscreen}
+                        handleToggleFullscreen={handleToggleFullscreen}
+                        isLoading={videoLoading || !playerRef.current}
+                        miniPlayer={miniPlayer}
+                        setMiniPlayer={setMiniPlayer}
+                    />
+                </div>
 
                 {!showControls && (
                     <div 
@@ -923,42 +929,50 @@ const FocusMode = () => {
             </div>
 
             {/* Right Side: Sidebar Panel */}
-            <FocusSidebar
-                showSidebar={showSidebar}
-                setShowSidebar={safeSetShowSidebar}
-                sidebarTab={sidebarTab}
-                setSidebarTab={safeSetSidebarTab}
-                video={video}
-                playlist={playlist}
-                allVideos={allVideos}
-                schedule={schedule}
-                playlistSchedules={playlistSchedules}
-                activeChapterIndex={activeChapterIndex}
-                handleSeek={handleSeek}
-                toggleChapter={toggleChapter}
-                navigate={navigate}
-                videoId={videoId}
-                isMobile={isMobile}
-                compactMode={compactMode}
-                chapterRefs={chapterRefs}
-                presenceCount={presenceCount}
-                currentTime={currentTime}
-                formatTime={formatTime}
-                notes={notes}
-                onSaveNote={handleSaveNote}
-                onDeleteNote={handleDeleteNote}
-                onUpdateChapters={handleUpdateChapters}
-                onUpdateVideo={handleUpdateVideo}
-                isFrozen={user?.isFrozen}
-                isAddingNote={isAddingNote}
-                setIsAddingNote={setIsAddingNote}
-                noteText={noteText}
-                setNoteText={setNoteText}
-                glassBlur={glassBlur}
-                setGlassBlur={setGlassBlur}
-                accentColor={accentColor}
-                setAccentColor={setAccentColor}
-            />
+            <div data-section="focus-sidebar">
+                <FocusSidebar
+                    showSidebar={showSidebar}
+                    setShowSidebar={safeSetShowSidebar}
+                    sidebarTab={sidebarTab}
+                    setSidebarTab={safeSetSidebarTab}
+                    video={video}
+                    playlist={playlist}
+                    allVideos={allVideos}
+                    schedule={schedule}
+                    playlistSchedules={playlistSchedules}
+                    activeChapterIndex={activeChapterIndex}
+                    handleSeek={handleSeek}
+                    toggleChapter={toggleChapter}
+                    navigate={navigate}
+                    videoId={videoId}
+                    isMobile={isMobile}
+                    compactMode={compactMode}
+                    chapterRefs={chapterRefs}
+                    presenceCount={presenceCount}
+                    currentTime={currentTime}
+                    formatTime={formatTime}
+                    notes={notes}
+                    onSaveNote={handleSaveNote}
+                    onDeleteNote={handleDeleteNote}
+                    onUpdateChapters={handleUpdateChapters}
+                    onUpdateVideo={handleUpdateVideo}
+                    isFrozen={user?.isFrozen}
+                    isAddingNote={isAddingNote}
+                    setIsAddingNote={setIsAddingNote}
+                    noteText={noteText}
+                    setNoteText={setNoteText}
+                    glassBlur={glassBlur}
+                    setGlassBlur={setGlassBlur}
+                    accentColor={accentColor}
+                    setAccentColor={setAccentColor}
+                    onPauseVideo={() => {
+                        if (playerRef.current) {
+                            playerRef.current.pauseVideo();
+                            setIsPlaying(false);
+                        }
+                    }}
+                />
+            </div>
 
             <style>{`
                 .spinner {

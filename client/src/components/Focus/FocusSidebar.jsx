@@ -46,7 +46,8 @@ const FocusSidebar = ({
     setAccentColor,
     onUpdateChapters,
     onUpdateVideo,
-    isFrozen
+    isFrozen,
+    onPauseVideo,
 }) => {
     const [copyDone, setCopyDone] = useState(false);
     const [isEditingChapters, setIsEditingChapters] = useState(false);
@@ -667,7 +668,7 @@ const FocusSidebar = ({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         {!isAddingNote ? (
                             <button
-                                onClick={() => setIsAddingNote(true)}
+                                onClick={() => { setIsAddingNote(true); onPauseVideo?.(); }}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
                                     background: 'rgba(99, 102, 241, 0.1)', border: '1px dashed var(--primary)',

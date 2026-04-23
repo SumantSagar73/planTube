@@ -95,7 +95,7 @@ const ImportPage = () => {
 
             <div className="glass" style={{ padding: '2.5rem', borderRadius: '32px', marginBottom: '2rem' }}>
                 <form onSubmit={handleImport}>
-                    <div style={{ marginBottom: '2rem' }}>
+                    <div data-section="import-input" style={{ marginBottom: '2rem' }}>
                         <label style={{ display: 'block', marginBottom: '1rem', fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
                             YouTube URL (Playlist or Video)
                         </label>
@@ -173,7 +173,7 @@ const ImportPage = () => {
                 )}
 
                 {result && (
-                    <div style={{ 
+                    <div data-section="import-preview" style={{ 
                         marginTop: '2rem', padding: '2rem', borderRadius: '24px', 
                         background: 'rgba(34, 197, 94, 0.05)', border: '1px solid rgba(34, 197, 94, 0.1)',
                         textAlign: 'center'

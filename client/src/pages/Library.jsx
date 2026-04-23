@@ -185,7 +185,7 @@ const Library = () => {
             </div>
 
             {/* Toolbar */}
-            <div style={{ marginBottom: '3rem', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+            <div data-section="filter-bar" style={{ marginBottom: '3rem', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
                 <div style={{ position: 'relative', flex: 1, maxWidth: '600px' }}>
                     <Search style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', opacity: 0.5 }} size={20} />
                     <input
@@ -221,7 +221,7 @@ const Library = () => {
                 </div>
             ) : (
                 viewMode === 'grid' ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                    <div data-section="playlist-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
                         {filteredItems.map(item => (
                             <LibraryItem
                                 key={item._id}

@@ -73,23 +73,23 @@ const PAGE_SECTIONS = {
     'focus': {
         title: 'Focus Mode', subtitle: 'Your immersive study environment',
         sections: [
-            { icon: PanelRight, color: '#a855f7', name: 'Left Rail', where: 'Far left strip', desc: 'Pomodoro timer, ambient sounds (rain, café…), and Monk Mode toggle to dim distractions.', selector: null },
-            { icon: Play, color: '#6366f1', name: 'Video Player', where: 'Main area', desc: 'Embedded YouTube player. Click anywhere to pause/play.', selector: null },
-            { icon: Volume2, color: '#22c55e', name: 'Controls Bar', where: 'Bottom (hover)', desc: 'Volume, speed, Prev/Next nav, and fullscreen. Appears on hover.', selector: null },
-            { icon: CheckCircle, color: '#f59e0b', name: 'Mark Complete', where: 'Controls — right', desc: 'Marks video as done and updates your progress. Shortcut: C.', selector: null },
-            { icon: Map, color: '#38bdf8', name: 'Chapter Map', where: 'Sidebar — Map tab', desc: 'Visual chapter timeline. Click any chapter to jump to it and check off as you go.', selector: null },
-            { icon: StickyNote, color: '#ec4899', name: 'Notes', where: 'Sidebar — Notes tab', desc: 'Timestamped notes while watching. Supports bold, italic, lists, code.', selector: null },
-            { icon: Zap, color: '#eab308', name: 'Resources', where: 'Sidebar — Resources tab', desc: 'Links from the video description plus custom study materials you add.', selector: null },
-            { icon: List, color: '#a855f7', name: 'Playlist Panel', where: 'Sidebar — Playlist tab', desc: 'All videos in the playlist with progress indicators. Click to jump.', selector: null },
+            { icon: PanelRight, color: '#a855f7', name: 'Left Rail', where: 'Far left strip', desc: 'Pomodoro timer, ambient sounds (rain, café…), and Monk Mode toggle to dim distractions.', selector: '[data-section="focus-rail"]' },
+            { icon: Play, color: '#6366f1', name: 'Video Player', where: 'Main area', desc: 'Embedded YouTube player. Click anywhere to pause/play.', selector: '[data-section="focus-player"]' },
+            { icon: Volume2, color: '#22c55e', name: 'Controls Bar', where: 'Bottom (hover)', desc: 'Volume, speed, Prev/Next nav, and fullscreen. Appears on hover.', selector: '[data-section="focus-controls"]' },
+            { icon: CheckCircle, color: '#f59e0b', name: 'Mark Complete', where: 'Controls — right', desc: 'Marks video as done and updates your progress. Shortcut: C.', selector: '[data-section="focus-controls"]' },
+            { icon: Map, color: '#38bdf8', name: 'Chapter Map', where: 'Sidebar — Map tab', desc: 'Visual chapter timeline. Click any chapter to jump to it and check off as you go.', selector: '[data-section="focus-sidebar"]' },
+            { icon: StickyNote, color: '#ec4899', name: 'Notes', where: 'Sidebar — Notes tab', desc: 'Timestamped notes while watching. Supports bold, italic, lists, code.', selector: '[data-section="focus-sidebar"]' },
+            { icon: Zap, color: '#eab308', name: 'Resources', where: 'Sidebar — Resources tab', desc: 'Links from the video description plus custom study materials you add.', selector: '[data-section="focus-sidebar"]' },
+            { icon: List, color: '#a855f7', name: 'Playlist Panel', where: 'Sidebar — Playlist tab', desc: 'All videos in the playlist with progress indicators. Click to jump.', selector: '[data-section="focus-sidebar"]' },
         ]
     },
     '/admin': {
         title: 'Admin Command Center', subtitle: 'Platform-wide oversight',
         sections: [
-            { icon: Activity, color: '#6366f1', name: 'Analytics Overview', where: 'Overview tab', desc: 'Real platform activity charts, top content topics, and system health.', selector: null },
+            { icon: Activity, color: '#6366f1', name: 'Analytics Overview', where: 'Overview tab', desc: 'Real platform activity charts, top content topics, and system health.', selector: '[data-section="admin-analytics"]' },
             { icon: Users, color: '#22c55e', name: 'User Registry', where: 'Users tab', desc: 'All users. Click # to open the Identity Drawer with full details.', selector: null },
             { icon: BookOpen, color: '#eab308', name: 'Global Library', where: 'Playlists tab', desc: 'Every playlist in PlanTube with creator and usage counts.', selector: null },
-            { icon: Shield, color: '#ef4444', name: 'Moderation Tools', where: 'Action buttons', desc: 'Freeze ❄️ accounts, approve wipe requests 🗑️, toggle admin roles.', selector: null },
+            { icon: Shield, color: '#ef4444', name: 'Moderation Tools', where: 'Action buttons', desc: 'Freeze ❄️ accounts, approve wipe requests 🗑️, toggle admin roles.', selector: '[data-section="admin-health"]' },
         ]
     },
 };

@@ -1,18 +1,50 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Play, Clock, ExternalLink, Hash, Calendar } from 'lucide-react';
+import { Search, Clock, ExternalLink, Hash, Calendar, Download, RefreshCw } from 'lucide-react';
 import adminService from '../../services/adminService';
 import LoadingScreen from '../Shared/LoadingScreen';
+import { useSearchParams } from 'react-router-dom';
 
 const AdminVideos = () => {
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
+    const [refreshTick, setRefreshTick] = useState(0);
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const query = searchParams.get('vq') || '';
+    const sortBy = searchParams.get('vsortBy') || 'lastSyncedAt';
+    const sortOrder = searchParams.get('vsortOrder') || 'desc';
+    const page = Math.max(parseInt(searchParams.get('vpage') || '1', 10) || 1, 1);
+    const [searchInput, setSearchInput] = useState(query);
+
+    const updateParam = (key, value, resetPage = false) => {
+        const next = new URLSearchParams(searchParams);
+        if (!value) next.delete(key);
+        else next.set(key, String(value));
+        if (resetPage) next.set('vpage', '1');
+        setSearchParams(next);
+    };
+
+    useEffect(() => {
+        setSearchInput(query);
+    }, [query]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (searchInput !== query) {
+                updateParam('vq', searchInput, true);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchInput, query]);
 
     useEffect(() => {
         const fetchVideos = async () => {
+            setLoading(true);
             try {
-                const data = await adminService.getAllVideos();
-                setVideos(data);
+                const data = await adminService.getAllVideos({ q: query, sortBy, sortOrder, page, limit: 20 });
+                setVideos(data.items || []);
+                setPagination(data.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 });
             } catch (err) {
                 console.error('Error fetching videos:', err);
             } finally {
@@ -20,55 +52,73 @@ const AdminVideos = () => {
             }
         };
         fetchVideos();
-    }, []);
-
-    const filtered = videos.filter(v => 
-        v.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.youtubeId.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    }, [query, sortBy, sortOrder, page, refreshTick]);
 
     if (loading) return <LoadingScreen message="Indexing global video records..." />;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h2 style={{ fontSize: '1.8rem', fontWeight: '900', letterSpacing: '-1px' }}>Global Video Index</h2>
-                    <p style={{ color: 'var(--text-muted)' }}>{videos.length} unique video entities cached</p>
+                    <p style={{ color: 'var(--text-muted)' }}>{pagination.total} unique video entities cached</p>
                 </div>
-                
+
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button className="btn-secondary" onClick={() => setRefreshTick((v) => v + 1)}><RefreshCw size={14} style={{ marginRight: 6 }} />Refresh</button>
+                    <button className="btn-secondary" onClick={() => adminService.exportVideosCsv({ q: query, sortBy, sortOrder })}><Download size={14} style={{ marginRight: 6 }} />Export CSV</button>
+                </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.6rem' }} className="admin-filters-grid-two">
                 <div style={{ position: 'relative' }}>
                     <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
                     <input 
                         type="text" 
                         placeholder="Search title or YouTube ID..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
                         style={{ 
                             padding: '0.8rem 1rem 0.8rem 2.8rem', 
                             borderRadius: '16px', 
                             background: 'rgba(255,255,255,0.03)', 
                             border: '1px solid rgba(255,255,255,0.1)',
                             color: 'white',
-                            width: '400px',
+                            width: '100%',
                             fontSize: '0.9rem'
                         }}
                     />
                 </div>
+                <select
+                    className="styled-input"
+                    value={`${sortBy}:${sortOrder}`}
+                    onChange={(e) => {
+                        const [nextSortBy, nextSortOrder] = e.target.value.split(':');
+                        updateParam('vsortBy', nextSortBy, false);
+                        updateParam('vsortOrder', nextSortOrder, true);
+                    }}
+                >
+                    <option value="lastSyncedAt:desc">Last Synced (Newest)</option>
+                    <option value="lastSyncedAt:asc">Last Synced (Oldest)</option>
+                    <option value="title:asc">Title A-Z</option>
+                    <option value="title:desc">Title Z-A</option>
+                    <option value="createdAt:desc">Recently Added</option>
+                </select>
             </div>
 
             <div className="glass-card" style={{ padding: '0', borderRadius: '24px', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
+                <div className="admin-table-wrap">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
                         <tr style={{ textAlign: 'left', background: 'rgba(255,255,255,0.02)' }}>
                             <th style={{ padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Video Asset</th>
                             <th style={{ padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>YouTube Ident</th>
                             <th style={{ padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Last Audio Sync</th>
                             <th style={{ padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'right' }}>Action</th>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map(v => (
+                        </thead>
+                        <tbody>
+                        {videos.map(v => (
                             <tr key={v._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}>
                                 <td style={{ padding: '1rem 1.5rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -114,8 +164,22 @@ const AdminVideos = () => {
                                 </td>
                             </tr>
                         ))}
-                    </tbody>
-                </table>
+                        {videos.length === 0 && (
+                            <tr>
+                                <td colSpan={4} style={{ padding: '1rem', color: 'var(--text-muted)' }}>No videos match current filters.</td>
+                            </tr>
+                        )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>Page {pagination.page} of {pagination.totalPages}</span>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn-secondary" disabled={pagination.page <= 1} onClick={() => updateParam('vpage', Math.max(pagination.page - 1, 1), false)}>Previous</button>
+                    <button className="btn-secondary" disabled={pagination.page >= pagination.totalPages} onClick={() => updateParam('vpage', Math.min(pagination.page + 1, pagination.totalPages), false)}>Next</button>
+                </div>
             </div>
         </div>
     );

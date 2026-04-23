@@ -268,7 +268,7 @@ const Profile = () => {
         <div style={{ display: 'flex', gap: '2rem', maxWidth: '1400px', margin: '0 auto', paddingBottom: '4rem', minHeight: '80vh', alignItems: 'flex-start' }}>
             
             {/* --- LEFT SIDEBAR NAVIGATION --- */}
-            <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '2rem', position: 'sticky', top: '80px', height: 'fit-content' }}>
+            <div data-section="profile-header" style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '2rem', position: 'sticky', top: '80px', height: 'fit-content' }}>
                 
                 {/* User Identity Card */}
                 <div className="glass" style={{ padding: '2rem', borderRadius: '32px', textAlign: 'center', border: `1px solid ${profile.themeColor}33`, position: 'relative', overflow: 'hidden' }}>
@@ -353,7 +353,7 @@ const Profile = () => {
 
                 {/* Dashboard View */}
                 {activeTab === 'dashboard' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    <div data-section="profile-dashboard" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                         
                         {/* Hero XP Banner */}
                         <div className="glass" style={{ padding: '3rem', borderRadius: '40px', position: 'relative', overflow: 'hidden', border: `1px solid ${profile.themeColor}33` }}>
@@ -468,7 +468,7 @@ const Profile = () => {
 
                 {/* History View */}
                 {activeTab === 'history' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    <div data-section="profile-history" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                         <div className="glass" style={{ padding: '1rem', borderRadius: '24px', display: 'flex', gap: '0.5rem' }}>
                             {['completed', 'upcoming', 'missed'].map(tab => (
                                 <button
@@ -495,7 +495,7 @@ const Profile = () => {
 
                 {/* Trophies View */}
                 {activeTab === 'trophies' && (
-                    <div className="glass" style={{ padding: '4rem', borderRadius: '40px', textAlign: 'center' }}>
+                    <div data-section="profile-trophies" className="glass" style={{ padding: '4rem', borderRadius: '40px', textAlign: 'center' }}>
                          <div style={{ width: '100px', height: '100px', background: `${profile.themeColor}1a`, borderRadius: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', animation: 'float 3s ease-in-out infinite' }}>
                             <Trophy size={48} style={{ color: profile.themeColor }} />
                         </div>
@@ -547,7 +547,7 @@ const Profile = () => {
 
                 {/* Settings View */}
                 {activeTab === 'settings' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
+                    <div data-section="profile-settings" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
                         <div className="glass" style={{ padding: '3rem', borderRadius: '35px' }}>
                             <h3 style={{ fontSize: '1.3rem', fontWeight: '900', marginBottom: '2.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}><User size={24} className="text-primary" /> Profile Identity</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>

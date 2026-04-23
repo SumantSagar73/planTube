@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
     LayoutDashboard, Users as UsersIcon, BookOpen, 
-    Play, Settings, Shield, LogOut, ChevronLeft, ChevronRight
+    Play, Shield, LogOut, ChevronLeft, ChevronRight, FileClock
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -13,6 +13,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, collapsed, setCollapsed }) => {
         { id: 'users', label: 'Users', icon: <UsersIcon size={20} /> },
         { id: 'playlists', label: 'Playlists', icon: <BookOpen size={20} /> },
         { id: 'videos', label: 'Videos', icon: <Play size={20} /> },
+        { id: 'audit', label: 'Audit', icon: <FileClock size={20} /> },
     ];
 
     return (

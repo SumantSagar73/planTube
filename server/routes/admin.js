@@ -10,6 +10,9 @@ router.use(auth, admin);
 // @route   GET api/admin/stats
 router.get('/stats', adminController.getStats);
 
+// @route   GET api/admin/health
+router.get('/health', adminController.getHealth);
+
 // @route   GET api/admin/chart-data
 router.get('/chart-data', adminController.getChartData);
 
@@ -25,6 +28,9 @@ router.get('/playlists', adminController.getAllPlaylists);
 // @route   GET api/admin/videos
 router.get('/videos', adminController.getAllVideos);
 
+// @route   GET api/admin/audit-logs
+router.get('/audit-logs', adminController.getAuditLogs);
+
 // @route   PUT api/admin/users/:id/role
 router.put('/users/:id/role', adminController.updateUserRole);
 
@@ -36,5 +42,11 @@ router.put('/users/:id/freeze', adminController.toggleFreeze);
 
 // @route   POST api/admin/users/:id/approve-wipe
 router.post('/users/:id/approve-wipe', adminController.approveWipe);
+
+// @route   POST api/admin/impersonation/start
+router.post('/impersonation/start', adminController.logImpersonationStart);
+
+// @route   POST api/admin/impersonation/end
+router.post('/impersonation/end', adminController.logImpersonationEnd);
 
 module.exports = router;

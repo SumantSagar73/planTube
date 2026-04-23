@@ -142,12 +142,12 @@ const Dashboard = () => {
                     {!user && <GuestBanner />}
 
                     {/* Focal Header */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div data-section="overview-cards" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                 <h1 style={{ fontSize: '3rem', fontWeight: '950', letterSpacing: '-2px', lineHeight: 1, color: 'var(--text-main)' }}>Focus</h1>
                                 {user && analytics?.streak > 0 && (
-                                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', padding: '0.25rem 0.75rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <div data-section="streak" style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', padding: '0.25rem 0.75rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         <span style={{ fontSize: '1rem' }}>🔥</span>
                                         <span style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '0.9rem' }}>{analytics.streak} Days</span>
                                     </div>
@@ -160,17 +160,24 @@ const Dashboard = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '3.5rem', alignItems: 'start' }}>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-                            <ContinueWatching firstPendingTask={firstPendingTask} navigate={navigate} />
+                            <div data-section="schedule">
+                                <ContinueWatching firstPendingTask={firstPendingTask} navigate={navigate} />
+                            </div>
 
-                            <ActiveLibrary playlists={playlists} handleTogglePin={handleTogglePin} />
+                            <div data-section="playlist-grid">
+                                <ActiveLibrary playlists={playlists} handleTogglePin={handleTogglePin} />
+                            </div>
                         </div>
 
-                        <DailyAgenda
-                            todayTasks={todayTasks}
-                            completedTodayCount={completedTodayCount}
-                            progressPercent={progressPercent}
-                            navigate={navigate}
-                        />
+                        <div data-section="schedule" style={{ display: 'none' }} />
+                        <div data-section="recent-activity">
+                            <DailyAgenda
+                                todayTasks={todayTasks}
+                                completedTodayCount={completedTodayCount}
+                                progressPercent={progressPercent}
+                                navigate={navigate}
+                            />
+                        </div>
 
                     </div>
                 </div>

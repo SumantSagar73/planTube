@@ -1,5 +1,6 @@
 import React from 'react';
 import { Eye, LogOut } from 'lucide-react';
+import adminService from '../../services/adminService';
 
 const ShadowBanner = () => {
     const impersonatedId = localStorage.getItem('impersonate_user_id');
@@ -7,7 +8,13 @@ const ShadowBanner = () => {
 
     if (!impersonatedId) return null;
 
-    const handleExit = () => {
+    const handleExit = async () => {
+        try {
+            await adminService.logImpersonationEnd(impersonatedId, impersonatedName);
+        } catch (err) {
+            console.warn('Failed to write impersonation end audit log:', err);
+        }
+
         // Clear all impersonation data
         localStorage.removeItem('impersonate_user_id');
         localStorage.removeItem('impersonate_user_name');

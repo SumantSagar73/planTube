@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
     ChevronLeft, ChevronRight, Play, CheckCircle,
     Eye, EyeOff, Map, AlignLeft, List as ListIcon,
-    Maximize, ExternalLink, Monitor, FileText, Zap
+    Maximize, ExternalLink, Monitor, FileText, Zap, ChevronsUpDown
 } from 'lucide-react';
 
 const FocusControls = ({
@@ -44,6 +44,7 @@ const FocusControls = ({
 }) => {
     const [hoverTime, setHoverTime] = useState(null);
     const [hoverPos, setHoverPos] = useState(0);
+    const [timelineExpanded, setTimelineExpanded] = useState(false);
     const timelineRef = useRef(null);
 
     const handleTimelineMouseMove = (e) => {
@@ -105,7 +106,12 @@ const FocusControls = ({
                     ref={timelineRef}
                     onMouseMove={handleTimelineMouseMove}
                     onMouseLeave={() => setHoverTime(null)}
-                    style={{ flex: 1, position: 'relative', height: '20px', display: 'flex', alignItems: 'center' }}
+                    style={{
+                        flex: 1, position: 'relative',
+                        height: timelineExpanded ? '40px' : '20px',
+                        display: 'flex', alignItems: 'center',
+                        transition: 'height 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}
                 >
                     {/* Time Tooltip */}
                     {hoverTime !== null && (
@@ -153,18 +159,33 @@ const FocusControls = ({
                         onMouseUp={() => setIsDragging(false)}
                         style={{
                             width: '100%',
-                            height: '4px',
-                            borderRadius: '2px',
+                            height: timelineExpanded ? '8px' : '4px',
+                            borderRadius: '4px',
                             appearance: 'none',
                             background: `linear-gradient(to right, var(--primary) ${duration > 0 ? (currentTime / duration) * 100 : 0}%, rgba(255,255,255,0.2) ${duration > 0 ? (currentTime / duration) * 100 : 0}%)`,
                             cursor: 'pointer',
                             outline: 'none',
                             position: 'relative',
-                            zIndex: 2
+                            zIndex: 2,
+                            transition: 'height 0.25s ease'
                         }}
                         className="custom-range"
                     />
                 </div>
+
+                {/* Timeline Expand/Shrink Toggle (VLC-style) */}
+                <button
+                    onClick={() => setTimelineExpanded(prev => !prev)}
+                    className="icon-btn-deck"
+                    title={timelineExpanded ? 'Compact Timeline' : 'Expand Timeline'}
+                    style={{
+                        opacity: timelineExpanded ? 1 : 0.6,
+                        color: timelineExpanded ? 'var(--primary)' : 'rgba(255,255,255,0.7)',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <ChevronsUpDown size={16} />
+                </button>
 
                 <span style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--text-muted)', minWidth: '40px' }}>
                     {formatTime(duration)}

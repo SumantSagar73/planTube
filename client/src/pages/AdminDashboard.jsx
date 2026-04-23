@@ -1,8 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { 
-    Users, BookOpen, Layers, Clock, Shield, ShieldAlert, 
-    Trash2, Eye, Search, MoreVertical, CheckCircle, XCircle, Activity, TrendingUp
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Users, BookOpen, Layers, Clock, Activity, TrendingUp, RefreshCw, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import adminService from '../services/adminService';
 import LoadingScreen from '../components/Shared/LoadingScreen';
@@ -11,93 +8,112 @@ import AdminUsers from '../components/Admin/AdminUsers';
 import AdminPlaylists from '../components/Admin/AdminPlaylists';
 import AdminVideos from '../components/Admin/AdminVideos';
 import UserDetailsModal from '../components/Admin/UserDetailsModal';
+import AdminAuditLogs from '../components/Admin/AdminAuditLogs';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
     const [collapsed, setCollapsed] = useState(false);
     const [stats, setStats] = useState(null);
-    const [users, setUsers] = useState([]);
+    const [health, setHealth] = useState(null);
     const [chartData, setChartData] = useState({ weeklyActivity: [], topTopics: [] });
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
     const [selectedUserId, setSelectedUserId] = useState(null);
+    const [autoRefresh, setAutoRefresh] = useState(true);
+    const [toast, setToast] = useState(null);
 
-    useEffect(() => {
-        fetchAdminData();
-    }, []);
+    const notify = (message, type = 'info') => {
+        setToast({ message, type });
+        window.clearTimeout(window.__adminToastTimer);
+        window.__adminToastTimer = window.setTimeout(() => setToast(null), 3200);
+    };
 
-    const fetchAdminData = async () => {
+    const fetchOverview = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
-            const [statsData, usersData, chartDataRes] = await Promise.all([
+            const [statsData, chartDataRes, healthData] = await Promise.all([
                 adminService.getStats(),
-                adminService.getUsers(),
-                adminService.getChartData()
+                adminService.getChartData(),
+                adminService.getHealth()
             ]);
             setStats(statsData);
-            setUsers(usersData);
             setChartData(chartDataRes);
+            setHealth(healthData);
         } catch (err) {
             console.error('Error fetching admin data:', err);
+            notify('Failed to refresh admin overview', 'error');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
-    const handleRoleToggle = async (user) => {
-        const newRole = user.role === 'admin' ? 'user' : 'admin';
-        if (!window.confirm(`Are you sure you want to make ${user.name} a ${newRole}?`)) return;
-        
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        if (tab) setActiveTab(tab);
+        fetchOverview();
+    }, []);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        params.set('tab', activeTab);
+        const query = params.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}?${query}`);
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (!autoRefresh || activeTab !== 'overview') return;
+        const interval = setInterval(() => fetchOverview(true), 30000);
+        return () => clearInterval(interval);
+    }, [autoRefresh, activeTab]);
+
+    const handleImpersonate = async (user) => {
+        if (!window.confirm(`Switch to Shadow View for ${user.name}?`)) return;
+
         try {
-            await adminService.updateUserRole(user._id, newRole);
-            setUsers(users.map(u => u._id === user._id ? { ...u, role: newRole } : u));
+            await adminService.logImpersonationStart(user._id, user.name);
         } catch (err) {
-            alert('Failed to update role');
+            console.warn('Failed to write impersonation start audit log:', err);
         }
-    };
 
-    const handleImpersonate = (user) => {
-        if (!window.confirm(`Switching to Shadow View for ${user.name}. You will see the portal as them. Continue?`)) return;
-        
-        // Clear caches for a fresh impersonation session
         localStorage.removeItem('user');
-        Object.keys(localStorage).forEach(key => {
+        Object.keys(localStorage).forEach((key) => {
             if (key.startsWith('dashboard_data_')) localStorage.removeItem(key);
         });
-        sessionStorage.clear(); // Clear all session-cached library items
-        
+        sessionStorage.clear();
+
         localStorage.setItem('impersonate_user_id', user._id);
         localStorage.setItem('impersonate_user_name', user.name);
         window.location.href = '/dashboard';
     };
 
-    const handleDeleteUser = async (id) => {
-        if (!window.confirm('PERMANENTLY delete this user? This action cannot be undone.')) return;
-        try {
-            await adminService.deleteUser(id);
-            setUsers(users.filter(u => u._id !== id));
-        } catch (err) {
-            alert('Delete failed');
+    const statCards = useMemo(() => [
+        {
+            icon: <Users color="#60a5fa" />,
+            label: 'Total Users',
+            value: stats?.totalUsers || 0,
+            trend: stats?.trends?.usersDeltaPct,
+            suffix: '% vs prev 7d'
+        },
+        {
+            icon: <BookOpen color="#34d399" />,
+            label: 'Total Playlists',
+            value: stats?.totalPlaylists || 0,
+            trend: null
+        },
+        {
+            icon: <Layers color="#fbbf24" />,
+            label: 'Active Groups',
+            value: stats?.totalGroups || 0,
+            trend: null
+        },
+        {
+            icon: <Clock color="#f472b6" />,
+            label: 'Study Hours',
+            value: `${stats?.totalStudyHours || 0}h`,
+            trend: stats?.trends?.studyDeltaPct,
+            suffix: '% vs prev 7d'
         }
-    };
-
-    const handleFreezeUser = async (id) => {
-        try {
-            const res = await adminService.freezeUser(id);
-            setUsers(users.map(u => u._id === id ? { ...u, isFrozen: res.isFrozen } : u));
-        } catch (err) {
-            alert('Freeze toggle failed');
-        }
-    };
-
-    const handleApproveWipe = async (id) => {
-        if (!window.confirm('Approve wipe request? This will instantly PERMANENTLY delete the user and all their data.')) return;
-        try {
-            await adminService.approveWipe(id);
-            setUsers(users.filter(u => u._id !== id));
-        } catch (err) {
-            alert('Wipe approval failed');
-        }
-    };
+    ], [stats]);
 
     if (loading) return <LoadingScreen message="Accessing secure admin panel..." />;
 
@@ -105,98 +121,107 @@ const AdminDashboard = () => {
         switch (activeTab) {
             case 'overview':
                 return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        <div>
-                            <h1 style={{ fontSize: '3rem', fontWeight: '950', letterSpacing: '-2px', color: 'var(--text-main)', marginBottom: '0.5rem' }}>
-                                Command Center
-                            </h1>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem', fontWeight: '500' }}>
-                                Global infrastructure and platform analytics.
-                            </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                            <div>
+                                <h1 style={{ fontSize: '2.4rem', fontWeight: '900', letterSpacing: '-1.5px', color: 'var(--text-main)' }}>
+                                    Admin Command Center
+                                </h1>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.98rem' }}>
+                                    Last updated: {stats?.lastUpdatedAt ? new Date(stats.lastUpdatedAt).toLocaleString() : 'N/A'}
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <button className="btn-secondary" onClick={() => fetchOverview(false)}>
+                                    <RefreshCw size={14} style={{ marginRight: 6 }} /> Refresh
+                                </button>
+                                <button
+                                    className="btn-secondary"
+                                    style={{ borderColor: autoRefresh ? 'rgba(16,185,129,0.5)' : undefined }}
+                                    onClick={() => setAutoRefresh((v) => !v)}
+                                >
+                                    Auto Refresh: {autoRefresh ? 'On' : 'Off'}
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Top Stats Row */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
-                            <StatCard icon={<Users color="#6366f1" />} label="Total Users" value={stats?.totalUsers} trend="+12%" trendUp={true} />
-                            <StatCard icon={<BookOpen color="#22c55e" />} label="Total Playlists" value={stats?.totalPlaylists} trend="+5%" trendUp={true} />
-                            <StatCard icon={<Layers color="#eab308" />} label="Active Groups" value={stats?.totalGroups} trend="-2%" trendUp={false} />
-                            <StatCard icon={<Clock color="#ec4899" />} label="Global Study Hours" value={`${stats?.totalStudyHours}h`} trend="+24%" trendUp={true} />
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.9rem' }}>
+                            {statCards.map((item) => (
+                                <StatCard key={item.label} {...item} />
+                            ))}
                         </div>
 
-                        {/* Bento Box Layout */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
-                            {/* Main Chart - Activity Trends */}
-                            <div className="glass-card" style={{ padding: '2rem', borderRadius: '32px', background: 'var(--bg-card)', border: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                                    <div>
-                                        <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <Activity size={20} color="#6366f1" /> Platform Activity (7 Days)
-                                        </h3>
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Study sessions and active users over time</p>
-                                    </div>
-                                </div>
-                                <div style={{ flex: 1, minHeight: '300px', width: '100%' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }} className="admin-overview-grid">
+                            <div data-section="admin-analytics" className="glass-card" style={{ padding: '1rem', borderRadius: '20px' }}>
+                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.8rem' }}>
+                                    <Activity size={18} color="#60a5fa" /> Activity (7 days)
+                                </h3>
+                                <div style={{ width: '100%', height: 300 }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <AreaChart data={chartData.weeklyActivity} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="colorStudy" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
-                                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                                    <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.35} />
+                                                    <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
                                                 </linearGradient>
                                                 <linearGradient id="colorActive" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4}/>
-                                                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                                                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.35} />
+                                                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
                                                 </linearGradient>
                                             </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                            <XAxis dataKey="name" stroke="rgba(255,255,255,0.2)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                                            <YAxis stroke="rgba(255,255,255,0.2)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(10,10,12,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', backdropFilter: 'blur(10px)' }} itemStyle={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }} />
-                                            <Area type="monotone" dataKey="studyMins" name="Study Mins" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorStudy)" />
-                                            <Area type="monotone" dataKey="activeUsers" name="Active Users" stroke="#22c55e" strokeWidth={3} fillOpacity={1} fill="url(#colorActive)" />
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+                                            <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                                            <YAxis stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(10,10,12,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' }} />
+                                            <Area type="monotone" dataKey="studyMins" name="Study Minutes" stroke="#60a5fa" strokeWidth={2.6} fillOpacity={1} fill="url(#colorStudy)" />
+                                            <Area type="monotone" dataKey="activeUsers" name="Active Users" stroke="#34d399" strokeWidth={2.6} fillOpacity={1} fill="url(#colorActive)" />
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                {/* System Health Card */}
-                                <div className="glass-card" style={{ padding: '2rem', borderRadius: '32px', background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%)', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 12px #22c55e' }}></div>
-                                        <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'white' }}>System Health</h3>
-                                    </div>
-                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                                        All services operational. Database cluster is optimal.
-                                    </p>
-                                    <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}><span style={{ color: 'rgba(255,255,255,0.6)' }}>Latency</span><span style={{ fontWeight: 'bold', color: '#22c55e' }}>42ms</span></div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}><span style={{ color: 'rgba(255,255,255,0.6)' }}>Uptime</span><span style={{ fontWeight: 'bold' }}>99.99%</span></div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}><span style={{ color: 'rgba(255,255,255,0.6)' }}>API Requests/min</span><span style={{ fontWeight: 'bold' }}>1,240</span></div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div data-section="admin-health" className="glass-card" style={{ padding: '1rem', borderRadius: '20px' }}>
+                                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.7rem' }}>
+                                        <ShieldCheck size={18} color={health?.status === 'ok' ? '#22c55e' : '#ef4444'} />
+                                        System Health
+                                    </h3>
+                                    <div style={{ display: 'grid', gap: '0.45rem', fontSize: '0.85rem' }}>
+                                        <span>Status: <strong style={{ color: health?.status === 'ok' ? '#22c55e' : '#ef4444' }}>{health?.status || 'unknown'}</strong></span>
+                                        <span>DB: <strong>{health?.dbState || 'unknown'}</strong></span>
+                                        <span>DB Latency: <strong>{health?.dbLatencyMs ?? '--'}ms</strong></span>
+                                        <span>Uptime: <strong>{health?.uptimeHours ?? '--'}h</strong></span>
+                                        <span>Memory: <strong>{health?.memoryUsedMb ?? '--'} MB</strong></span>
                                     </div>
                                 </div>
 
-                                {/* Content Distribution */}
-                                <div className="glass-card" style={{ padding: '2rem', borderRadius: '32px', background: 'var(--bg-card)', border: '1px solid var(--glass-border)', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'white', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <TrendingUp size={18} color="#ec4899" /> Top Topics
+                                <div className="glass-card" style={{ padding: '1rem', borderRadius: '20px' }}>
+                                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.7rem' }}>
+                                        <AlertTriangle size={16} color="#f59e0b" /> Active Alerts
                                     </h3>
-                                    <div style={{ flex: 1, width: '100%' }}>
-                                        <ResponsiveContainer width="100%" height={Math.max(150, chartData.topTopics.length * 36)}>
-                                            <BarChart data={chartData.topTopics} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                                    <div style={{ display: 'grid', gap: '0.45rem', fontSize: '0.85rem' }}>
+                                        <span>Frozen users: <strong>{stats?.frozenUsers || 0}</strong></span>
+                                        <span>Pending wipe requests: <strong>{stats?.pendingWipes || 0}</strong></span>
+                                    </div>
+                                </div>
+
+                                <div className="glass-card" style={{ padding: '1rem', borderRadius: '20px' }}>
+                                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.7rem' }}>
+                                        <TrendingUp size={16} color="#f472b6" /> Top Topics
+                                    </h3>
+                                    <div style={{ width: '100%', height: Math.max(120, chartData.topTopics.length * 30) }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={chartData.topTopics} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
                                                 <XAxis type="number" hide />
-                                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'white', fontSize: 12, fontWeight: 'bold' }} width={90} />
+                                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'white', fontSize: 11 }} width={90} />
                                                 <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'rgba(10,10,12,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} formatter={(v) => [`${v} playlists`]} />
                                                 <Bar dataKey="value" name="Playlists" radius={[0, 4, 4, 0]}>
                                                     {chartData.topTopics.map((_, index) => (
-                                                        <Cell key={`cell-${index}`} fill={['#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#f59e0b'][index % 5]} />
+                                                        <Cell key={`topic-${index}`} fill={['#60a5fa', '#34d399', '#f472b6', '#f59e0b', '#a78bfa'][index % 5]} />
                                                     ))}
                                                 </Bar>
                                             </BarChart>
                                         </ResponsiveContainer>
-                                        {chartData.topTopics.length === 0 && (
-                                            <div style={{ textAlign: 'center', padding: '2rem', color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>No playlist data yet</div>
-                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -204,23 +229,13 @@ const AdminDashboard = () => {
                     </div>
                 );
             case 'users':
-                return (
-                    <AdminUsers 
-                        users={users}
-                        searchTerm={searchTerm}
-                        setSearchTerm={setSearchTerm}
-                        handleImpersonate={handleImpersonate}
-                        handleRoleToggle={handleRoleToggle}
-                        handleDeleteUser={handleDeleteUser}
-                        handleFreezeUser={handleFreezeUser}
-                        handleApproveWipe={handleApproveWipe}
-                        onViewDetails={setSelectedUserId}
-                    />
-                );
+                return <AdminUsers onViewDetails={setSelectedUserId} onImpersonate={handleImpersonate} notify={notify} />;
             case 'playlists':
                 return <AdminPlaylists />;
             case 'videos':
                 return <AdminVideos />;
+            case 'audit':
+                return <AdminAuditLogs />;
             default:
                 return null;
         }
@@ -228,68 +243,71 @@ const AdminDashboard = () => {
 
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-main)' }}>
-            <AdminSidebar 
-                activeTab={activeTab} 
-                setActiveTab={setActiveTab} 
-                collapsed={collapsed} 
-                setCollapsed={setCollapsed} 
+            <AdminSidebar
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                collapsed={collapsed}
+                setCollapsed={setCollapsed}
             />
-            
-            <main style={{ 
-                flex: 1, 
-                marginLeft: collapsed ? '80px' : '280px', 
-                padding: '3rem 4vw', 
+
+            <main style={{
+                flex: 1,
+                marginLeft: collapsed ? '80px' : '280px',
+                padding: '1.6rem 2.8vw',
                 transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 minHeight: '100vh'
-            }}>
+            }} className="admin-main-content">
                 {renderContent()}
             </main>
 
             {selectedUserId && (
-                <UserDetailsModal 
-                    userId={selectedUserId} 
-                    onClose={() => setSelectedUserId(null)} 
+                <UserDetailsModal
+                    userId={selectedUserId}
+                    onClose={() => setSelectedUserId(null)}
                 />
+            )}
+
+            {toast && (
+                <div style={{
+                    position: 'fixed',
+                    right: 16,
+                    bottom: 16,
+                    zIndex: 13000,
+                    background: toast.type === 'error' ? 'rgba(239,68,68,0.95)' : 'rgba(15,23,42,0.95)',
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    padding: '0.7rem 0.9rem',
+                    borderRadius: '12px',
+                    fontSize: '0.85rem',
+                    boxShadow: '0 8px 20px rgba(0,0,0,0.3)'
+                }}>
+                    {toast.message}
+                </div>
             )}
         </div>
     );
 };
 
-const StatCard = ({ icon, label, value, trend, trendUp }) => (
-    <div className="glass-card" style={{ 
-        padding: '1.5rem', 
-        borderRadius: '24px', 
-        background: 'var(--bg-card)', 
-        border: '1px solid var(--glass-border)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+const StatCard = ({ icon, label, value, trend, suffix }) => (
+    <div className="glass-card" style={{
+        padding: '1rem',
+        borderRadius: '16px',
+        background: 'var(--bg-card)',
+        border: '1px solid var(--glass-border)'
     }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-            <div style={{ 
-                width: '56px', 
-                height: '56px', 
-                borderRadius: '16px', 
-                background: 'rgba(255,255,255,0.03)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                boxShadow: 'inset 0 2px 10px rgba(255,255,255,0.05)'
-            }}>
-                {icon}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>{label}</span>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '1.75rem', fontWeight: '900', color: 'white', lineHeight: 1 }}>{value || 0}</span>
-                    {trend && (
-                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: trendUp ? '#22c55e' : '#ef4444' }}>
-                            {trend}
-                        </span>
-                    )}
-                </div>
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</span>
+            {icon}
         </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+            <strong style={{ fontSize: '1.5rem' }}>{value}</strong>
+            {trend !== null && trend !== undefined && (
+                <span style={{ fontSize: '0.72rem', color: trend >= 0 ? '#22c55e' : '#ef4444' }}>
+                    {trend >= 0 ? '+' : ''}{trend}%
+                </span>
+            )}
+        </div>
+        {suffix && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{suffix}</div>}
     </div>
 );
 
