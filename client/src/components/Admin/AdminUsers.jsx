@@ -1,7 +1,7 @@
 import React from 'react';
-import { Search, Eye, Shield, ShieldAlert, Trash2, Mail, Hash } from 'lucide-react';
+import { Search, Eye, Shield, ShieldAlert, Trash2, Mail, Hash, AlertTriangle, Snowflake } from 'lucide-react';
 
-const AdminUsers = ({ users, searchTerm, setSearchTerm, handleImpersonate, handleRoleToggle, handleDeleteUser, onViewDetails }) => {
+const AdminUsers = ({ users, searchTerm, setSearchTerm, handleImpersonate, handleRoleToggle, handleDeleteUser, handleFreezeUser, handleApproveWipe, onViewDetails }) => {
     const filteredUsers = users.filter(u => 
         u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -65,7 +65,11 @@ const AdminUsers = ({ users, searchTerm, setSearchTerm, handleImpersonate, handl
                                             {u.name.charAt(0)}
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <span style={{ fontWeight: '700', fontSize: '1rem' }}>{u.name}</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <span style={{ fontWeight: '700', fontSize: '1rem' }}>{u.name}</span>
+                                                {u.isFrozen && <Snowflake size={14} color="#38bdf8" title="Account Frozen" />}
+                                                {u.wipeRequested && <Trash2 size={14} color="#ef4444" title="Data Wipe Requested" />}
+                                            </div>
                                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <Mail size={12} /> {u.email}
                                             </span>
@@ -115,6 +119,14 @@ const AdminUsers = ({ users, searchTerm, setSearchTerm, handleImpersonate, handl
                                             {u.role === 'admin' ? <ShieldAlert size={16} /> : <Shield size={16} />}
                                         </button>
                                         <button 
+                                            onClick={() => handleFreezeUser(u._id)}
+                                            className="icon-btn" 
+                                            title={u.isFrozen ? "Unfreeze Account" : "Freeze Account"}
+                                            style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}
+                                        >
+                                            <Snowflake size={16} />
+                                        </button>
+                                        <button 
                                             onClick={() => handleDeleteUser(u._id)}
                                             className="icon-btn" 
                                             title="Purge User Record"
@@ -122,6 +134,16 @@ const AdminUsers = ({ users, searchTerm, setSearchTerm, handleImpersonate, handl
                                         >
                                             <Trash2 size={16} />
                                         </button>
+                                        {u.wipeRequested && (
+                                            <button 
+                                                onClick={() => handleApproveWipe(u._id)}
+                                                className="btn-primary" 
+                                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', background: '#ef4444', border: 'none', marginLeft: '0.5rem' }}
+                                                title="Approve Wipe Request"
+                                            >
+                                                Approve Wipe
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>

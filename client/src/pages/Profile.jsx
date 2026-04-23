@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
     Clock, Calendar, Award, AlertCircle,
-    Flame, BarChart3, TrendingUp, Play, CheckCircle, User, Edit2, Save, X, Lock, Trash2, Home
+    Flame, BarChart3, TrendingUp, Play, CheckCircle, User, Edit2, Save, X, Lock, Trash2, Settings, Shield, Trophy, Layout, ArrowRight, Tag, Palette, Info, Check, Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingScreen from '../components/Shared/LoadingScreen';
@@ -11,10 +12,21 @@ import Modal from '../components/Shared/Modal';
 
 const Profile = () => {
     const { user: authUser, logout, setAuth } = useAuth();
-    const [profile, setProfile] = useState({ name: '', username: '', email: '' });
+    const navigate = useNavigate();
+    const [profile, setProfile] = useState({ name: '', username: '', email: '', motto: '', themeColor: '#6366f1', isPublic: false });
+
     const [analytics, setAnalytics] = useState(null);
     const [heatmapData, setHeatmapData] = useState([]);
-    const [stats, setStats] = useState({ totalFocusHours: 0, completedVideos: 0, totalPlaylists: 0 });
+    const [stats, setStats] = useState({ 
+        totalFocusHours: 0, 
+        completedVideos: 0, 
+        totalPlaylists: 0,
+        xp: 0,
+        level: 1,
+        badges: [],
+        nextLevelXp: 100,
+        bestStreak: 0
+    });
 
     const [schedules, setSchedules] = useState({
         upcoming: [],
@@ -28,15 +40,17 @@ const Profile = () => {
         maxWatchTimePerDay: 120
     });
 
-    const [activeTab, setActiveTab] = useState('completed');
+    const [activeTab, setActiveTab] = useState('dashboard');
+    const [historyTab, setHistoryTab] = useState('completed');
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
-    const [prefMessage, setPrefMessage] = useState({ text: '', type: '' });
+    const [message, setMessage] = useState({ text: '', type: '' });
+    const [animateXp, setAnimateXp] = useState(false);
 
     // Account section states
     const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    const [passwordMsg, setPasswordMsg] = useState({ text: '', type: '' });
     const [deleteModal, setDeleteModal] = useState(false);
+    const [confirmWipeText, setConfirmWipeText] = useState('');
 
     useEffect(() => {
         fetchProfileData();
@@ -72,9 +86,18 @@ const Profile = () => {
                 setProfile({
                     name: authUser.name || '',
                     username: authUser.username || '',
-                    email: authUser.email || ''
+                    email: authUser.email || '',
+                    motto: statsRes.data.motto || 'Keep focusing, keep growing.',
+                    themeColor: statsRes.data.themeColor || '#6366f1',
+                    isPublic: statsRes.data.isPublic || false,
+                    wipeRequested: statsRes.data.wipeRequested || false
                 });
             }
+
+
+            // Trigger XP Animation
+            setTimeout(() => setAnimateXp(true), 500);
+
         } catch (err) {
             console.error('Error fetching profile data:', err);
         } finally {
@@ -82,9 +105,9 @@ const Profile = () => {
         }
     };
 
-    const showMessage = (msg, type = 'success', setter = setPrefMessage) => {
-        setter({ text: msg, type });
-        setTimeout(() => setter({ text: '', type: '' }), 4000);
+    const showMessage = (msg, type = 'success') => {
+        setMessage({ text: msg, type });
+        setTimeout(() => setMessage({ text: '', type: '' }), 4000);
     };
 
     const handleUpdateProfile = async () => {
@@ -110,10 +133,8 @@ const Profile = () => {
 
     const handleChangePassword = async (e) => {
         e.preventDefault();
-        setPasswordMsg({ text: '', type: '' });
-
         if (passwordData.newPassword !== passwordData.confirmPassword) {
-            return showMessage('New passwords do not match', 'error', setPasswordMsg);
+            return showMessage('New passwords do not match', 'error');
         }
 
         try {
@@ -121,35 +142,35 @@ const Profile = () => {
                 currentPassword: passwordData.currentPassword,
                 newPassword: passwordData.newPassword
             });
-            showMessage('Password changed successfully!', 'success', setPasswordMsg);
+            showMessage('Password changed successfully!');
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         } catch (err) {
-            showMessage(err.response?.data?.msg || 'Failed to change password', 'error', setPasswordMsg);
+            showMessage(err.response?.data?.msg || 'Failed to change password', 'error');
         }
     };
 
     const handleDeleteAccount = async () => {
         try {
-            await api.delete('/users/account');
-            logout();
+            await api.post('/users/wipe-request');
+            setProfile(prev => ({ ...prev, wipeRequested: true }));
+            setDeleteModal(false);
+            showMessage('Wipe request submitted. Your data will be deleted in 8-10 working days.', 'info');
         } catch (err) {
-            showMessage(err.response?.data?.msg || 'Failed to delete account', 'error');
+            showMessage(err.response?.data?.msg || 'Failed to submit wipe request', 'error');
             setDeleteModal(false);
         }
     };
 
     const handleReschedule = async (scheduleId) => {
         try {
-            // Update to tomorrow
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
-
             await api.put(`/schedules/${scheduleId}`, {
                 status: 'pending',
                 scheduledDate: tomorrow.toISOString()
             });
             showMessage('Session rescheduled for tomorrow');
-            fetchProfileData(); // Reload lists
+            fetchProfileData();
         } catch (err) {
             showMessage('Failed to reschedule', 'error');
         }
@@ -158,337 +179,469 @@ const Profile = () => {
     const renderList = (list, emptyMsg, type) => {
         if (list.length === 0) {
             return (
-                <div className="glass" style={{ padding: '3rem', textAlign: 'center', opacity: 0.5 }}>
-                    <p>{emptyMsg}</p>
+                <div style={{ padding: '3rem', textAlign: 'center', opacity: 0.5, background: 'rgba(255,255,255,0.01)', borderRadius: '24px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                    <p style={{ fontSize: '0.9rem' }}>{emptyMsg}</p>
                 </div>
             );
         }
 
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {list.map(s => (
-                    <div key={s._id} className="glass" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                        <img
-                            src={s.videoId?.thumbnail}
-                            alt=""
-                            style={{ width: '120px', aspectRatio: '16/9', borderRadius: '8px', objectFit: 'cover' }}
-                        />
-                        <div style={{ flex: 1 }}>
-                            <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '0.25rem' }}>{s.videoId?.title}</h3>
-                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Clock size={14} /> {s.videoId?.duration}</span>
-                                {s.scheduledDate && (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                        <Calendar size={14} /> {new Date(s.scheduledDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {list.map(s => {
+                    // Check if the video belongs to a playlist context
+                    const isPlaylist = !!s.playlistId;
+                    
+                    return (
+                        <div key={s._id} className="glass-hover" style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '1.25rem', borderRadius: '20px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <img
+                                src={s.videoId?.thumbnail}
+                                alt=""
+                                style={{ width: '100px', aspectRatio: '16/9', borderRadius: '14px', objectFit: 'cover' }}
+                            />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                    <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: 'white' }}>{s.videoId?.title}</h3>
+                                </div>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: isPlaylist ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255, 255, 255, 0.05)', color: isPlaylist ? '#818cf8' : 'var(--text-muted)', padding: '2px 6px', borderRadius: '4px' }}>
+                                        {isPlaylist ? <Layout size={10} /> : <Play size={10} />}
+                                        {isPlaylist ? 'Playlist' : 'Single'}
                                     </span>
-                                )}
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Clock size={12} /> {s.videoId?.duration}</span>
+                                    {s.scheduledDate && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                            <Calendar size={12} /> {new Date(s.scheduledDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
+
+                            {type === 'missed' && (
+                                <button onClick={() => handleReschedule(s._id)} className="btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.75rem', borderRadius: '12px' }}>
+                                    Reschedule
+                                </button>
+                            )}
+
+                            {(type === 'upcoming' || type === 'roadmap') && (
+                                <a
+                                    href={`https://www.youtube.com/watch?v=${s.videoId?.videoId}`}
+                                    target="_blank" rel="noreferrer"
+                                    className="btn-secondary"
+                                    style={{ width: '40px', height: '40px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${profile.themeColor}1a`, border: `1px solid ${profile.themeColor}44` }}
+                                >
+                                    <Play size={18} style={{ color: profile.themeColor }} />
+                                </a>
+                            )}
+
+                            {type === 'completed' && (
+                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(34, 197, 94, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <CheckCircle size={18} style={{ color: '#22c55e' }} />
+                                </div>
+                            )}
                         </div>
-
-                        {type === 'missed' && (
-                            <button
-                                onClick={() => handleReschedule(s._id)}
-                                className="btn-secondary"
-                                style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
-                            >
-                                Reschedule
-                            </button>
-                        )}
-
-                        {type !== 'completed' && type !== 'missed' && (
-                            <a
-                                href={`https://www.youtube.com/watch?v=${s.videoId?.videoId}`}
-                                target="_blank" rel="noreferrer"
-                                className="btn-secondary"
-                                style={{ width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            >
-                                <Play size={16} />
-                            </a>
-                        )}
-
-                        {type === 'completed' && <CheckCircle size={20} style={{ color: '#22c55e' }} />}
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         );
     };
 
-    if (loading) return <LoadingScreen message="Loading profile..." />;
+
+
+    if (loading) return <LoadingScreen message="Loading your command center..." />;
+
+    const xpProgress = ((stats.xp - Math.pow((stats.level - 1) * 5, 2)) / (stats.nextLevelXp - Math.pow((stats.level - 1) * 5, 2))) * 100;
+    const streak = analytics?.streak || 0;
+
+    // Weekly Breakdown Calculation
+    const last7Days = Array.from({length: 7}, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        return d.toISOString().split('T')[0];
+    });
+    const weeklyData = last7Days.map(date => {
+        const day = heatmapData.find(h => h.date === date);
+        return { date, mins: day ? Math.round(day.seconds / 60) : 0 };
+    });
+    const maxMins = Math.max(...weeklyData.map(d => d.mins), 60);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem', paddingBottom: '4rem', maxWidth: '1000px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '-1rem' }}>
-                <User size={28} className="text-primary" />
-                <h1 style={{ fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-1px' }}>Your Profile</h1>
-            </div>
-
-            {prefMessage.text && (
-                <div style={{
-                    padding: '1rem 1.5rem',
-                    borderRadius: '12px',
-                    background: prefMessage.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
-                    color: prefMessage.type === 'error' ? '#ef4444' : '#22c55e',
-                    border: `1px solid ${prefMessage.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'}`
-                }}>
-                    {prefMessage.text}
-                </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: '2rem' }}>
-
-                {/* Left Column */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-
-                    {/* User Info Card */}
-                    <div className="glass" style={{ padding: '2rem', borderRadius: '24px', display: 'flex', gap: '2rem', alignItems: 'flex-start', position: 'relative', overflow: 'hidden' }}>
-                        {/* Background subtle glow for premium feel */}
-                        <div style={{ position: 'absolute', top: '-50px', left: '-50px', width: '200px', height: '200px', background: 'var(--primary)', filter: 'blur(100px)', opacity: 0.15, zIndex: 0 }}></div>
-                        
+        <div style={{ display: 'flex', gap: '2rem', maxWidth: '1400px', margin: '0 auto', paddingBottom: '4rem', minHeight: '80vh', alignItems: 'flex-start' }}>
+            
+            {/* --- LEFT SIDEBAR NAVIGATION --- */}
+            <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '2rem', position: 'sticky', top: '80px', height: 'fit-content' }}>
+                
+                {/* User Identity Card */}
+                <div className="glass" style={{ padding: '2rem', borderRadius: '32px', textAlign: 'center', border: `1px solid ${profile.themeColor}33`, position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: '-40px', left: '-40px', width: '100px', height: '100px', background: profile.themeColor, filter: 'blur(50px)', opacity: 0.2 }}></div>
+                    
+                    <div style={{ position: 'relative', display: 'inline-block', marginBottom: '1.5rem' }}>
                         <img 
-                            src={`https://api.dicebear.com/9.x/notionists/svg?seed=${profile.username || 'user'}&backgroundColor=transparent`}
+                            src={`https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(profile.username || 'user')}`}
                             alt="avatar"
                             style={{
-                                width: '100px', height: '100px', borderRadius: '24px',
-                                background: 'var(--glass-bg)', border: '1px solid var(--glass-border)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-                                zIndex: 1, padding: '5px'
+                                width: '110px', height: '110px', borderRadius: '35px',
+                                background: 'rgba(255,255,255,0.05)', border: '2px solid var(--glass-border)',
+                                boxShadow: streak >= 3 ? `0 0 30px ${profile.themeColor}66` : '0 12px 40px rgba(0, 0, 0, 0.4)',
+                                padding: '6px', transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
                             }}
                         />
-                        <div style={{ flex: 1, zIndex: 1 }}>
-                            {isEditing ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    <div style={{ marginBottom: '0.5rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Full Name</label>
-                                        <input
-                                            placeholder="John Doe"
-                                            value={profile.name}
-                                            onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                                            className="styled-input"
-                                            style={{ width: '100%', background: 'rgba(255,255,255,0.05)' }}
-                                        />
-                                    </div>
-                                    <div style={{ marginBottom: '0.5rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Username</label>
-                                        <input
-                                            placeholder="johndoe123"
-                                            value={profile.username}
-                                            onChange={(e) => setProfile({ ...profile, username: e.target.value })}
-                                            className="styled-input"
-                                            style={{ width: '100%', background: 'rgba(255,255,255,0.05)' }}
-                                        />
-                                        <p style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '0.3rem', opacity: 0.8 }}>Username will change your avatar style!</p>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                                        <button onClick={handleUpdateProfile} className="btn-primary" style={{ padding: '0.6rem 1.25rem', flex: 1, justifyContent: 'center' }}>
-                                            <Save size={16} style={{ marginRight: '6px' }} /> Save Changes
-                                        </button>
-                                        <button onClick={() => { setIsEditing(false); fetchProfileData(); }} className="btn-secondary" style={{ padding: '0.6rem 1.25rem', background: 'rgba(255,255,255,0.05)', flex: 1, justifyContent: 'center' }}>
-                                            <X size={16} style={{ marginRight: '6px' }} /> Cancel
-                                        </button>
-                                    </div>
+                        {streak >= 3 && (
+                            <div style={{ position: 'absolute', top: '-12px', right: '-12px', background: profile.themeColor, borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 20px ${profile.themeColor}`, animation: 'float 3s infinite' }}>
+                                <Flame size={18} color="white" />
+                            </div>
+                        )}
+                    </div>
 
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '0.25rem', letterSpacing: '-0.5px' }}>{profile.name}</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1.25rem', fontWeight: '600' }}>@{profile.username}</p>
+                    
+                    <div style={{ background: `${profile.themeColor}1a`, color: profile.themeColor, padding: '0.5rem 1rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '900', display: 'inline-block' }}>
+                        LEVEL {stats.level}
+                    </div>
+                </div>
+
+                {/* Vertical Navigation Links */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {[
+                        { id: 'dashboard', icon: Layout, label: 'Command Center' },
+                        { id: 'history', icon: Calendar, label: 'Study History' },
+                        { id: 'trophies', icon: Trophy, label: 'Trophy Room' },
+                        { id: 'settings', icon: Settings, label: 'Config & Tools' }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '1rem',
+                                padding: '1.2rem 1.5rem', borderRadius: '20px',
+                                border: 'none', background: activeTab === tab.id ? profile.themeColor : 'transparent',
+                                color: activeTab === tab.id ? 'white' : 'var(--text-muted)',
+                                fontWeight: '800', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                textAlign: 'left'
+                            }}
+                        >
+                            <tab.icon size={20} />
+                            <span style={{ fontSize: '0.95rem' }}>{tab.label}</span>
+                            {activeTab === tab.id && <ArrowRight size={16} style={{ marginLeft: 'auto' }} />}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Social Shortcut */}
+                <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px', background: 'linear-gradient(135deg, rgba(255,255,255,0.03), transparent)' }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '1rem', textTransform: 'uppercase' }}>Community</p>
+                    <button onClick={() => navigate('/social')} className="btn-secondary" style={{ width: '100%', justifyContent: 'center', gap: '0.75rem' }}>
+                        <Users size={18} /> Social Hub
+                    </button>
+                </div>
+            </div>
+
+            {/* --- MAIN CONTENT AREA --- */}
+            <div style={{ flex: 1 }}>
+                
+                {message.text && (
+                    <div style={{
+                        padding: '1rem 1.5rem', borderRadius: '20px', marginBottom: '2rem',
+                        background: message.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                        color: message.type === 'error' ? '#ef4444' : '#22c55e',
+                        border: `1px solid ${message.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'}`,
+                        animation: 'slideIn 0.3s ease-out'
+                    }}>
+                        {message.text}
+                    </div>
+                )}
+
+                {/* Dashboard View */}
+                {activeTab === 'dashboard' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        
+                        {/* Hero XP Banner */}
+                        <div className="glass" style={{ padding: '3rem', borderRadius: '40px', position: 'relative', overflow: 'hidden', border: `1px solid ${profile.themeColor}33` }}>
+                             <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '400px', height: '400px', background: profile.themeColor, filter: 'blur(150px)', opacity: 0.1, zIndex: 0 }}></div>
+                             
+                             <div style={{ position: 'relative', zIndex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
+                                    <div>
+                                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '3px', marginBottom: '0.75rem' }}>Current Rank</p>
+                                        <h1 style={{ fontSize: '3rem', fontWeight: '900', letterSpacing: '-2px' }}>Level {stats.level} <span style={{ color: profile.themeColor, fontSize: '1.5rem', verticalAlign: 'middle', marginLeft: '0.5rem' }}>({stats.xp} XP)</span></h1>
+                                        <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>"{profile.motto}"</p>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <p style={{ fontSize: '1rem', fontWeight: '900', color: 'white' }}>{stats.nextLevelXp - stats.xp} XP to Level {stats.level + 1}</p>
+                                    </div>
+                                </div>
+                                
+                                <div style={{ width: '100%', height: '20px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden', position: 'relative', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <div style={{ 
+                                        width: animateXp ? `${xpProgress}%` : '0%', 
+                                        height: '100%', 
+                                        background: `linear-gradient(90deg, ${profile.themeColor}, #ec4899)`, 
+                                        borderRadius: '10px', 
+                                        transition: 'width 2s cubic-bezier(0.34, 1.56, 0.64, 1)' 
+                                    }}></div>
+                                </div>
+                             </div>
+                        </div>
+
+                        {/* Bento Grid Layout */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
+                            
+                            {/* Roadmap Card */}
+                            <div className="glass" style={{ padding: '2.5rem', borderRadius: '32px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                                    <h3 style={{ fontSize: '1.3rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <ArrowRight size={24} style={{ color: profile.themeColor }} /> Mastery Roadmap
+                                    </h3>
+                                    <button onClick={() => setActiveTab('history')} className="btn-secondary" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem' }}>View History</button>
+                                </div>
+                                {schedules.upcoming.slice(0, 3).length > 0 ? renderList(schedules.upcoming.slice(0, 3), "", "roadmap") : (
+                                    <div style={{ padding: '4rem 2rem', textAlign: 'center', background: 'rgba(255,255,255,0.01)', borderRadius: '24px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                                        <p style={{ color: 'var(--text-muted)' }}>Roadmap clear! Time to set new goals.</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Heatmap Mini Card */}
+                            <div className="glass" style={{ padding: '2rem', borderRadius: '32px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <BarChart3 size={20} style={{ color: profile.themeColor }} /> Focus Pulse
+                                </h3>
+                                <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center', marginBottom: '-2rem' }}>
+                                    <FocusPulseHeatmap data={heatmapData} streak={streak} />
+                                </div>
+                                <div style={{ display: 'flex', gap: '1rem', marginTop: 'auto' }}>
+                                    <div style={{ flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', textAlign: 'center' }}>
+                                        <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Streak</p>
+                                        <p style={{ fontSize: '1.2rem', fontWeight: '900' }}>{streak}d</p>
+                                    </div>
+                                    <div style={{ flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', textAlign: 'center' }}>
+                                        <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Best</p>
+                                        <p style={{ fontSize: '1.2rem', fontWeight: '900' }}>{stats.bestStreak}d</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Recent Sessions Feed */}
+                            <div className="glass" style={{ padding: '2.5rem', borderRadius: '32px' }}>
+                                <h3 style={{ fontSize: '1.3rem', fontWeight: '900', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <Clock size={24} style={{ color: profile.themeColor }} /> Recent Focus Sessions
+                                </h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {heatmapData.slice().reverse().slice(0, 4).map((act, i) => (
+                                        <div key={i} className="glass-hover" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderRadius: '20px', background: 'rgba(255,255,255,0.02)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: act.seconds > 3600 ? '#22c55e' : profile.themeColor, boxShadow: `0 0 10px ${act.seconds > 3600 ? '#22c55e' : profile.themeColor}` }}></div>
+                                                <div>
+                                                    <p style={{ fontSize: '1rem', fontWeight: '800' }}>{new Date(act.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</p>
+                                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Focus Block</p>
+                                                </div>
+                                            </div>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: '900' }}>{Math.round(act.seconds / 60)} <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>MINS</span></p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Consistency & Insight Sidebar */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                <div className="glass" style={{ padding: '2rem', borderRadius: '32px' }}>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '1.5rem' }}>Weekly Consistency</h3>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '100px' }}>
+                                        {weeklyData.map((d, i) => (
+                                            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                                                <div style={{ width: '16px', height: `${(d.mins / maxMins) * 100}%`, background: d.date === new Date().toISOString().split('T')[0] ? profile.themeColor : 'rgba(255,255,255,0.1)', borderRadius: '4px' }}></div>
+                                                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: '700' }}>{new Date(d.date).toLocaleDateString(undefined, { weekday: 'short' }).charAt(0)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="glass" style={{ padding: '2rem', borderRadius: '32px', background: `linear-gradient(135deg, ${profile.themeColor}15, transparent)` }}>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Info size={18} style={{ color: profile.themeColor }} /> Smart Insight
+                                    </h3>
+                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>You're most productive on <strong style={{ color: 'white' }}>Tuesday mornings</strong>. Keep that momentum going!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* History View */}
+                {activeTab === 'history' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <div className="glass" style={{ padding: '1rem', borderRadius: '24px', display: 'flex', gap: '0.5rem' }}>
+                            {['completed', 'upcoming', 'missed'].map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setHistoryTab(tab)}
+                                    style={{
+                                        flex: 1, padding: '1rem', borderRadius: '16px', border: 'none',
+                                        background: historyTab === tab ? 'rgba(255,255,255,0.05)' : 'transparent',
+                                        color: historyTab === tab ? 'white' : 'var(--text-muted)',
+                                        fontWeight: '800', cursor: 'pointer', transition: 'all 0.3s'
+                                    }}
+                                >
+                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="glass" style={{ padding: '2rem', borderRadius: '32px' }}>
+                            {historyTab === 'completed' && renderList(schedules.completed, "No completed sessions yet.", 'completed')}
+                            {historyTab === 'upcoming' && renderList(schedules.upcoming, "No upcoming sessions planned.", 'upcoming')}
+                            {historyTab === 'missed' && renderList(schedules.missed, "Zero missed sessions. Perfect record!", 'missed')}
+                        </div>
+                    </div>
+                )}
+
+                {/* Trophies View */}
+                {activeTab === 'trophies' && (
+                    <div className="glass" style={{ padding: '4rem', borderRadius: '40px', textAlign: 'center' }}>
+                         <div style={{ width: '100px', height: '100px', background: `${profile.themeColor}1a`, borderRadius: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', animation: 'float 3s ease-in-out infinite' }}>
+                            <Trophy size={48} style={{ color: profile.themeColor }} />
+                        </div>
+                        <h1 style={{ fontSize: '3rem', fontWeight: '900', marginBottom: '1rem' }}>Trophy Room</h1>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '4rem', fontSize: '1.2rem' }}>{stats.badges.length} / 6 Artifacts Unlocked</p>
+                        
+                        <div style={{ width: '100%', maxWidth: '500px', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', margin: '0 auto 5rem', overflow: 'hidden' }}>
+                            <div style={{ width: `${(stats.badges.length / 6) * 100}%`, height: '100%', background: profile.themeColor, borderRadius: '4px', transition: 'width 1.5s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '3rem' }}>
+                            {[
+                                { name: 'First Step', icon: '🌱', desc: 'Created your profile' },
+                                { name: 'Pioneer', icon: '🚀', desc: 'Joined the Social Hub' },
+                                { name: 'Early Bird', icon: '🌅', desc: 'Study before 8 AM' },
+                                { name: 'Focus Master', icon: '🧠', desc: '2h Single Session' },
+                                { name: 'Streak King', icon: '🔥', desc: '7 Day Streak' },
+                                { name: 'Playlist Pro', icon: '📚', desc: 'Finish 5 Playlists' },
+                                { name: 'Midnight Oil', icon: '🌙', desc: 'Study after 10 PM' },
+                                { name: 'Quick Learner', icon: '⚡', desc: '3 Videos in 1 Day' },
+                            ].map((badge, i) => {
+                                const isUnlocked = stats.badges.some(b => b.name === badge.name);
+                                return (
+                                    <div key={i} style={{ 
+                                        opacity: isUnlocked ? 1 : 0.15,
+                                        transform: isUnlocked ? 'scale(1)' : 'scale(0.9)',
+                                        transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                        padding: '2.5rem 1.5rem',
+                                        background: isUnlocked ? 'rgba(255,255,255,0.03)' : 'transparent',
+                                        borderRadius: '35px',
+                                        border: `1px solid ${isUnlocked ? profile.themeColor + '66' : 'rgba(255,255,255,0.05)'}`,
+                                        position: 'relative',
+                                        animation: isUnlocked ? `pulseGlow 2.5s infinite ${i * 0.3}s` : 'none'
+                                    }}>
+                                        <div style={{ fontSize: '4.5rem', marginBottom: '1.5rem', filter: isUnlocked ? 'none' : 'grayscale(1)' }}>{badge.icon}</div>
+                                        <h4 style={{ fontWeight: '900', fontSize: '1.1rem', marginBottom: '0.5rem', color: isUnlocked ? 'white' : 'var(--text-muted)' }}>{badge.name}</h4>
+                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>{badge.desc}</p>
+                                        {isUnlocked && (
+                                            <div style={{ position: 'absolute', top: '15px', right: '15px', background: '#22c55e', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 10px rgba(34, 197, 94, 0.5)' }}>
+                                                <Check size={14} color="white" strokeWidth={4} />
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Settings View */}
+                {activeTab === 'settings' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
+                        <div className="glass" style={{ padding: '3rem', borderRadius: '35px' }}>
+                            <h3 style={{ fontSize: '1.3rem', fontWeight: '900', marginBottom: '2.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}><User size={24} className="text-primary" /> Profile Identity</h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                <div>
+                                    <label className="input-label">Display Name</label>
+                                    <input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} className="styled-input" style={{ width: '100%' }} />
+                                </div>
+                                <div>
+                                    <label className="input-label">Personal Motto</label>
+                                    <input value={profile.motto} onChange={(e) => setProfile({ ...profile, motto: e.target.value })} className="styled-input" style={{ width: '100%' }} maxLength="60" />
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <p style={{ fontWeight: '800' }}>Public Discovery</p>
+                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Allow others to see your achievements</p>
+                                    </div>
+                                    <button onClick={() => setProfile({ ...profile, isPublic: !profile.isPublic })} style={{ width: '50px', height: '26px', borderRadius: '13px', background: profile.isPublic ? profile.themeColor : 'rgba(255,255,255,0.1)', position: 'relative', border: 'none', cursor: 'pointer', transition: '0.3s' }}>
+                                        <div style={{ position: 'absolute', top: '3px', left: profile.isPublic ? '27px' : '3px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: '0.3s' }} />
+                                    </button>
+                                </div>
+                                <button onClick={handleUpdateProfile} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '1.2rem' }}><Save size={20} /> Update Identity</button>
+                            </div>
+                        </div>
+
+                        <div className="glass" style={{ padding: '3rem', borderRadius: '35px' }}>
+                            <h3 style={{ fontSize: '1.3rem', fontWeight: '900', marginBottom: '2.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}><Palette size={24} className="text-primary" /> Visual Theme</h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Pick an accent color that resonates with your learning style.</p>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                                {['#6366f1', '#ec4899', '#22c55e', '#f59e0b', '#3b82f6', '#8b5cf6'].map(color => (
+                                    <button key={color} onClick={() => setProfile({ ...profile, themeColor: color })} style={{ height: '60px', borderRadius: '18px', background: color, border: profile.themeColor === color ? '4px solid white' : 'none', cursor: 'pointer', transition: '0.2s transform', transform: profile.themeColor === color ? 'scale(1.05)' : 'scale(1)' }} />
+                                ))}
+                            </div>
+                            <button onClick={handleUpdateProfile} className="btn-secondary" style={{ width: '100%', justifyContent: 'center' }}>Sync Theme</button>
+                        </div>
+
+                        <div className="glass" style={{ padding: '3rem', borderRadius: '35px' }}>
+                            <h3 style={{ fontSize: '1.3rem', fontWeight: '900', marginBottom: '2.5rem' }}>Security & Privacy</h3>
+                            <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <input type="password" placeholder="Current Password" value={passwordData.currentPassword} onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })} className="styled-input" required />
+                                <input type="password" placeholder="New Password" value={passwordData.newPassword} onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })} className="styled-input" required />
+                                <button type="submit" className="btn-secondary" style={{ justifyContent: 'center' }}>Update Security</button>
+                            </form>
+                        </div>
+
+                        <div className="glass" style={{ padding: '3rem', borderRadius: '35px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                            <h3 style={{ fontSize: '1.3rem', fontWeight: '900', marginBottom: '1rem', color: '#ef4444' }}>Terminal Deletion</h3>
+                            {profile.wipeRequested ? (
+                                <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                    <p style={{ color: '#ef4444', fontWeight: '700', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><AlertCircle size={18} /> Deletion Pending</p>
+                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Your account is scheduled for terminal deletion in 8-10 working days. An administrator will review and process this request.</p>
                                 </div>
                             ) : (
                                 <>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div>
-                                            <h2 style={{ fontSize: '1.8rem', fontWeight: '900', marginBottom: '0.2rem' }}>{profile.name}</h2>
-                                            <p style={{ color: 'var(--primary)', fontWeight: '600', marginBottom: '0.5rem' }}>@{profile.username}</p>
-                                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{profile.email}</p>
-                                        </div>
-                                        <button onClick={() => setIsEditing(true)} className="icon-btn-deck">
-                                            <Edit2 size={18} />
-                                        </button>
-                                    </div>
+                                    <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Destroy all records and wipe your learning legacy. This cannot be undone.</p>
+                                    <button onClick={() => { setDeleteModal(true); setConfirmWipeText(''); }} className="btn-primary" style={{ width: '100%', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', justifyContent: 'center' }}>
+                                        <Trash2 size={20} /> Wipe Data
+                                    </button>
                                 </>
                             )}
                         </div>
                     </div>
+                )}
+                
+                {/* Modal remains same */}
+                <Modal isOpen={deleteModal} onClose={() => setDeleteModal(false)}>
+                    <div style={{ padding: '3rem', textAlign: 'center' }}>
+                        <AlertCircle size={64} color="#ef4444" style={{ marginBottom: '2rem' }} />
+                        <h2 style={{ fontSize: '2rem', fontWeight: '900', marginBottom: '1rem' }}>Confirm Destruction?</h2>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>All progress, trophies, and stats will be permanently lost after the 8-10 day review period.</p>
+                        
+                        <p style={{ fontSize: '0.9rem', marginBottom: '1rem', fontWeight: 'bold' }}>Type <strong>confirm wiping</strong> below to proceed:</p>
+                        <input 
+                            type="text" 
+                            className="styled-input" 
+                            style={{ width: '100%', textAlign: 'center', marginBottom: '2rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                            value={confirmWipeText}
+                            onChange={(e) => setConfirmWipeText(e.target.value)}
+                            placeholder="confirm wiping"
+                        />
 
-                    {/* Unified Learning Stats */}
-                    <div className="glass" style={{ padding: '2rem', borderRadius: '24px' }}>
-                        <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <TrendingUp size={20} className="text-primary" /> Learning Stats
-                        </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-                            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.25rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600', marginBottom: '0.5rem' }}>Focus Hours</p>
-                                <h4 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--primary)' }}>{stats.totalFocusHours}</h4>
-                            </div>
-                            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.25rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600', marginBottom: '0.5rem' }}>Videos Done</p>
-                                <h4 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#22c55e' }}>{stats.completedVideos}</h4>
-                            </div>
-                            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.25rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600', marginBottom: '0.5rem' }}>Active Goals</p>
-                                <h4 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#f59e0b' }}>{stats.totalPlaylists}</h4>
-                            </div>
-                            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.25rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600', marginBottom: '0.5rem' }}>This Week</p>
-                                <h4 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#ec4899' }}>{analytics?.weeklyCompleted || 0}</h4>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* History Tabs */}
-                    <div>
-                        <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem', marginBottom: '2rem' }}>
-                            {['completed', 'upcoming', 'missed'].map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        color: activeTab === tab ? 'white' : 'var(--text-muted)',
-                                        fontWeight: activeTab === tab ? '800' : '600',
-                                        fontSize: '1rem',
-                                        cursor: 'pointer',
-                                        textTransform: 'capitalize',
-                                        position: 'relative'
-                                    }}
-                                >
-                                    {tab}
-                                    {activeTab === tab && (
-                                        <div style={{ position: 'absolute', bottom: '-17px', left: 0, right: 0, height: '2px', background: 'var(--primary)', borderRadius: '2px' }}></div>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-
-                        {activeTab === 'completed' && renderList(schedules.completed, "No completed sessions yet. Keep going!", 'completed')}
-                        {activeTab === 'upcoming' && renderList(schedules.upcoming, "No upcoming sessions. Set up a new goal!", 'upcoming')}
-                        {activeTab === 'missed' && renderList(schedules.missed, "You're all caught up! No missed sessions.", 'missed')}
-                    </div>
-                </div>
-
-                {/* Right Column */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-
-                    {/* Heatmap Widget */}
-                    <FocusPulseHeatmap data={heatmapData} streak={analytics?.streak || 0} />
-
-                    {/* Study Preferences */}
-                    <div className="glass" style={{ padding: '1.75rem', borderRadius: '24px' }}>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <Clock size={18} className="text-primary" /> Study Defaults
-                        </h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Daily Start Time</label>
-                                <input
-                                    type="time"
-                                    value={preferences.dailyStudyTime.start}
-                                    onChange={(e) => setPreferences({ ...preferences, dailyStudyTime: { ...preferences.dailyStudyTime, start: e.target.value } })}
-                                    className="styled-input"
-                                    style={{ width: '100%', padding: '0.6rem 1rem' }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Videos per Day</label>
-                                <input
-                                    type="number"
-                                    min="1" max="20"
-                                    value={preferences.videosPerDay}
-                                    onChange={(e) => setPreferences({ ...preferences, videosPerDay: parseInt(e.target.value) })}
-                                    className="styled-input"
-                                    style={{ width: '100%', padding: '0.6rem 1rem' }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Max Time/Day (mins)</label>
-                                <input
-                                    type="number"
-                                    min="10" step="10"
-                                    value={preferences.maxWatchTimePerDay}
-                                    onChange={(e) => setPreferences({ ...preferences, maxWatchTimePerDay: parseInt(e.target.value) })}
-                                    className="styled-input"
-                                    style={{ width: '100%', padding: '0.6rem 1rem' }}
-                                />
-                            </div>
-                            <button onClick={handleUpdatePreferences} className="btn-secondary" style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}>
-                                Save Defaults
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Account Settings */}
-                    <div className="glass" style={{ padding: '1.75rem', borderRadius: '24px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444' }}>
-                            <Lock size={18} /> Security
-                        </h3>
-
-                        {passwordMsg.text && (
-                            <p style={{ fontSize: '0.85rem', marginBottom: '1rem', color: passwordMsg.type === 'error' ? '#ef4444' : '#22c55e' }}>
-                                {passwordMsg.text}
-                            </p>
-                        )}
-
-                        <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
-                            <input
-                                type="password"
-                                placeholder="Current Password"
-                                value={passwordData.currentPassword}
-                                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                                className="styled-input"
-                                required
-                            />
-                            <input
-                                type="password"
-                                placeholder="New Password (min 6 chars)"
-                                value={passwordData.newPassword}
-                                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                className="styled-input"
-                                minLength="6"
-                                required
-                            />
-                            <input
-                                type="password"
-                                placeholder="Confirm New Password"
-                                value={passwordData.confirmPassword}
-                                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                                className="styled-input"
-                                minLength="6"
-                                required
-                            />
-                            <button type="submit" className="btn-secondary" style={{ justifyContent: 'center' }}>
-                                Change Password
-                            </button>
-                        </form>
-
-                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.5rem' }}>
-                            <button
-                                onClick={() => setDeleteModal(true)}
-                                className="btn-primary"
-                                style={{ width: '100%', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                        <div style={{ display: 'flex', gap: '1.5rem' }}>
+                            <button onClick={() => setDeleteModal(false)} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Abort</button>
+                            <button 
+                                onClick={handleDeleteAccount} 
+                                disabled={confirmWipeText !== 'confirm wiping'}
+                                className="btn-primary" 
+                                style={{ flex: 1, justifyContent: 'center', background: confirmWipeText === 'confirm wiping' ? '#ef4444' : 'rgba(255,255,255,0.1)', opacity: confirmWipeText === 'confirm wiping' ? 1 : 0.5 }}
                             >
-                                <Trash2 size={16} style={{ marginRight: '6px' }} /> Delete Account
+                                Submit Request
                             </button>
                         </div>
                     </div>
-                </div>
+                </Modal>
             </div>
-
-            <Modal isOpen={deleteModal} onClose={() => setDeleteModal(false)}>
-                <div style={{ padding: '2rem', textAlign: 'center' }}>
-                    <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-                        <AlertCircle size={28} color="#ef4444" />
-                    </div>
-                    <h3 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '1rem', color: 'var(--text-main)' }}>Delete Account?</h3>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: '1.5' }}>
-                        This action cannot be undone. All your playlists, progress, and focus metrics will be permanently deleted.
-                    </p>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                        <button onClick={() => setDeleteModal(false)} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>
-                            Cancel
-                        </button>
-                        <button onClick={handleDeleteAccount} className="btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#ef4444', color: 'white' }}>
-                            Delete Forever
-                        </button>
-                    </div>
-                </div>
-            </Modal>
         </div>
     );
 };

@@ -10,6 +10,9 @@ router.use(auth, admin);
 // @route   GET api/admin/stats
 router.get('/stats', adminController.getStats);
 
+// @route   GET api/admin/chart-data
+router.get('/chart-data', adminController.getChartData);
+
 // @route   GET api/admin/users
 router.get('/users', adminController.getUsers);
 
@@ -27,5 +30,11 @@ router.put('/users/:id/role', adminController.updateUserRole);
 
 // @route   DELETE api/admin/users/:id
 router.delete('/users/:id', adminController.deleteUser);
+
+// @route   PUT api/admin/users/:id/freeze
+router.put('/users/:id/freeze', adminController.toggleFreeze);
+
+// @route   POST api/admin/users/:id/approve-wipe
+router.post('/users/:id/approve-wipe', adminController.approveWipe);
 
 module.exports = router;

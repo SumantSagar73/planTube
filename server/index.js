@@ -71,6 +71,8 @@ app.use('/api/groups', require('./routes/group'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/presence', require('./routes/presence'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/social', require('./routes/socialRoutes'));
+
 
 const server = require('http').createServer(app);
 const io = require('socket.io')(server, {

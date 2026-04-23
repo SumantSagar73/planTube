@@ -889,6 +889,7 @@ const FocusMode = () => {
                     volume={volume}
                     isPlaying={isPlaying}
                     isCompleted={isCompleted}
+                    isFrozen={user?.isFrozen}
                     showSidebar={showSidebar}
                     sidebarTab={sidebarTab}
                     currentIndex={currentIndex}
@@ -948,6 +949,7 @@ const FocusMode = () => {
                 onDeleteNote={handleDeleteNote}
                 onUpdateChapters={handleUpdateChapters}
                 onUpdateVideo={handleUpdateVideo}
+                isFrozen={user?.isFrozen}
                 isAddingNote={isAddingNote}
                 setIsAddingNote={setIsAddingNote}
                 noteText={noteText}

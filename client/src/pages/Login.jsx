@@ -7,22 +7,47 @@ const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsLoggingIn(true);
+        setError('');
         try {
             await login(email, password);
             navigate('/');
         } catch (err) {
             setError(err.response?.data?.msg || 'Failed to login');
+            setIsLoggingIn(false);
         }
     };
 
     return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-            <div className="glass" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem' }}>
+            <div className="glass" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem', position: 'relative', overflow: 'hidden' }}>
+                
+                {/* Loading Bar at top of card */}
+                {isLoggingIn && (
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                        <div style={{ 
+                            width: '50%', height: '100%', background: 'var(--primary)', 
+                            animation: 'slideRight 1s infinite linear',
+                            boxShadow: '0 0 10px var(--primary)'
+                        }} />
+                    </div>
+                )}
+                
+                <style>
+                    {`
+                    @keyframes slideRight {
+                        0% { transform: translateX(-100%); }
+                        100% { transform: translateX(200%); }
+                    }
+                    `}
+                </style>
+
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                     <div style={{ display: 'inline-flex', padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '20px', color: 'var(--primary)', marginBottom: '1rem' }}>
                         <Youtube size={40} />
@@ -40,10 +65,11 @@ const Login = () => {
                             type="email"
                             placeholder="Email Address"
                             className="input-glass"
-                            style={{ paddingLeft: '3rem' }}
+                            style={{ paddingLeft: '3rem', opacity: isLoggingIn ? 0.5 : 1 }}
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
+                            disabled={isLoggingIn}
                         />
                     </div>
 
@@ -53,15 +79,16 @@ const Login = () => {
                             type="password"
                             placeholder="Password"
                             className="input-glass"
-                            style={{ paddingLeft: '3rem' }}
+                            style={{ paddingLeft: '3rem', opacity: isLoggingIn ? 0.5 : 1 }}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
+                            disabled={isLoggingIn}
                         />
                     </div>
 
-                    <button type="submit" className="btn-primary" style={{ marginTop: '0.5rem' }}>
-                        Login
+                    <button type="submit" className="btn-primary" style={{ marginTop: '0.5rem', position: 'relative' }} disabled={isLoggingIn}>
+                        {isLoggingIn ? 'Authenticating...' : 'Login'}
                     </button>
                 </form>
 

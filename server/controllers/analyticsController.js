@@ -1,21 +1,86 @@
+const mongoose = require('mongoose');
 const Activity = require('../models/Activity');
 const Schedule = require('../models/Schedule');
+const User = require('../models/User');
+
+const checkAndAwardBadges = async (user, activityData) => {
+    const badges = user.badges || [];
+    const newBadges = [];
+
+    const hasBadge = (name) => badges.some(b => b.name === name);
+
+    // 1. Focus Master (2h single session = 7200 seconds)
+    if (activityData.seconds >= 7200 && !hasBadge('Focus Master')) {
+        newBadges.push({
+            name: 'Focus Master',
+            icon: '🧠',
+            description: 'Completed a single 2-hour focus session.',
+            unlockedAt: new Date()
+        });
+    }
+
+    // 2. Early Bird (Study before 8 AM)
+    const hour = new Date().getHours();
+    if (hour < 8 && !hasBadge('Early Bird')) {
+        newBadges.push({
+            name: 'Early Bird',
+            icon: '🌅',
+            description: 'Started a focus session before 8 AM.',
+            unlockedAt: new Date()
+        });
+    }
+
+    // 3. Streak King (7 Day Streak) - We'll check this against user.bestStreak
+    if (user.bestStreak >= 7 && !hasBadge('Streak King')) {
+        newBadges.push({
+            name: 'Streak King',
+            icon: '🔥',
+            description: 'Maintained a focus streak for 7 consecutive days.',
+            unlockedAt: new Date()
+        });
+    }
+
+    if (newBadges.length > 0) {
+        user.badges = [...badges, ...newBadges];
+        await user.save();
+        return true;
+    }
+    return false;
+};
 
 exports.updateActivity = async (req, res) => {
-    try {
-        const { seconds } = req.body;
-        const date = new Date().toISOString().split('T')[0];
+    const { videoId, seconds, date } = req.body;
+    const userId = req.user.id;
 
-        // Update or create daily activity
-        const activity = await Activity.findOneAndUpdate(
-            { userId: req.user.id, date },
-            { $inc: { seconds: seconds } },
-            { upsert: true, new: true }
-        );
+    try {
+        let activity = await Activity.findOne({ userId, videoId, date });
+
+        if (activity) {
+            activity.seconds += seconds;
+            await activity.save();
+        } else {
+            activity = new Activity({ userId, videoId, seconds, date });
+            await activity.save();
+        }
+
+        // Update XP (10 XP per minute)
+        const xpGained = Math.floor(seconds / 60) * 10;
+        const user = await User.findById(userId);
+        if (user) {
+            user.xp += xpGained;
+            // Level formula: Level = floor(sqrt(xp) / 5) + 1
+            const newLevel = Math.floor(Math.sqrt(user.xp) / 5) + 1;
+            user.level = newLevel;
+            
+            // Check for badges
+            await checkAndAwardBadges(user, { seconds: activity.seconds });
+            
+            await user.save();
+        }
 
         res.json(activity);
     } catch (err) {
-        console.error('Error updating activity:', err);
+        console.error(err);
         res.status(500).json({ msg: 'Server error' });
     }
 };
@@ -41,6 +106,8 @@ exports.getHeatmapData = async (req, res) => {
 
 exports.getLibraryStats = async (req, res) => {
     try {
+        const userId = new mongoose.Types.ObjectId(req.user.id);
+        
         const totalSchedules = await Schedule.countDocuments({ userId: req.user.id });
         const completedSchedules = await Schedule.countDocuments({
             userId: req.user.id,
@@ -48,17 +115,48 @@ exports.getLibraryStats = async (req, res) => {
         });
 
         const activitySummary = await Activity.aggregate([
-            { $match: { userId: new require('mongoose').Types.ObjectId(req.user.id) } },
+            { $match: { userId: userId } },
             { $group: { _id: null, totalSeconds: { $sum: "$seconds" } } }
         ]);
 
+        let user = await User.findById(req.user.id);
+        
+        // Auto-award starter badges for existing users
+        let updated = false;
+        if (!user.badges) user.badges = [];
+        const hasBadge = (name) => user.badges.some(b => b.name === name);
+        
+        if (!hasBadge('First Step')) {
+            user.badges.push({ name: 'First Step', icon: '🌱', description: 'Created your PlanTube profile and started your journey.', unlockedAt: new Date() });
+            updated = true;
+        }
+        if (!hasBadge('Pioneer')) {
+            user.badges.push({ name: 'Pioneer', icon: '🚀', description: 'Early adopter of the PlanTube Social Hub.', unlockedAt: new Date() });
+            updated = true;
+        }
+        
+        if (updated) {
+            await user.save();
+        }
+
         res.json({
-            totalPlaylists: totalSchedules, // This might need refinement if you want unique playlists
+            totalPlaylists: totalSchedules,
             completedVideos: completedSchedules,
-            totalFocusHours: activitySummary.length > 0 ? (activitySummary[0].totalSeconds / 3600).toFixed(1) : 0
+            totalFocusHours: activitySummary.length > 0 ? (activitySummary[0].totalSeconds / 3600).toFixed(1) : 0,
+            xp: user?.xp || 0,
+            level: user?.level || 1,
+            badges: user?.badges || [],
+            nextLevelXp: Math.pow((user?.level || 1) * 5, 2),
+            motto: user?.motto || 'Keep focusing, keep growing.',
+            themeColor: user?.themeColor || '#6366f1',
+            bestStreak: user?.bestStreak || 0,
+            isPublic: user?.isPublic || false
         });
+
     } catch (err) {
         console.error('Error fetching library stats:', err);
         res.status(500).json({ msg: 'Server error' });
     }
 };
+
+

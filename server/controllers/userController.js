@@ -84,25 +84,17 @@ exports.changePassword = async (req, res) => {
     }
 };
 
-exports.deleteAccount = async (req, res) => {
+exports.requestWipe = async (req, res) => {
     try {
         const userId = req.user.id;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ msg: 'User not found' });
 
-        // Delete all user data
-        await Schedule.deleteMany({ userId });
-        await Activity.deleteMany({ userId });
+        user.wipeRequested = true;
+        user.wipeRequestedAt = new Date();
+        await user.save();
 
-        // Delete playlists and their videos
-        const playlists = await Playlist.find({ userId });
-        for (const pl of playlists) {
-            await Video.deleteMany({ playlistId: pl._id });
-        }
-        await Playlist.deleteMany({ userId });
-
-        // Delete user
-        await User.findByIdAndDelete(userId);
-
-        res.json({ msg: 'Account deleted successfully' });
+        res.json({ msg: 'Account deletion requested successfully.' });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');

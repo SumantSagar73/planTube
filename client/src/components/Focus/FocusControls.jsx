@@ -18,6 +18,7 @@ const FocusControls = ({
     volume,
     isPlaying,
     isCompleted,
+    isFrozen,
     showSidebar,
     sidebarTab,
     currentIndex,
@@ -261,9 +262,10 @@ const FocusControls = ({
 
                     <button
                         onClick={handleToggleComplete}
+                        disabled={isFrozen}
                         className={`deck-primary-btn ${isCompleted ? 'completed' : ''}`}
-                        title={isCompleted ? "Mark Undone" : "Mark Complete"}
-                        style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }}
+                        title={isFrozen ? "Progress tracking disabled while account is frozen" : (isCompleted ? "Mark Undone" : "Mark Complete")}
+                        style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: isFrozen ? 0.5 : 1, cursor: isFrozen ? 'not-allowed' : 'pointer' }}
                     >
                         <CheckCircle size={16} fill={isCompleted ? "white" : "none"} />
                         <span>{isCompleted ? 'Done' : 'Mark'}</span>

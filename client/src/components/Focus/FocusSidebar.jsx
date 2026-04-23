@@ -45,7 +45,8 @@ const FocusSidebar = ({
     accentColor,
     setAccentColor,
     onUpdateChapters,
-    onUpdateVideo
+    onUpdateVideo,
+    isFrozen
 }) => {
     const [copyDone, setCopyDone] = useState(false);
     const [isEditingChapters, setIsEditingChapters] = useState(false);
@@ -429,21 +430,26 @@ const FocusSidebar = ({
                                                     )}
 
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); toggleChapter(idx); }}
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            if (!isFrozen) toggleChapter(idx); 
+                                                        }}
+                                                        disabled={isFrozen}
                                                         style={{
                                                             background: 'none',
                                                             border: 'none',
-                                                            cursor: 'pointer',
+                                                            cursor: isFrozen ? 'not-allowed' : 'pointer',
                                                             color: isDone ? '#22c55e' : 'rgba(255,255,255,0.2)',
                                                             display: 'flex',
                                                             padding: '0.4rem',
                                                             borderRadius: '10px',
                                                             transition: 'all 0.2s',
                                                             zIndex: 2,
-                                                            marginLeft: isActive ? '0.5rem' : '0'
+                                                            marginLeft: isActive ? '0.5rem' : '0',
+                                                            opacity: isFrozen ? 0.5 : 1
                                                         }}
-                                                        className="hover-bg-glass"
-                                                        title={isDone ? "Mark as incomplete" : "Mark as complete"}
+                                                        className={isFrozen ? "" : "hover-bg-glass"}
+                                                        title={isFrozen ? "Progress tracking disabled while account is frozen" : (isDone ? "Mark as incomplete" : "Mark as complete")}
                                                     >
                                                         <CheckCircle size={20} fill={isDone ? '#22c55e' : 'none'} strokeWidth={isDone ? 2 : 1.5} />
                                                     </button>

@@ -116,8 +116,26 @@ exports.getAllPlaylists = async (req, res) => {
 // @route   GET /api/admin/videos
 exports.getAllVideos = async (req, res) => {
     try {
-        const videos = await SharedVideo.find().sort({ createdAt: -1 });
-        res.json(videos);
+        // Find single videos by checking Schedules that don't belong to a playlist
+        const singleSchedules = await require('../models/Schedule').find({
+            $or: [{ playlistId: null }, { playlistId: { $exists: false } }]
+        }).populate('videoId').populate('userId', 'name email');
+
+        // Extract unique videos from those schedules
+        const uniqueVideosMap = new Map();
+        singleSchedules.forEach(schedule => {
+            if (schedule.videoId) {
+                if (!uniqueVideosMap.has(schedule.videoId._id.toString())) {
+                    // Enrich with the first user who added it as a single video
+                    uniqueVideosMap.set(schedule.videoId._id.toString(), {
+                        ...schedule.videoId.toObject(),
+                        addedBy: schedule.userId
+                    });
+                }
+            }
+        });
+
+        res.json(Array.from(uniqueVideosMap.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
     } catch (err) {
         console.error('GetAllVideos Error:', err);
         res.status(500).json({ msg: 'Server Error' });
@@ -148,7 +166,7 @@ exports.updateUserRole = async (req, res) => {
     }
 };
 
-// @desc    Delete user
+// @desc    Delete a user completely
 // @route   DELETE /api/admin/users/:id
 exports.deleteUser = async (req, res) => {
     try {
@@ -160,9 +178,120 @@ exports.deleteUser = async (req, res) => {
             return res.status(400).json({ msg: 'You cannot delete your own admin account.' });
         }
 
-        await User.findByIdAndDelete(req.params.id);
-        res.json({ msg: 'User removed' });
+        // Drop related collections
+        const Schedule = require('../models/Schedule');
+        await Schedule.deleteMany({ userId: user._id });
+        await Activity.deleteMany({ userId: user._id });
+
+        const playlists = await Playlist.find({ userId: user._id });
+        for (const pl of playlists) {
+            await Video.deleteMany({ playlistId: pl._id });
+        }
+        await Playlist.deleteMany({ userId: user._id });
+
+        await User.findByIdAndDelete(user._id);
+
+        res.json({ msg: 'User deleted' });
     } catch (err) {
+        console.error('DeleteUser Error:', err);
         res.status(500).json({ msg: 'Server Error' });
     }
 };
+
+// @desc    Toggle freeze status of a user
+// @route   PUT /api/admin/users/:id/freeze
+exports.toggleFreeze = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ msg: 'User not found' });
+
+        const requesterId = req.user.id || req.user._id;
+        if (user._id.toString() === requesterId.toString()) {
+            return res.status(400).json({ msg: 'You cannot freeze your own admin account.' });
+        }
+
+        user.isFrozen = !user.isFrozen;
+        await user.save();
+        res.json({ msg: user.isFrozen ? 'Account frozen' : 'Account unfrozen', isFrozen: user.isFrozen });
+    } catch (err) {
+        console.error('ToggleFreeze Error:', err);
+        res.status(500).json({ msg: 'Server Error' });
+    }
+};
+
+// @desc    Get 7-day chart data — real study activity + new signups
+// @route   GET /api/admin/chart-data
+exports.getChartData = async (req, res) => {
+    try {
+        const days = 7;
+        const now = new Date();
+        const result = [];
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        for (let i = days - 1; i >= 0; i--) {
+            const start = new Date(now);
+            start.setDate(now.getDate() - i);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(start);
+            end.setHours(23, 59, 59, 999);
+
+            const [activityAgg, newUsers] = await Promise.all([
+                Activity.aggregate([
+                    { $match: { date: { $gte: start, $lte: end } } },
+                    { $group: { _id: null, totalSeconds: { $sum: '$seconds' }, uniqueUsers: { $addToSet: '$userId' } } }
+                ]),
+                User.countDocuments({ createdAt: { $gte: start, $lte: end } })
+            ]);
+
+            const studyMins = activityAgg.length > 0 ? Math.round(activityAgg[0].totalSeconds / 60) : 0;
+            const activeUsers = activityAgg.length > 0 ? activityAgg[0].uniqueUsers.length : 0;
+
+            result.push({
+                name: dayNames[start.getDay()],
+                studyMins,
+                activeUsers,
+                newUsers
+            });
+        }
+
+        // Top playlist categories based on title keywords
+        const playlists = await Playlist.find().select('playlistTitle');
+        const categories = { 'Development': 0, 'Math': 0, 'Design': 0, 'Science': 0, 'Business': 0, 'Language': 0, 'Other': 0 };
+        const keywords = {
+            'Development': ['javascript', 'python', 'react', 'node', 'coding', 'programming', 'dev', 'web', 'api', 'code', 'html', 'css', 'java', 'flutter', 'angular', 'vue', 'backend', 'frontend'],
+            'Math': ['math', 'calculus', 'algebra', 'statistics', 'linear', 'discrete', 'geometry'],
+            'Design': ['design', 'ui', 'ux', 'figma', 'sketch', 'photoshop', 'illustrator', 'canva', 'graphic'],
+            'Science': ['physics', 'chemistry', 'biology', 'science', 'machine learning', 'ai', 'data', 'ml', 'deep learning'],
+            'Business': ['business', 'marketing', 'finance', 'startup', 'entrepreneur', 'management', 'economics'],
+            'Language': ['english', 'spanish', 'hindi', 'french', 'german', 'japanese', 'chinese', 'language', 'grammar'],
+        };
+
+        playlists.forEach(p => {
+            const title = (p.playlistTitle || '').toLowerCase();
+            let matched = false;
+            for (const [cat, words] of Object.entries(keywords)) {
+                if (words.some(w => title.includes(w))) {
+                    categories[cat]++;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) categories['Other']++;
+        });
+
+        const topTopics = Object.entries(categories)
+            .map(([name, value]) => ({ name, value }))
+            .filter(t => t.value > 0)
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5);
+
+        res.json({ weeklyActivity: result, topTopics });
+    } catch (err) {
+        console.error('ChartData Error:', err);
+        res.status(500).json({ msg: 'Server Error', error: err.message });
+    }
+};
+
+// @desc    Approve wipe request
+// @route   POST /api/admin/users/:id/approve-wipe
+exports.approveWipe = exports.deleteUser; // Just reuse the deleteUser logic

@@ -190,12 +190,19 @@ exports.getAnalytics = async (req, res) => {
             }
         }
 
+        const User = require('../models/User');
+        const user = await User.findById(userId);
+        if (user && streak > (user.bestStreak || 0)) {
+            user.bestStreak = streak;
+            await user.save();
+        }
+
         res.json({
             totalCompleted,
             totalTime,
             weeklyCompleted,
             streak,
-
+            bestStreak: user?.bestStreak || streak,
             completionHistory: uniqueDates // Array of YYYY-MM-DD strings
         });
     } catch (err) {
@@ -203,6 +210,7 @@ exports.getAnalytics = async (req, res) => {
         res.status(500).send('Server error');
     }
 };
+
 
 exports.updateStatus = async (req, res) => {
     const { status, scheduledDate, scheduledTime } = req.body;

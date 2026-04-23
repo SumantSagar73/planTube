@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LogOut, Layout, Youtube, User, ChevronDown, Users, Library, ListMusic, Target, Link as LinkIcon, Plus, Shield } from 'lucide-react';
+import { LogOut, Youtube, User, ChevronDown, Users, Library, Target, Link as LinkIcon, Plus, Shield, AlertTriangle } from 'lucide-react';
 import AlertModal from './AlertModal';
 import ThemeSwitcher from './ThemeSwitcher';
 
@@ -46,19 +46,26 @@ const Navbar = () => {
     };
 
     return (
-        <nav className="glass" style={{ 
-            width: '100%', 
-            margin: '0', 
-            padding: '0.75rem 3vw', 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            zIndex: 9998, // Just below ShadowBanner
-            position: 'fixed', 
-            top: localStorage.getItem('impersonate_user_id') ? '40px' : 0, 
-            left: 0,
-            transition: 'top 0.3s ease'
-        }}>
+        <>
+            {user?.isFrozen && (
+                <div style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', padding: '0.5rem', textAlign: 'center', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', zIndex: 1000, position: 'relative' }}>
+                    <AlertTriangle size={16} />
+                    Account restricted due to policy violation. Social and personal features are disabled.
+                </div>
+            )}
+            <nav className="glass" style={{ 
+                width: '100%', 
+                margin: '0', 
+                padding: '0.75rem 3vw', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                zIndex: 9998, // Just below ShadowBanner
+                position: 'fixed', 
+                top: localStorage.getItem('impersonate_user_id') ? '40px' : (user?.isFrozen ? '40px' : '0'), 
+                left: 0,
+                transition: 'top 0.3s ease'
+            }}>
             {/* Left: Logo */}
             <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)', flexShrink: 0 }}>
                 <Youtube size={32} />
@@ -97,10 +104,12 @@ const Navbar = () => {
                     <span>Library</span>
                 </Link>
 
-                <Link to="/groups" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
-                    <Users size={18} />
-                    <span>Groups</span>
-                </Link>
+                {!user?.isFrozen && (
+                    <Link to="/groups" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
+                        <Users size={18} />
+                        <span>Groups</span>
+                    </Link>
+                )}
 
                 {user ? (
                     <div
@@ -133,14 +142,23 @@ const Navbar = () => {
                                         <span>Admin Panel</span>
                                     </Link>
                                 )}
-                                <Link to="/profile" style={{ width: '100%', padding: '0.6rem', background: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px', marginBottom: '0.25rem' }} className="glass-hover">
-                                    <User size={16} />
-                                    <span>My Profile</span>
-                                </Link>
+                                {!user?.isFrozen && (
+                                    <>
+                                        <Link to="/profile" style={{ width: '100%', padding: '0.6rem', background: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px', marginBottom: '0.25rem' }} className="glass-hover">
+                                            <User size={16} />
+                                            <span>My Profile</span>
+                                        </Link>
+                                        <Link to="/social" style={{ width: '100%', padding: '0.6rem', background: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px', marginBottom: '0.25rem' }} className="glass-hover">
+                                            <Users size={16} />
+                                            <span>Social Hub</span>
+                                        </Link>
+                                    </>
+                                )}
                                 <button onClick={handleLogout} style={{ width: '100%', padding: '0.6rem', background: 'none', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px' }} className="glass-hover">
                                     <LogOut size={16} />
                                     <span>Sign Out</span>
                                 </button>
+
                             </div>
                         )}
                     </div>
@@ -162,6 +180,7 @@ const Navbar = () => {
                 success={alertState.success}
             />
         </nav >
+        </>
     );
 };
 

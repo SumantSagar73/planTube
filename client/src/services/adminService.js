@@ -5,6 +5,10 @@ const adminService = {
         const res = await api.get('/admin/stats');
         return res.data;
     },
+    getChartData: async () => {
+        const res = await api.get('/admin/chart-data');
+        return res.data;
+    },
     getUsers: async () => {
         const res = await api.get('/admin/users');
         return res.data;
@@ -27,6 +31,14 @@ const adminService = {
     },
     deleteUser: async (id) => {
         const res = await api.delete(`/admin/users/${id}`);
+        return res.data;
+    },
+    freezeUser: async (id) => {
+        const res = await api.put(`/admin/users/${id}/freeze`);
+        return res.data;
+    },
+    approveWipe: async (id) => {
+        const res = await api.post(`/admin/users/${id}/approve-wipe`);
         return res.data;
     }
 };

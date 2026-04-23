@@ -16,7 +16,11 @@ import LibraryPage from './pages/Library';
 import Home from './pages/Home';
 import ImportPage from './pages/ImportPage';
 import AdminDashboard from './pages/AdminDashboard';
+import Social from './pages/Social';
+import PublicProfile from './pages/PublicProfile';
 import Navbar from './components/Shared/Navbar';
+import HelperBot from './components/Shared/HelperBot';
+
 import LoadingScreen from './components/Shared/LoadingScreen';
 import ShadowBanner from './components/Admin/ShadowBanner';
 
@@ -55,6 +59,7 @@ const AppRoutes = () => {
                         element={
                             <>
                                 <Navbar />
+                                <HelperBot />
                                 <div className="container" style={{ paddingTop: localStorage.getItem('impersonate_user_id') ? '7.5rem' : '5rem' }}>
                                     <Routes>
                                         <Route path="/" element={user ? <Dashboard /> : <Home />} />
@@ -121,6 +126,23 @@ const AppRoutes = () => {
                                             }
                                         />
                                         <Route path="/shared-playlist/:id" element={<PublicPlaylist />} />
+                                        
+                                        <Route
+                                            path="/social"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <Social />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/profile/:username"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <PublicProfile />
+                                                </ProtectedRoute>
+                                            }
+                                        />
 
 
                                     </Routes>
