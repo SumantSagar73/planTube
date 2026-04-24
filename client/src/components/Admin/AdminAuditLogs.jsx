@@ -51,7 +51,7 @@ const AdminAuditLogs = () => {
                     <p style={{ color: 'var(--text-muted)' }}>{pagination.total} admin actions logged</p>
                 </div>
 
-                <div style={{ position: 'relative', minWidth: '260px' }}>
+                <div className="admin-audit-search" style={{ position: 'relative', minWidth: '260px' }}>
                     <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
                     <input
                         className="styled-input"
@@ -68,7 +68,7 @@ const AdminAuditLogs = () => {
 
             <div className="glass-card" style={{ borderRadius: '18px', overflow: 'hidden' }}>
                 <div className="admin-table-wrap" style={{ maxHeight: '480px', overflow: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ background: 'rgba(255,255,255,0.04)', textAlign: 'left' }}>
                                 <th style={{ padding: '0.9rem' }}>Action</th>
@@ -98,7 +98,7 @@ const AdminAuditLogs = () => {
                 </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+            <div className="admin-pagination-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                 <button className="btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => Math.max(p - 1, 1))}>Prev</button>
                 <button className="btn-secondary" disabled={page >= pagination.totalPages} onClick={() => setPage((p) => Math.min(p + 1, pagination.totalPages))}>Next</button>
             </div>

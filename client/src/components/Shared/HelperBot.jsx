@@ -3,12 +3,14 @@ import { useLocation } from 'react-router-dom';
 import {
     HelpCircle, X, ChevronLeft, ChevronRight, SkipForward,
     Layout, Play, Clock, BarChart3, BookOpen, StickyNote,
-    Flame, Map, Settings, Users, Trophy, History, User,
+    Map, Settings, Users, Trophy, History, User,
     Zap, Music, Video, List, FileText, Upload,
     MessageSquare, Star, Shield, TrendingUp, Layers,
     Volume2, Maximize, CheckCircle, PanelRight,
     Activity, Timer
 } from 'lucide-react';
+
+import StreakIcon from './StreakIcon';
 
 // ─── Sections config ─ each section has an optional `selector` for highlighting
 const PAGE_SECTIONS = {
@@ -17,7 +19,7 @@ const PAGE_SECTIONS = {
         sections: [
             { icon: BarChart3, color: '#6366f1', name: 'Overview Stats', where: 'Top of page', desc: 'Total focus hours, XP points, level, and your ongoing streak — all at a glance.', selector: '[data-section="overview-cards"]' },
             { icon: Clock, color: '#22c55e', name: "Today's Schedule", where: 'Centre', desc: 'Videos planned for today. Click any item to jump straight into Focus Mode.', selector: '[data-section="schedule"]' },
-            { icon: Flame, color: '#f97316', name: 'Streak Tracker', where: 'Left panel', desc: 'Your daily study streak. Study at least once a day to keep it alive!', selector: '[data-section="streak"]' },
+            { icon: StreakIcon, color: '#f97316', name: 'Streak Tracker', where: 'Left panel', desc: 'Your daily study streak. Study at least once a day to keep it alive!', selector: '[data-section="streak"]' },
             { icon: Trophy, color: '#eab308', name: 'Trophy Shelf', where: 'Right panel', desc: 'Achievements unlocked based on XP, hours, and milestones. Hover each for details.', selector: '[data-section="trophies"]' },
             { icon: History, color: '#a855f7', name: 'Recent Activity', where: 'Bottom', desc: 'Last 5 study sessions with timestamps and progress.', selector: '[data-section="recent-activity"]' },
         ]

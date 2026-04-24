@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Activity = require('../models/Activity');
 const Schedule = require('../models/Schedule');
 const User = require('../models/User');
+const notificationController = require('./notificationController');
 
 const checkAndAwardBadges = async (user, activityData) => {
     const badges = user.badges || [];
@@ -42,10 +43,9 @@ const checkAndAwardBadges = async (user, activityData) => {
 
     if (newBadges.length > 0) {
         user.badges = [...badges, ...newBadges];
-        await user.save();
-        return true;
+        return newBadges;
     }
-    return false;
+    return [];
 };
 
 exports.updateActivity = async (req, res) => {
@@ -73,9 +73,20 @@ exports.updateActivity = async (req, res) => {
             user.level = newLevel;
             
             // Check for badges
-            await checkAndAwardBadges(user, { seconds: activity.seconds });
+            const newBadges = await checkAndAwardBadges(user, { seconds: activity.seconds });
             
             await user.save();
+
+            if (newBadges.length > 0) {
+                for (const badge of newBadges) {
+                    await notificationController.createAchievementNotifications({
+                        req,
+                        sourceUser: user,
+                        badge,
+                        link: '/profile'
+                    });
+                }
+            }
         }
 
         res.json(activity);

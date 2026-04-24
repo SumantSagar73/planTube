@@ -292,7 +292,7 @@ const CustomPlaylistDetails = () => {
                     {/* Import from YT */}
                     <div>
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Import Full YouTube Playlist</p>
-                        <form onSubmit={handleImportYoutubePlaylist} style={{ display: 'flex', gap: '0.5rem' }}>
+                        <form onSubmit={handleImportYoutubePlaylist} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                             <input
                                 type="text"
                                 value={importUrl}
@@ -323,7 +323,7 @@ const CustomPlaylistDetails = () => {
             </div>
 
             {/* Add Single Video */}
-            <form onSubmit={handleAddVideo} style={{ marginBottom: '2rem', display: 'flex', gap: '1rem' }}>
+            <form onSubmit={handleAddVideo} style={{ marginBottom: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <input
                     type="text"
                     value={addUrl}

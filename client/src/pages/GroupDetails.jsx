@@ -248,22 +248,22 @@ const GroupDetails = () => {
     if (!group) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Group not found.</div>;
 
     return (
-        <div style={{ padding: '2rem 3vw', maxWidth: '1600px', margin: '0 auto' }}>
-            <button onClick={() => navigate('/groups')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+        <div className="group-details-page" style={{ padding: '2rem 3vw', maxWidth: '1600px', margin: '0 auto' }}>
+            <button className="group-back-btn" onClick={() => navigate('/groups')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
                 <ArrowLeft size={16} />
                 <span>Back to Groups</span>
             </button>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem', alignItems: 'start' }}>
+            <div className="group-main-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', alignItems: 'start' }}>
                 {/* Main Content */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                    <div className="glass" style={{ padding: '2.5rem', borderRadius: '32px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                    <div className="glass group-summary-card" style={{ padding: '2.5rem', borderRadius: '32px' }}>
+                        <div className="group-summary-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
                             <div>
                                 <h1 style={{ fontSize: '2.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>{group.groupName}</h1>
                                 <p style={{ color: 'var(--text-main)', opacity: 0.8 }}>{group.description || 'No description provided.'}</p>
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
+                            <div className="group-summary-actions" style={{ display: 'flex', gap: '1rem' }}>
                                 {isGuestView ? (
                                     <button onClick={() => setShowJoinModal(true)} className="btn-primary" style={{ padding: '0.6rem 1.5rem', fontWeight: '800' }}>
                                         Join Group
@@ -296,7 +296,7 @@ const GroupDetails = () => {
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '2rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
+                        <div className="group-summary-stats" style={{ display: 'flex', gap: '2rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
                             <div>
                                 <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>Created By</span>
                                 <p style={{ fontWeight: '600', marginTop: '0.25rem' }}>{group.ownerId.name}</p>
@@ -313,7 +313,7 @@ const GroupDetails = () => {
                     </div>
 
                     <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <div className="group-shared-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                             <h2 style={{ fontSize: '1.5rem', fontWeight: '800' }}>Shared Content</h2>
                             {!isGuestView && (
                                 <button onClick={fetchUserItems} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem' }}>
@@ -338,7 +338,7 @@ const GroupDetails = () => {
                                     const title = isVideo ? item.title : item.playlistTitle;
 
                                     return (
-                                        <div key={shared._id} className="glass glass-hover" style={{ padding: '1rem', borderRadius: '20px', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                                        <div key={shared._id} className="glass glass-hover group-shared-item" style={{ padding: '1rem', borderRadius: '20px', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
                                             <div style={{ position: 'relative', width: '160px', height: '90px', borderRadius: '12px', overflow: 'hidden' }}>
                                                 <img src={item.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0.4))' }}></div>
@@ -384,7 +384,7 @@ const GroupDetails = () => {
                                                 </div>
                                                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Shared by {shared.sharedBy.name} • {new Date(shared.sharedAt).toLocaleDateString()}</p>
                                             </div>
-                                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                            <div className="group-shared-actions" style={{ display: 'flex', gap: '0.75rem' }}>
                                                 {currentUser && (
                                                     isVideo ? null : (
                                                         addedPlaylists.has(item.playlistId) ? (
@@ -420,7 +420,7 @@ const GroupDetails = () => {
                 </div>
 
                 {/* Sidebar: Members */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '2rem' }}>
+                <div className="group-details-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '2rem' }}>
                     <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                             <h2 style={{ fontSize: '1.2rem', fontWeight: '800' }}>Members</h2>
@@ -497,7 +497,7 @@ const GroupDetails = () => {
             {/* Add Member Modal */}
             {showAddMember && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(8px)' }} onClick={() => setShowAddMember(false)}>
-                    <div className="glass" style={{ width: '400px', padding: '2rem', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
+                    <div className="glass group-modal-panel" style={{ width: '400px', padding: '2rem', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
                         <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '0.5rem' }}>Invite Member</h2>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Invite your study partner using their username or email address.</p>
                         <form onSubmit={handleAddMember}>
@@ -517,7 +517,7 @@ const GroupDetails = () => {
             {/* Share Modal */}
             {showSharePlaylist && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(8px)' }} onClick={() => setShowSharePlaylist(false)}>
-                    <div className="glass" style={{ width: '500px', padding: '2rem', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
+                    <div className="glass group-modal-panel" style={{ width: '500px', padding: '2rem', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
                         <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '1rem' }}>Share Content</h2>
                         <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'grid', gap: '0.75rem' }}>
                             {userPlaylists.length === 0 ? (
@@ -557,7 +557,7 @@ const GroupDetails = () => {
             {/* Join Group Modal */}
             {showJoinModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(8px)' }} onClick={() => setShowJoinModal(false)}>
-                    <div className="glass" style={{ width: '400px', padding: '2rem', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
+                    <div className="glass group-modal-panel" style={{ width: '400px', padding: '2rem', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
                         <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '0.5rem' }}>Join the Tribe</h2>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Enter your details to join {group.groupName} and track progress with others.</p>
                         <form onSubmit={handleJoinGroup}>
@@ -577,7 +577,7 @@ const GroupDetails = () => {
             {/* Settings Modal */}
             {showSettingsModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(8px)' }} onClick={() => setShowSettingsModal(false)}>
-                    <div className="glass" style={{ width: '450px', padding: '2rem', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
+                    <div className="glass group-modal-panel" style={{ width: '450px', padding: '2rem', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
                         <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '0.5rem' }}>Group Settings</h2>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Update your group's profile details.</p>
                         <form onSubmit={handleUpdateGroup}>

@@ -1,6 +1,7 @@
 const Video = require('../models/Video');
 const SharedVideo = require('../models/SharedVideo');
 const axios = require('axios');
+const mongoose = require('mongoose');
 const { parseDuration, formatDuration, parseChapters } = require('../utils/videoUtils');
 
 // Helper to fetch single video data from YouTube
@@ -129,13 +130,38 @@ exports.updateChapters = async (req, res) => {
         const { id } = req.params; // Video ID (junction table)
         const { chapters } = req.body;
 
-        const video = await Video.findById(id);
+        let video = null;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            video = await Video.findById(id);
+        }
+        if (!video) {
+            // Fallback for legacy routes that pass YouTube ID in URL
+            video = await Video.findOne({ videoId: id });
+        }
         if (!video) return res.status(404).json({ msg: 'Video not found' });
 
         const sharedVideo = await SharedVideo.findById(video.sharedVideoId);
         if (!sharedVideo) return res.status(404).json({ msg: 'Shared metadata not found' });
 
-        sharedVideo.chapters = chapters;
+        const normalizedChapters = Array.isArray(chapters)
+            ? chapters
+                .filter(c => c && c.title && c.timestamp)
+                .map(c => {
+                    if (typeof c.seconds === 'number' && Number.isFinite(c.seconds)) {
+                        return { title: c.title, timestamp: c.timestamp, seconds: Math.max(0, Math.floor(c.seconds)) };
+                    }
+
+                    const parts = String(c.timestamp).split(':').map(Number).reverse();
+                    let seconds = 0;
+                    if (Number.isFinite(parts[0])) seconds += parts[0];
+                    if (Number.isFinite(parts[1])) seconds += parts[1] * 60;
+                    if (Number.isFinite(parts[2])) seconds += parts[2] * 3600;
+                    return { title: c.title, timestamp: c.timestamp, seconds: Math.max(0, Math.floor(seconds)) };
+                })
+                .sort((a, b) => a.seconds - b.seconds)
+            : [];
+
+        sharedVideo.chapters = normalizedChapters;
         await sharedVideo.save();
 
         res.json(sharedVideo);
@@ -154,8 +180,16 @@ exports.updateVideo = async (req, res) => {
         if (tags) updateData.tags = tags;
         if (customResources) updateData.customResources = customResources;
 
-        const updatedVideo = await Video.findByIdAndUpdate(
-            id,
+        let query = null;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            query = { _id: id };
+        } else {
+            // Fallback for legacy routes that pass YouTube ID in URL
+            query = { videoId: id };
+        }
+
+        const updatedVideo = await Video.findOneAndUpdate(
+            query,
             { $set: updateData },
             { new: true }
         ).populate('sharedVideoId');

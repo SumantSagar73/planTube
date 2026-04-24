@@ -7,16 +7,20 @@ import Modal from '../components/Shared/Modal';
 import DeleteConfirmation from '../components/Shared/DeleteConfirmation';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import { cache } from '../utils/cache';
+import FocusPulseHeatmap from '../components/Shared/FocusPulseHeatmap';
 import GuestBanner from '../components/Dashboard/GuestBanner';
 import ContinueWatching from '../components/Dashboard/ContinueWatching';
 import ActiveLibrary from '../components/Dashboard/ActiveLibrary';
 import DailyAgenda from '../components/Dashboard/DailyAgenda';
+
+import StreakIcon from '../components/Shared/StreakIcon';
 
 const Dashboard = () => {
     const navigate = useNavigate();
     const [playlists, setPlaylists] = useState([]);
     const [todayTasks, setTodayTasks] = useState([]);
     const [analytics, setAnalytics] = useState(null);
+    const [heatmapData, setHeatmapData] = useState([]);
     const [dataLoading, setDataLoading] = useState(true);
 
     const [syncingIds, setSyncingIds] = useState(new Set());
@@ -39,13 +43,15 @@ const Dashboard = () => {
                     setPlaylists(pinnedItems);
                     setTodayTasks(cachedDashboard.today);
                     setAnalytics(cachedDashboard.analytics);
+                    setHeatmapData(cachedDashboard.heatmapData || []);
                     setDataLoading(false);
                 }
 
-                const [playlistsRes, todayRes, analyticsRes] = await Promise.all([
+                const [playlistsRes, todayRes, analyticsRes, heatmapRes] = await Promise.all([
                     api.get('/playlists/library'),
                     api.get('/schedules/today'),
-                    api.get('/schedules/analytics')
+                    api.get('/schedules/analytics'),
+                    api.get('/analytics/heatmap')
                 ]);
 
                 const pinnedItems = playlistsRes.data.filter(item => item.isPinned);
@@ -53,11 +59,13 @@ const Dashboard = () => {
                 setPlaylists(pinnedItems);
                 setTodayTasks(todayRes.data);
                 setAnalytics(analyticsRes.data);
-
+                setHeatmapData(heatmapRes.data);
+                
                 cache.set(cacheKey, {
                     playlists: playlistsRes.data,
                     today: todayRes.data,
-                    analytics: analyticsRes.data
+                    analytics: analyticsRes.data,
+                    heatmapData: heatmapRes.data
                 });
 
             } else {
@@ -135,20 +143,20 @@ const Dashboard = () => {
     if (dataLoading) return <LoadingScreen message="Curating your dashboard..." />;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem', paddingBottom: '5rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '3.5rem', alignItems: 'start' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+        <div className="dashboard-shell" style={{ display: 'flex', flexDirection: 'column', gap: '3rem', paddingBottom: '5rem' }}>
+            <div className="dashboard-main-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '3.5rem', alignItems: 'start' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
                     {!user && <GuestBanner />}
 
                     {/* Focal Header */}
-                    <div data-section="overview-cards" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <h1 style={{ fontSize: '3rem', fontWeight: '950', letterSpacing: '-2px', lineHeight: 1, color: 'var(--text-main)' }}>Focus</h1>
+                    <div className="dashboard-hero" data-section="overview-cards" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                                <h1 className="dashboard-title" style={{ fontSize: '3rem', fontWeight: '950', letterSpacing: '-2px', lineHeight: 1, color: 'var(--text-main)' }}>Focus</h1>
                                 {user && analytics?.streak > 0 && (
-                                    <div data-section="streak" style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', padding: '0.25rem 0.75rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <span style={{ fontSize: '1rem' }}>🔥</span>
+                                    <div className="dashboard-streak" data-section="streak" style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', padding: '0.25rem 0.75rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                        <StreakIcon size={24} />
                                         <span style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '0.9rem' }}>{analytics.streak} Days</span>
                                     </div>
                                 )}
@@ -157,26 +165,36 @@ const Dashboard = () => {
                         <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem', fontWeight: '500' }}>Your learning velocity today.</p>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '3.5rem', alignItems: 'start' }}>
+                    <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: '3.5rem', alignItems: 'start' }}>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-                            <div data-section="schedule">
+                        <div className="dashboard-primary-column" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <div className="dashboard-continue" data-section="schedule">
                                 <ContinueWatching firstPendingTask={firstPendingTask} navigate={navigate} />
                             </div>
 
-                            <div data-section="playlist-grid">
+                            <div className="dashboard-library" data-section="playlist-grid">
                                 <ActiveLibrary playlists={playlists} handleTogglePin={handleTogglePin} />
                             </div>
                         </div>
 
-                        <div data-section="schedule" style={{ display: 'none' }} />
-                        <div data-section="recent-activity">
-                            <DailyAgenda
-                                todayTasks={todayTasks}
-                                completedTodayCount={completedTodayCount}
-                                progressPercent={progressPercent}
-                                navigate={navigate}
-                            />
+                        <div className="dashboard-sidebar-column" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                            <div className="dashboard-agenda" data-section="recent-activity">
+                                <DailyAgenda
+                                    todayTasks={todayTasks}
+                                    completedTodayCount={completedTodayCount}
+                                    progressPercent={progressPercent}
+                                    navigate={navigate}
+                                />
+                            </div>
+
+                            {user && (
+                                <div className="dashboard-tracker" data-section="streak">
+                                    <FocusPulseHeatmap 
+                                        data={heatmapData} 
+                                        streak={analytics?.streak || 0} 
+                                    />
+                                </div>
+                            )}
                         </div>
 
                     </div>

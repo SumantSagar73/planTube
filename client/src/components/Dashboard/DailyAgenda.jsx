@@ -1,16 +1,16 @@
 import { Check, Play, Clock, ListChecks } from 'lucide-react';
 
 const DailyAgenda = ({ todayTasks, completedTodayCount, progressPercent, navigate }) => (
-    <aside style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-        <div className="glass" style={{ padding: '2rem', borderRadius: '28px', border: '1px solid var(--glass-border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
+    <aside className="dashboard-agenda-card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <div className="glass dashboard-card-shell" style={{ padding: '2rem', borderRadius: '28px', border: '1px solid var(--glass-border)' }}>
+            <div className="dashboard-card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <ListChecks size={20} color="var(--accent)" />
                     </div>
-                    <h2 style={{ fontSize: '1.3rem', fontWeight: '900', color: 'var(--text-main)' }}>Daily Agenda</h2>
+                    <h2 className="dashboard-card-title" style={{ fontSize: '1.3rem', fontWeight: '900', color: 'var(--text-main)' }}>Daily Agenda</h2>
                 </div>
-                <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: 'var(--bg-card)', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                <div className="dashboard-agenda-ring" style={{ width: '50px', height: '50px', borderRadius: '50%', background: 'var(--bg-card)', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                     <svg width="50" height="50" viewBox="0 0 50 50" style={{ transform: 'rotate(-90deg)', position: 'absolute' }}>
                         <circle cx="25" cy="25" r="22" fill="none" stroke="var(--glass-border)" strokeWidth="4" />
                         <circle cx="25" cy="25" r="22" fill="none" stroke="var(--accent)" strokeWidth="4" strokeDasharray={`${Math.PI * 44}`} strokeDashoffset={`${Math.PI * 44 * (1 - progressPercent / 100)}`} style={{ transition: 'stroke-dashoffset 1s ease' }} strokeLinecap="round" />
@@ -19,13 +19,13 @@ const DailyAgenda = ({ todayTasks, completedTodayCount, progressPercent, navigat
                 </div>
             </div>
 
-            <div style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '1.5rem', textAlign: 'center' }}>
+            <div className="dashboard-agenda-summary" style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '1.5rem', textAlign: 'center' }}>
                 {completedTodayCount} / {todayTasks.length} Done Today
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            <div className="dashboard-agenda-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                 {todayTasks.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+                    <div className="dashboard-agenda-empty" style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
                         <Check size={48} style={{ opacity: 0.2, margin: '0 auto 1rem' }} />
                         <p style={{ fontSize: '1.1rem', fontWeight: '600', color: 'white' }}>All caught up!</p>
                         <p style={{ fontSize: '0.9rem' }}>No sessions scheduled for today.</p>

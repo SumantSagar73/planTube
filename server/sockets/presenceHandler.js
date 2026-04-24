@@ -23,6 +23,16 @@ module.exports = (io) => {
             });
         };
 
+        socket.on('join_user', ({ userId }) => {
+            if (!userId) return;
+            socket.join(`user_${userId}`);
+        });
+
+        socket.on('leave_user', ({ userId }) => {
+            if (!userId) return;
+            socket.leave(`user_${userId}`);
+        });
+
         socket.on('join_video', ({ videoId, userId, visitorId }) => {
             const id = userId || visitorId || socket.id;
             // console.log(`👥 User joining video room - videoId: ${videoId}, id: ${id}`);

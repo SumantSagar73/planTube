@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Flame, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
+
+import StreakIcon from './StreakIcon';
 
 const FocusPulseHeatmap = ({ data, streak }) => {
     const [viewDate, setViewDate] = useState(new Date());
@@ -48,8 +50,8 @@ const FocusPulseHeatmap = ({ data, streak }) => {
         <div className="glass" style={{ padding: '1.5rem', borderRadius: '28px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Flame size={20} fill="#f59e0b" color="#f59e0b" style={{ filter: 'drop-shadow(0 0 8px rgba(245, 158, 11, 0.4))' }} />
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        <StreakIcon size={32} />
                     </div>
                     <div>
                         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>Study Streak</p>

@@ -20,6 +20,7 @@ import Social from './pages/Social';
 import PublicProfile from './pages/PublicProfile';
 import Navbar from './components/Shared/Navbar';
 import HelperBot from './components/Shared/HelperBot';
+import NotificationCenter from './pages/NotificationCenter';
 
 import LoadingScreen from './components/Shared/LoadingScreen';
 import ShadowBanner from './components/Admin/ShadowBanner';
@@ -93,6 +94,14 @@ const AppRoutes = () => {
                                             element={
                                                 <ProtectedRoute>
                                                     <Profile />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/notifications"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <NotificationCenter />
                                                 </ProtectedRoute>
                                             }
                                         />

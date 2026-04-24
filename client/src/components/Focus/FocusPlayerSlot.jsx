@@ -18,6 +18,7 @@ const miniBtn = {
 const FocusPlayerSlot = ({
     mainSlotRef,
     video,
+    isMobile,
     playerOptions,
     handlePlayerStateChange,
     handlePlayerReady,
@@ -38,10 +39,10 @@ const FocusPlayerSlot = ({
             id="main-player-slot"
             style={miniPlayer ? {
                 position: 'fixed',
-                bottom: '1.5rem',
-                right: '1.5rem',
-                width: '320px',
-                height: '180px',
+                bottom: isMobile ? '5.5rem' : '1.5rem',
+                right: isMobile ? '0.8rem' : '1.5rem',
+                width: isMobile ? 'min(92vw, 320px)' : '320px',
+                height: isMobile ? 'min(52vw, 180px)' : '180px',
                 zIndex: 9999,
                 borderRadius: '20px',
                 overflow: 'hidden',
@@ -80,7 +81,7 @@ const FocusPlayerSlot = ({
                     style={{ 
                         width: '100%', 
                         height: '100%', 
-                        transform: miniPlayer ? 'scale(1)' : 'scale(1.15)',
+                        transform: miniPlayer ? 'scale(1)' : (isMobile ? 'scale(1)' : 'scale(1.15)'),
                         transition: 'transform 0.5s ease'
                     }}
                 />
@@ -163,19 +164,19 @@ const FocusPlayerSlot = ({
                 onClick={togglePlay}
             >
                 <div style={{
-                    width: '80px', height: '80px', borderRadius: '50%',
+                    width: isMobile ? '66px' : '80px', height: isMobile ? '66px' : '80px', borderRadius: '50%',
                     background: 'rgba(255,255,255,0.12)',
                     border: '1px solid rgba(255,255,255,0.25)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginBottom: '1.5rem',
+                    marginBottom: isMobile ? '1rem' : '1.5rem',
                     boxShadow: '0 0 40px rgba(99,102,241,0.3)',
                 }}>
-                    <Play size={36} fill="white" style={{ marginLeft: '4px' }} />
+                    <Play size={isMobile ? 30 : 36} fill="white" style={{ marginLeft: '4px' }} />
                 </div>
                 <h2 style={{ fontSize: '1.3rem', fontWeight: '800', opacity: 0.9, color: 'white', textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
                     {video.title}
                 </h2>
-                <p style={{ color: 'rgba(255,255,255,0.5)', marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                <p style={{ color: 'rgba(255,255,255,0.5)', marginTop: '0.5rem', fontSize: isMobile ? '0.8rem' : '0.9rem' }}>
                     Paused · click to resume
                 </p>
             </div>

@@ -132,14 +132,14 @@ const AdminUsers = ({ onViewDetails, onImpersonate, notify }) => {
     }, [loading, pagination.total, users.length]);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="admin-users-page" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
                 <div>
                     <h2 style={{ fontSize: '1.8rem', fontWeight: '900', letterSpacing: '-1px' }}>User Registry</h2>
                     <p style={{ color: 'var(--text-muted)' }}>{statusText}</p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <div className="admin-header-actions" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <button className="btn-secondary" onClick={fetchUsers} aria-label="Refresh users">
                         <RefreshCw size={14} style={{ marginRight: 6 }} /> Refresh
                     </button>
@@ -198,7 +198,7 @@ const AdminUsers = ({ onViewDetails, onImpersonate, notify }) => {
 
             <div className="glass-card" style={{ padding: 0, borderRadius: '20px', overflow: 'hidden' }}>
                 <div className="admin-table-wrap">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ textAlign: 'left', background: 'rgba(255,255,255,0.03)' }}>
                                 <th style={{ padding: '1rem' }}>Identity</th>
@@ -241,7 +241,7 @@ const AdminUsers = ({ onViewDetails, onImpersonate, notify }) => {
                                         {new Date(u.createdAt).toLocaleDateString()}
                                     </td>
                                     <td style={{ padding: '1rem', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', gap: '0.45rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                        <div className="admin-user-row-actions" style={{ display: 'flex', gap: '0.45rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                                             <button className="icon-btn" aria-label="View details" onClick={() => onViewDetails(u._id)}><Hash size={15} /></button>
                                             <button className="icon-btn" aria-label="Impersonate user" onClick={() => onImpersonate(u)}><Eye size={15} /></button>
                                             <button className="icon-btn" aria-label="Toggle role" onClick={() => promptRoleToggle(u)}>{u.role === 'admin' ? <ShieldAlert size={15} /> : <Shield size={15} />}</button>
@@ -266,9 +266,9 @@ const AdminUsers = ({ onViewDetails, onImpersonate, notify }) => {
                 </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div className="admin-pagination-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>Page {pagination.page} of {pagination.totalPages}</span>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div className="admin-pagination-actions" style={{ display: 'flex', gap: '0.5rem' }}>
                     <button className="btn-secondary" disabled={pagination.page <= 1} onClick={() => updateParam('upage', Math.max(pagination.page - 1, 1), false)}>Previous</button>
                     <button className="btn-secondary" disabled={pagination.page >= pagination.totalPages} onClick={() => updateParam('upage', Math.min(pagination.page + 1, pagination.totalPages), false)}>Next</button>
                 </div>

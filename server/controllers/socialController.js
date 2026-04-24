@@ -3,6 +3,7 @@ const Friendship = require('../models/Friendship');
 const Activity = require('../models/Activity');
 const Schedule = require('../models/Schedule');
 const mongoose = require('mongoose');
+const notificationController = require('./notificationController');
 
 exports.searchUsers = async (req, res) => {
     try {
@@ -45,6 +46,19 @@ exports.sendFriendRequest = async (req, res) => {
         });
 
         await request.save();
+
+        await notificationController.createSocialNotification({
+            req,
+            recipientId,
+            actorId: req.user.id,
+            title: `${req.user.name || req.user.username} sent you a friend request`,
+            message: 'You have a new social connection request waiting for your response.',
+            link: '/social',
+            metadata: { friendshipId: request._id },
+            priority: 'normal',
+            dedupeKey: `friend-request:${req.user.id}:${recipientId}`
+        });
+
         res.json({ msg: 'Request sent' });
     } catch (err) {
         console.error(err);
@@ -64,6 +78,19 @@ exports.respondToRequest = async (req, res) => {
         if (status === 'accepted') {
             friendship.status = 'accepted';
             await friendship.save();
+
+            await notificationController.createSocialNotification({
+                req,
+                recipientId: friendship.requester,
+                actorId: req.user.id,
+                title: `${req.user.name || req.user.username} accepted your friend request`,
+                message: 'You are now connected.',
+                link: '/social',
+                metadata: { friendshipId: friendship._id },
+                priority: 'normal',
+                dedupeKey: `friend-accepted:${friendship._id}`
+            });
+
             res.json(friendship);
         } else {
             await Friendship.findByIdAndDelete(requestId);

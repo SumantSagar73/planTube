@@ -72,6 +72,7 @@ app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/presence', require('./routes/presence'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/social', require('./routes/socialRoutes'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 
 const server = require('http').createServer(app);
@@ -81,6 +82,8 @@ const io = require('socket.io')(server, {
         credentials: true
     }
 });
+
+app.set('io', io);
 
 // Real-time Presence with Socket.io
 const activeUsers = new Map(); // videoId -> Set of socketId/userId
@@ -112,6 +115,16 @@ io.on('connection', (socket) => {
             });
         });
     };
+
+    socket.on('join_user', ({ userId }) => {
+        if (!userId) return;
+        socket.join(`user_${userId}`);
+    });
+
+    socket.on('leave_user', ({ userId }) => {
+        if (!userId) return;
+        socket.leave(`user_${userId}`);
+    });
 
     socket.on('join_video', ({ videoId, userId, visitorId }) => {
         const id = userId || visitorId || socket.id;

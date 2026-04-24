@@ -4,15 +4,15 @@ const ContinueWatching = ({ firstPendingTask, navigate }) => {
     if (!firstPendingTask) return null;
 
     return (
-        <section>
-            <div className="glass" style={{ padding: '2rem', borderRadius: '28px', border: '1px solid var(--primary)', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+        <section className="dashboard-continue-card">
+            <div className="glass dashboard-card-shell" style={{ padding: '2rem', borderRadius: '28px', border: '1px solid var(--primary)', position: 'relative', overflow: 'hidden' }}>
+                <div className="dashboard-card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
                     <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>
                         <Play size={20} color="white" fill="white" />
                     </div>
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-main)' }}>Continue Watching</h2>
+                    <h2 className="dashboard-card-title" style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-main)' }}>Continue Watching</h2>
                 </div>
-                <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+                <div className="dashboard-continue-body" style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
                     <div style={{ flex: 1 }}>
                         <p style={{ color: 'var(--primary)', fontSize: '0.85rem', fontWeight: '800', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
                             Next Up Today
@@ -34,7 +34,7 @@ const ContinueWatching = ({ firstPendingTask, navigate }) => {
                         </button>
                     </div>
                     {firstPendingTask.videoId?.thumbnail && (
-                        <div style={{ width: '200px', aspectRatio: '16/9', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
+                        <div className="dashboard-continue-thumb" style={{ width: '200px', aspectRatio: '16/9', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
                             <img src={firstPendingTask.videoId.thumbnail} alt="Thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                     )}

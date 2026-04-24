@@ -98,25 +98,25 @@ const GroupPlaylistProgress = () => {
     );
 
     return (
-        <div style={{ padding: '2rem 3vw', maxWidth: '1600px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+        <div className="group-progress-page" style={{ padding: '2rem 3vw', maxWidth: '1600px', margin: '0 auto' }}>
+            <div className="group-progress-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
                 <button onClick={() => navigate(`/groups/${groupId}`)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}>
                     <ArrowLeft size={16} />
                     <span>Back to Group</span>
                 </button>
             </div>
 
-            <div style={{ marginBottom: '2.5rem' }}>
+            <div className="group-progress-heading" style={{ marginBottom: '2.5rem' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Shared Learning</span>
                 <h1 style={{ fontSize: '2.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>Group Progress Tracking</h1>
                 <p style={{ color: 'var(--text-muted)' }}>{playlist?.playlistTitle} in {group?.groupName}</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '2rem', alignItems: 'start' }}>
+            <div className="group-progress-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', alignItems: 'start' }}>
                 {/* Left Column: Table */}
                 <div style={{ minWidth: 0 }}>
-                    <div className="glass" style={{ borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
-                        <div style={{ overflowX: 'auto', width: '100%' }}>
+                    <div className="glass group-progress-table-shell" style={{ borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
+                        <div className="group-progress-table-wrap" style={{ overflowX: 'auto', width: '100%' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.02)' }}>
@@ -176,7 +176,7 @@ const GroupPlaylistProgress = () => {
                 </div>
 
                 {/* Right Column: Calendar Sidebar */}
-                <div style={{ position: 'sticky', top: '2rem' }}>
+                <div className="group-progress-sidebar" style={{ position: 'sticky', top: '2rem' }}>
                     <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
                         {/* Calendar Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>

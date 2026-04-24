@@ -19,6 +19,7 @@ const Library = () => {
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
     const [syncingIds, setSyncingIds] = useState(new Set());
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 820);
 
     const { user } = useAuth();
     const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', success: false });
@@ -37,6 +38,18 @@ const Library = () => {
     useEffect(() => {
         fetchLibrary();
     }, [user]);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 820);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    useEffect(() => {
+        if (isMobile && viewMode === 'list') {
+            setViewMode('grid');
+        }
+    }, [isMobile, viewMode]);
 
     const fetchLibrary = async (useCache = true) => {
         const userId = user?.id || user?._id;
@@ -162,31 +175,31 @@ const Library = () => {
     if (loading && items.length === 0) return <LoadingScreen message="Loading your library..." />;
 
     return (
-        <div style={{ padding: '1.5rem 1rem 5rem' }}>
+        <div className="library-page" style={{ padding: '1.5rem 1rem 5rem' }}>
             {/* Focal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3rem' }}>
+            <div className="library-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3rem' }}>
                 <div>
-                    <h1 style={{ fontSize: '3.5rem', fontWeight: '950', marginBottom: '0.5rem', letterSpacing: '-2px', color: 'var(--text-main)' }}>
+                    <h1 className="library-title" style={{ fontSize: '3.5rem', fontWeight: '950', marginBottom: '0.5rem', letterSpacing: '-2px', color: 'var(--text-main)' }}>
                         Vault <span style={{ color: 'var(--primary)' }}>.</span>
                     </h1>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem', fontWeight: '500' }}>
+                    <p className="library-subtitle" style={{ color: 'var(--text-muted)', fontSize: '1.2rem', fontWeight: '500' }}>
                         Your curated learning collections.
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: '1.25rem' }}>
-                    <div className="glass" style={{ display: 'flex', padding: '0.4rem', borderRadius: '16px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.02)' }}>
+                <div className="library-header-actions" style={{ display: 'flex', gap: '1.25rem' }}>
+                    <div className="glass library-view-toggle" style={{ display: 'flex', padding: '0.4rem', borderRadius: '16px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.02)' }}>
                         <button onClick={() => setViewMode('grid')} className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}><LayoutGrid size={18} /></button>
-                        <button onClick={() => setViewMode('list')} className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}><ListIcon size={18} /></button>
+                        {!isMobile && <button onClick={() => setViewMode('list')} className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}><ListIcon size={18} /></button>}
                     </div>
-                    <button onClick={() => navigate('/import')} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.8rem 1.75rem', borderRadius: '18px', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.2)' }}>
+                    <button onClick={() => navigate('/import')} className="btn-primary library-import-btn" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.8rem 1.75rem', borderRadius: '18px', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.2)' }}>
                         <Plus size={20} /> Import New
                     </button>
                 </div>
             </div>
 
             {/* Toolbar */}
-            <div data-section="filter-bar" style={{ marginBottom: '3rem', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                <div style={{ position: 'relative', flex: 1, maxWidth: '600px' }}>
+            <div className="library-toolbar" data-section="filter-bar" style={{ marginBottom: '3rem', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                <div className="library-search-wrap" style={{ position: 'relative', flex: 1, maxWidth: '600px' }}>
                     <Search style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', opacity: 0.5 }} size={20} />
                     <input
                         type="text"
@@ -197,7 +210,7 @@ const Library = () => {
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
-                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.02)', padding: '0.5rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                <div className="library-filter-tabs" style={{ display: 'flex', background: 'rgba(255,255,255,0.02)', padding: '0.5rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
                     {['all', 'video', 'playlist', 'custom'].map(f => (
                         <button key={f} onClick={() => setFilter(f)} style={{
                             padding: '0.6rem 1.5rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '800',
@@ -221,7 +234,7 @@ const Library = () => {
                 </div>
             ) : (
                 viewMode === 'grid' ? (
-                    <div data-section="playlist-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                    <div className="library-grid" data-section="playlist-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
                         {filteredItems.map(item => (
                             <LibraryItem
                                 key={item._id}
@@ -236,8 +249,8 @@ const Library = () => {
                         ))}
                     </div>
                 ) : (
-                    <div className="glass" style={{ borderRadius: '32px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <div className="glass library-list-wrap" style={{ borderRadius: '32px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
+                        <table className="library-list-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--glass-border)' }}>
                                     <th style={{ padding: '1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '900', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Collection</th>

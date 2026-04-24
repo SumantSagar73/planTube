@@ -15,10 +15,13 @@ const ShadowBanner = () => {
             console.warn('Failed to write impersonation end audit log:', err);
         }
 
+        const returnUrl = localStorage.getItem('admin_return_url') || '/admin';
+
         // Clear all impersonation data
         localStorage.removeItem('impersonate_user_id');
         localStorage.removeItem('impersonate_user_name');
         localStorage.removeItem('user'); // Force re-fetch of real admin profile
+        localStorage.removeItem('admin_return_url');
         
         // Clear pattern-based dashboard caches
         Object.keys(localStorage).forEach(key => {
@@ -26,7 +29,7 @@ const ShadowBanner = () => {
         });
         sessionStorage.clear(); 
         
-        window.location.href = '/admin'; 
+        window.location.href = returnUrl;
     };
 
     return (

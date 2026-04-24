@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
     Clock, Calendar, Award, AlertCircle,
-    Flame, BarChart3, TrendingUp, Play, CheckCircle, UserPlus, Check, X, Shield, Trophy, Layout, Tag, ArrowRight, Info, MessageSquare, Lock
+    BarChart3, TrendingUp, Play, CheckCircle, UserPlus, Check, X, Shield, Trophy, Layout, Tag, ArrowRight, Info, MessageSquare, Lock
 } from 'lucide-react';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import FocusPulseHeatmap from '../components/Shared/FocusPulseHeatmap';
 import { useAuth } from '../context/AuthContext';
+
+import StreakIcon from '../components/Shared/StreakIcon';
 
 const PublicProfile = () => {
     const { username } = useParams();
@@ -99,14 +101,15 @@ const PublicProfile = () => {
     const xpProgress = ((user.xp - Math.pow((user.level - 1) * 5, 2)) / (Math.pow(user.level * 5, 2) - Math.pow((user.level - 1) * 5, 2))) * 100;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '4rem', maxWidth: '1100px', margin: '0 auto' }}>
+        <div className="public-profile-page" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '4rem', maxWidth: '1100px', margin: '0 auto' }}>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+            <div className="public-profile-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
+                <div className="public-profile-user-info" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                     <div style={{ position: 'relative' }}>
                         <img 
                             src={`https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(user.username || user.name || 'user')}`} 
                             alt="avatar"
+                            className="public-profile-avatar"
                             style={{
                                 width: '100px', height: '100px', borderRadius: '30px',
                                 background: 'rgba(255,255,255,0.05)', border: '2px solid var(--glass-border)',
@@ -115,18 +118,18 @@ const PublicProfile = () => {
                             }}
                         />
                     </div>
-                    <div>
-                        <h1 style={{ fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-1.5px', marginBottom: '0.2rem' }}>{user.name}</h1>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '0.75rem', fontStyle: 'italic', opacity: 0.8 }}>"{user.motto || 'Keep focusing, keep growing.'}"</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <span style={{ background: user.themeColor || '#6366f1', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '900' }}>LEVEL {user.level}</span>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: '600' }}>@{user.username}</span>
+                    <div className="public-profile-meta">
+                        <h1 className="public-profile-name" style={{ fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-1.5px', marginBottom: '0.2rem' }}>{user.name}</h1>
+                        <p className="public-profile-motto" style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '0.75rem', fontStyle: 'italic', opacity: 0.8 }}>"{user.motto || 'Keep focusing, keep growing.'}"</p>
+                        <div className="public-profile-row" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span className="level-badge" style={{ background: user.themeColor || '#6366f1', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '900' }}>LEVEL {user.level}</span>
+                            <span className="username-badge" style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: '600' }}>@{user.username}</span>
                         </div>
                     </div>
                 </div>
 
                 {!isMe && (
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <div className="public-profile-actions" style={{ display: 'flex', gap: '0.75rem' }}>
                         {!relationship ? (
                             <button onClick={handleFriendAction} className="btn-primary" style={{ padding: '0.75rem 1.5rem' }} disabled={actionLoading}>
                                 <UserPlus size={18} /> Add Friend
@@ -148,16 +151,16 @@ const PublicProfile = () => {
                 )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '2rem' }}>
+            <div className="public-profile-main-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     
                     {/* Stats Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
+                    <div className="stats-grid-responsive" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1.5rem' }}>
                         {[
                             { label: 'Focus Hours', value: stats.totalFocusHours, color: '#6366f1', icon: Clock },
                             { label: 'Videos Done', value: stats.totalCompleted, color: '#22c55e', icon: CheckCircle },
                             { label: 'Best Streak', value: `${stats.bestStreak} Days`, color: '#f59e0b', icon: Award },
-                            { label: 'Current Streak', value: `${stats.streak} Days`, color: '#ef4444', icon: Flame }
+                            { label: 'Current Streak', value: `${stats.streak} Days`, color: '#ef4444', icon: StreakIcon }
                         ].map((s, i) => (
                             <div key={i} className="glass" style={{ padding: '1.5rem', borderRadius: '20px', textAlign: 'center' }}>
                                 <div style={{ color: s.color, marginBottom: '0.75rem', display: 'flex', justifyContent: 'center' }}>

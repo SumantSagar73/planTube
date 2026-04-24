@@ -1,17 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Users, BookOpen, Layers, Clock, Activity, TrendingUp, RefreshCw, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { Users, BookOpen, Layers, Clock, Menu } from 'lucide-react';
 import adminService from '../services/adminService';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import AdminSidebar from '../components/Admin/AdminSidebar';
 import AdminUsers from '../components/Admin/AdminUsers';
 import AdminPlaylists from '../components/Admin/AdminPlaylists';
 import AdminVideos from '../components/Admin/AdminVideos';
+import AdminNotifications from '../components/Admin/AdminNotifications';
 import UserDetailsModal from '../components/Admin/UserDetailsModal';
 import AdminAuditLogs from '../components/Admin/AdminAuditLogs';
+import AdminOverviewPanel from '../components/Admin/AdminOverviewPanel';
 
 const AdminDashboard = () => {
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('tab') || 'overview';
+    });
     const [collapsed, setCollapsed] = useState(false);
     const [stats, setStats] = useState(null);
     const [health, setHealth] = useState(null);
@@ -20,6 +24,17 @@ const AdminDashboard = () => {
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [toast, setToast] = useState(null);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    const tabLabelMap = {
+        overview: 'Overview',
+        users: 'Users',
+        playlists: 'Playlists',
+        videos: 'Videos',
+        notifications: 'Notifications',
+        audit: 'Audit'
+    };
 
     const notify = (message, type = 'info') => {
         setToast({ message, type });
@@ -47,11 +62,18 @@ const AdminDashboard = () => {
     };
 
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const tab = params.get('tab');
-        if (tab) setActiveTab(tab);
         fetchOverview();
     }, []);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    useEffect(() => {
+        if (!isMobile) setMobileMenuOpen(false);
+    }, [isMobile]);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -76,6 +98,8 @@ const AdminDashboard = () => {
         }
 
         localStorage.removeItem('user');
+        // Keep the exact admin location so "Exit Shadow Mode" can restore it.
+        localStorage.setItem('admin_return_url', `${window.location.pathname}${window.location.search}`);
         Object.keys(localStorage).forEach((key) => {
             if (key.startsWith('dashboard_data_')) localStorage.removeItem(key);
         });
@@ -121,112 +145,15 @@ const AdminDashboard = () => {
         switch (activeTab) {
             case 'overview':
                 return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                            <div>
-                                <h1 style={{ fontSize: '2.4rem', fontWeight: '900', letterSpacing: '-1.5px', color: 'var(--text-main)' }}>
-                                    Admin Command Center
-                                </h1>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.98rem' }}>
-                                    Last updated: {stats?.lastUpdatedAt ? new Date(stats.lastUpdatedAt).toLocaleString() : 'N/A'}
-                                </p>
-                            </div>
-                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                <button className="btn-secondary" onClick={() => fetchOverview(false)}>
-                                    <RefreshCw size={14} style={{ marginRight: 6 }} /> Refresh
-                                </button>
-                                <button
-                                    className="btn-secondary"
-                                    style={{ borderColor: autoRefresh ? 'rgba(16,185,129,0.5)' : undefined }}
-                                    onClick={() => setAutoRefresh((v) => !v)}
-                                >
-                                    Auto Refresh: {autoRefresh ? 'On' : 'Off'}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.9rem' }}>
-                            {statCards.map((item) => (
-                                <StatCard key={item.label} {...item} />
-                            ))}
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }} className="admin-overview-grid">
-                            <div data-section="admin-analytics" className="glass-card" style={{ padding: '1rem', borderRadius: '20px' }}>
-                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.8rem' }}>
-                                    <Activity size={18} color="#60a5fa" /> Activity (7 days)
-                                </h3>
-                                <div style={{ width: '100%', height: 300 }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={chartData.weeklyActivity} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                            <defs>
-                                                <linearGradient id="colorStudy" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.35} />
-                                                    <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
-                                                </linearGradient>
-                                                <linearGradient id="colorActive" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.35} />
-                                                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
-                                            <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                                            <YAxis stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(10,10,12,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' }} />
-                                            <Area type="monotone" dataKey="studyMins" name="Study Minutes" stroke="#60a5fa" strokeWidth={2.6} fillOpacity={1} fill="url(#colorStudy)" />
-                                            <Area type="monotone" dataKey="activeUsers" name="Active Users" stroke="#34d399" strokeWidth={2.6} fillOpacity={1} fill="url(#colorActive)" />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <div data-section="admin-health" className="glass-card" style={{ padding: '1rem', borderRadius: '20px' }}>
-                                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.7rem' }}>
-                                        <ShieldCheck size={18} color={health?.status === 'ok' ? '#22c55e' : '#ef4444'} />
-                                        System Health
-                                    </h3>
-                                    <div style={{ display: 'grid', gap: '0.45rem', fontSize: '0.85rem' }}>
-                                        <span>Status: <strong style={{ color: health?.status === 'ok' ? '#22c55e' : '#ef4444' }}>{health?.status || 'unknown'}</strong></span>
-                                        <span>DB: <strong>{health?.dbState || 'unknown'}</strong></span>
-                                        <span>DB Latency: <strong>{health?.dbLatencyMs ?? '--'}ms</strong></span>
-                                        <span>Uptime: <strong>{health?.uptimeHours ?? '--'}h</strong></span>
-                                        <span>Memory: <strong>{health?.memoryUsedMb ?? '--'} MB</strong></span>
-                                    </div>
-                                </div>
-
-                                <div className="glass-card" style={{ padding: '1rem', borderRadius: '20px' }}>
-                                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.7rem' }}>
-                                        <AlertTriangle size={16} color="#f59e0b" /> Active Alerts
-                                    </h3>
-                                    <div style={{ display: 'grid', gap: '0.45rem', fontSize: '0.85rem' }}>
-                                        <span>Frozen users: <strong>{stats?.frozenUsers || 0}</strong></span>
-                                        <span>Pending wipe requests: <strong>{stats?.pendingWipes || 0}</strong></span>
-                                    </div>
-                                </div>
-
-                                <div className="glass-card" style={{ padding: '1rem', borderRadius: '20px' }}>
-                                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.7rem' }}>
-                                        <TrendingUp size={16} color="#f472b6" /> Top Topics
-                                    </h3>
-                                    <div style={{ width: '100%', height: Math.max(120, chartData.topTopics.length * 30) }}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={chartData.topTopics} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                                                <XAxis type="number" hide />
-                                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'white', fontSize: 11 }} width={90} />
-                                                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'rgba(10,10,12,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} formatter={(v) => [`${v} playlists`]} />
-                                                <Bar dataKey="value" name="Playlists" radius={[0, 4, 4, 0]}>
-                                                    {chartData.topTopics.map((_, index) => (
-                                                        <Cell key={`topic-${index}`} fill={['#60a5fa', '#34d399', '#f472b6', '#f59e0b', '#a78bfa'][index % 5]} />
-                                                    ))}
-                                                </Bar>
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <AdminOverviewPanel
+                        stats={stats}
+                        health={health}
+                        chartData={chartData}
+                        fetchOverview={fetchOverview}
+                        autoRefresh={autoRefresh}
+                        setAutoRefresh={setAutoRefresh}
+                        statCards={statCards}
+                    />
                 );
             case 'users':
                 return <AdminUsers onViewDetails={setSelectedUserId} onImpersonate={handleImpersonate} notify={notify} />;
@@ -234,6 +161,8 @@ const AdminDashboard = () => {
                 return <AdminPlaylists />;
             case 'videos':
                 return <AdminVideos />;
+            case 'notifications':
+                return <AdminNotifications notify={notify} />;
             case 'audit':
                 return <AdminAuditLogs />;
             default:
@@ -248,15 +177,47 @@ const AdminDashboard = () => {
                 setActiveTab={setActiveTab}
                 collapsed={collapsed}
                 setCollapsed={setCollapsed}
+                isMobile={isMobile}
+                mobileOpen={mobileMenuOpen}
+                onCloseMobile={() => setMobileMenuOpen(false)}
             />
 
             <main style={{
                 flex: 1,
-                marginLeft: collapsed ? '80px' : '280px',
-                padding: '1.6rem 2.8vw',
+                marginLeft: isMobile ? '0' : (collapsed ? '80px' : '280px'),
+                padding: isMobile ? '1rem 0.9rem' : '1.6rem 2.8vw',
                 transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 minHeight: '100vh'
             }} className="admin-main-content">
+                {isMobile && (
+                    <div style={{
+                        position: 'sticky',
+                        top: localStorage.getItem('impersonate_user_id') ? '40px' : 0,
+                        zIndex: 120,
+                        marginBottom: '0.9rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '0.8rem',
+                        padding: '0.7rem 0.8rem',
+                        borderRadius: '14px',
+                        background: 'rgba(15,23,42,0.75)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        backdropFilter: 'blur(10px)'
+                    }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                            <strong style={{ fontSize: '0.95rem', lineHeight: 1.1 }}>Admin Panel</strong>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{tabLabelMap[activeTab] || 'Overview'}</span>
+                        </div>
+                        <button
+                            className="icon-btn-deck"
+                            onClick={() => setMobileMenuOpen(true)}
+                            aria-label="Open admin menu"
+                        >
+                            <Menu size={18} />
+                        </button>
+                    </div>
+                )}
                 {renderContent()}
             </main>
 
@@ -287,28 +248,5 @@ const AdminDashboard = () => {
         </div>
     );
 };
-
-const StatCard = ({ icon, label, value, trend, suffix }) => (
-    <div className="glass-card" style={{
-        padding: '1rem',
-        borderRadius: '16px',
-        background: 'var(--bg-card)',
-        border: '1px solid var(--glass-border)'
-    }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</span>
-            {icon}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <strong style={{ fontSize: '1.5rem' }}>{value}</strong>
-            {trend !== null && trend !== undefined && (
-                <span style={{ fontSize: '0.72rem', color: trend >= 0 ? '#22c55e' : '#ef4444' }}>
-                    {trend >= 0 ? '+' : ''}{trend}%
-                </span>
-            )}
-        </div>
-        {suffix && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{suffix}</div>}
-    </div>
-);
 
 export default AdminDashboard;

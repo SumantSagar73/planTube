@@ -2,17 +2,31 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LogOut, Youtube, User, ChevronDown, Users, Library, Target, Link as LinkIcon, Plus, Shield, AlertTriangle } from 'lucide-react';
+import { LogOut, Youtube, User, ChevronDown, Users, Library, Target, Link as LinkIcon, Plus, Shield, AlertTriangle, Menu, X } from 'lucide-react';
 import AlertModal from './AlertModal';
 import ThemeSwitcher from './ThemeSwitcher';
+import NotificationBell from './NotificationBell';
 
 const Navbar = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [showProfile, setShowProfile] = useState(false);
     const [importUrl, setImportUrl] = useState('');
     const [importing, setImporting] = useState(false);
     const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', success: false });
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 920);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 920);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [location.pathname]);
 
     const showAlert = (title, message, success = false) => {
         setAlertState({ isOpen: true, title, message, success });
@@ -56,7 +70,7 @@ const Navbar = () => {
             <nav className="glass" style={{ 
                 width: '100%', 
                 margin: '0', 
-                padding: '0.75rem 3vw', 
+                padding: isMobile ? '0.62rem 0.85rem' : '0.75rem 3vw', 
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 alignItems: 'center', 
@@ -73,6 +87,7 @@ const Navbar = () => {
             </Link>
 
             {/* Center: Quick Import */}
+            {!isMobile && (
             <div style={{ flex: 1, display: 'flex', justifyContent: 'center', margin: '0 2rem' }}>
                 {user && (
                     <form onSubmit={handleQuickImport} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '0.3rem 0.5rem', border: '1px solid var(--glass-border)', width: '100%', maxWidth: '500px' }}>
@@ -91,8 +106,10 @@ const Navbar = () => {
                     </form>
                 )}
             </div>
+            )}
 
             {/* Right: Navigation */}
+            {!isMobile ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', flexShrink: 0 }}>
                 <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
                     <Target size={18} />
@@ -112,55 +129,58 @@ const Navbar = () => {
                 )}
 
                 {user ? (
-                    <div
-                        style={{ position: 'relative', paddingBottom: '1rem', marginBottom: '-1rem' }}
-                        onMouseEnter={() => setShowProfile(true)}
-                        onMouseLeave={() => setShowProfile(false)}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 0.75rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', cursor: 'pointer' }}>
-                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold', color: 'white' }}>
-                                {(user?.username?.[0] || user?.name?.[0])?.toUpperCase() || 'U'}
-                            </div>
-                            <ChevronDown size={14} style={{ color: 'var(--text-muted)', transform: showProfile ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-                        </div>
-
-                        {showProfile && (
-                            <div className="glass shadow-lg" style={{
-                                position: 'absolute', top: '100%', right: '0',
-                                width: '200px', padding: '0.5rem',
-                                borderRadius: '12px', border: '1px solid var(--glass-border)',
-                                background: '#0f0f14',
-                                marginTop: '-0.5rem'
-                            }}>
-                                <div style={{ padding: '0.75rem', borderBottom: '1px solid var(--glass-border)', marginBottom: '0.5rem' }}>
-                                    <p style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'white' }}>@{user?.username || user?.name}</p>
-                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{user?.email}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <NotificationBell />
+                        <div
+                            style={{ position: 'relative', paddingBottom: '1rem', marginBottom: '-1rem' }}
+                            onMouseEnter={() => setShowProfile(true)}
+                            onMouseLeave={() => setShowProfile(false)}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 0.75rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', cursor: 'pointer' }}>
+                                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold', color: 'white' }}>
+                                    {(user?.username?.[0] || user?.name?.[0])?.toUpperCase() || 'U'}
                                 </div>
-                                {user?.role === 'admin' && (
-                                    <Link to="/admin" style={{ width: '100%', padding: '0.6rem', background: 'none', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px', marginBottom: '0.25rem' }} className="glass-hover">
-                                        <Shield size={16} />
-                                        <span>Admin Panel</span>
-                                    </Link>
-                                )}
-                                {!user?.isFrozen && (
-                                    <>
-                                        <Link to="/profile" style={{ width: '100%', padding: '0.6rem', background: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px', marginBottom: '0.25rem' }} className="glass-hover">
-                                            <User size={16} />
-                                            <span>My Profile</span>
-                                        </Link>
-                                        <Link to="/social" style={{ width: '100%', padding: '0.6rem', background: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px', marginBottom: '0.25rem' }} className="glass-hover">
-                                            <Users size={16} />
-                                            <span>Social Hub</span>
-                                        </Link>
-                                    </>
-                                )}
-                                <button onClick={handleLogout} style={{ width: '100%', padding: '0.6rem', background: 'none', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px' }} className="glass-hover">
-                                    <LogOut size={16} />
-                                    <span>Sign Out</span>
-                                </button>
-
+                                <ChevronDown size={14} style={{ color: 'var(--text-muted)', transform: showProfile ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                             </div>
-                        )}
+
+                            {showProfile && (
+                                <div className="glass shadow-lg" style={{
+                                    position: 'absolute', top: '100%', right: '0',
+                                    width: '200px', padding: '0.5rem',
+                                    borderRadius: '12px', border: '1px solid var(--glass-border)',
+                                    background: '#0f0f14',
+                                    marginTop: '-0.5rem'
+                                }}>
+                                    <div style={{ padding: '0.75rem', borderBottom: '1px solid var(--glass-border)', marginBottom: '0.5rem' }}>
+                                        <p style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'white' }}>@{user?.username || user?.name}</p>
+                                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{user?.email}</p>
+                                    </div>
+                                    {user?.role === 'admin' && (
+                                        <Link to="/admin" style={{ width: '100%', padding: '0.6rem', background: 'none', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px', marginBottom: '0.25rem' }} className="glass-hover">
+                                            <Shield size={16} />
+                                            <span>Admin Panel</span>
+                                        </Link>
+                                    )}
+                                    {!user?.isFrozen && (
+                                        <>
+                                            <Link to="/profile" style={{ width: '100%', padding: '0.6rem', background: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px', marginBottom: '0.25rem' }} className="glass-hover">
+                                                <User size={16} />
+                                                <span>My Profile</span>
+                                            </Link>
+                                            <Link to="/social" style={{ width: '100%', padding: '0.6rem', background: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px', marginBottom: '0.25rem' }} className="glass-hover">
+                                                <Users size={16} />
+                                                <span>Social Hub</span>
+                                            </Link>
+                                        </>
+                                    )}
+                                    <button onClick={handleLogout} style={{ width: '100%', padding: '0.6rem', background: 'none', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', borderRadius: '8px' }} className="glass-hover">
+                                        <LogOut size={16} />
+                                        <span>Sign Out</span>
+                                    </button>
+
+                                </div>
+                            )}
+                        </div>
                     </div>
                 ) : (
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -171,6 +191,19 @@ const Navbar = () => {
 
                 <ThemeSwitcher />
             </div>
+            ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                {user && <NotificationBell />}
+                <ThemeSwitcher />
+                <button
+                    className="icon-btn-deck"
+                    onClick={() => setMobileMenuOpen((v) => !v)}
+                    aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                >
+                    {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+                </button>
+            </div>
+            )}
             {/* Modals */}
             <AlertModal
                 isOpen={alertState.isOpen}
@@ -180,6 +213,56 @@ const Navbar = () => {
                 success={alertState.success}
             />
         </nav >
+
+        {isMobile && mobileMenuOpen && (
+            <div className="glass" style={{
+                position: 'fixed',
+                left: '0.75rem',
+                right: '0.75rem',
+                top: localStorage.getItem('impersonate_user_id') ? '94px' : (user?.isFrozen ? '94px' : '54px'),
+                zIndex: 9997,
+                padding: '0.75rem',
+                borderRadius: '14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.6rem'
+            }}>
+                {user && (
+                    <form onSubmit={handleQuickImport} style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input
+                            type="text"
+                            placeholder="Paste YouTube link"
+                            value={importUrl}
+                            onChange={(e) => setImportUrl(e.target.value)}
+                            className="styled-input"
+                            style={{ flex: 1 }}
+                        />
+                        <button type="submit" className="btn-primary" disabled={importing || !importUrl} style={{ padding: '0.55rem 0.8rem' }}>
+                            <Plus size={16} />
+                        </button>
+                    </form>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.5rem' }}>
+                    <Link to="/dashboard" className="btn-secondary" style={{ textAlign: 'center' }}>Focus</Link>
+                    <Link to="/library" className="btn-secondary" style={{ textAlign: 'center' }}>Library</Link>
+                    {!user?.isFrozen && <Link to="/groups" className="btn-secondary" style={{ textAlign: 'center' }}>Groups</Link>}
+                    {!user && <Link to="/login" className="btn-secondary" style={{ textAlign: 'center' }}>Login</Link>}
+                    {!user && <Link to="/signup" className="btn-primary" style={{ textAlign: 'center' }}>Sign Up</Link>}
+                    {user?.role === 'admin' && <Link to="/admin" className="btn-secondary" style={{ textAlign: 'center' }}>Admin</Link>}
+                    {user && !user?.isFrozen && <Link to="/social" className="btn-secondary" style={{ textAlign: 'center' }}>Social</Link>}
+                    {user && <Link to="/profile" className="btn-secondary" style={{ textAlign: 'center' }}>Profile</Link>}
+                </div>
+
+                {user && (
+                    <button onClick={handleLogout} className="btn-secondary" style={{ color: 'var(--danger)' }}>
+                        <LogOut size={16} style={{ marginRight: 6 }} /> Sign Out
+                    </button>
+                )}
+
+                {user && <Link to="/notifications" className="btn-secondary" style={{ textAlign: 'center' }}>Notifications</Link>}
+            </div>
+        )}
         </>
     );
 };

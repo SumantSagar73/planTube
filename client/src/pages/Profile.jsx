@@ -3,12 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
     Clock, Calendar, Award, AlertCircle,
-    Flame, BarChart3, TrendingUp, Play, CheckCircle, User, Edit2, Save, X, Lock, Trash2, Settings, Shield, Trophy, Layout, ArrowRight, Tag, Palette, Info, Check, Users
+    BarChart3, TrendingUp, Play, CheckCircle, User, Edit2, Save, X, Lock, Trash2, Settings, Shield, Trophy, Layout, ArrowRight, Tag, Palette, Info, Check, Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import FocusPulseHeatmap from '../components/Shared/FocusPulseHeatmap';
 import Modal from '../components/Shared/Modal';
+
+import StreakIcon from '../components/Shared/StreakIcon';
+
+const parseDurationToSeconds = (duration) => {
+    if (!duration || typeof duration !== 'string') return 0;
+    const parts = duration.split(':').map(Number);
+    if (parts.some(Number.isNaN)) return 0;
+    if (parts.length === 3) return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+    if (parts.length === 2) return (parts[0] * 60) + parts[1];
+    return 0;
+};
 
 const Profile = () => {
     const { user: authUser, logout, setAuth } = useAuth();
@@ -251,6 +262,30 @@ const Profile = () => {
 
     const xpProgress = ((stats.xp - Math.pow((stats.level - 1) * 5, 2)) / (stats.nextLevelXp - Math.pow((stats.level - 1) * 5, 2))) * 100;
     const streak = analytics?.streak || 0;
+    const bestStreak = Math.max(stats.bestStreak || 0, analytics?.bestStreak || 0);
+
+    const scheduleHeatmapMap = schedules.completed.reduce((acc, s) => {
+        const dateKey = new Date(s.updatedAt || s.scheduledDate || Date.now()).toISOString().split('T')[0];
+        const seconds = parseDurationToSeconds(s.videoId?.duration);
+        acc.set(dateKey, (acc.get(dateKey) || 0) + seconds);
+        return acc;
+    }, new Map());
+
+    const scheduleHeatmapData = Array.from(scheduleHeatmapMap.entries())
+        .map(([date, seconds]) => ({ date, seconds }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+    const effectiveHeatmapData = scheduleHeatmapData.length > 0 ? scheduleHeatmapData : heatmapData;
+
+    const recentSessions = schedules.completed.length > 0
+        ? schedules.completed.slice(0, 4).map((s) => ({
+            date: s.updatedAt || s.scheduledDate,
+            seconds: parseDurationToSeconds(s.videoId?.duration)
+        }))
+        : effectiveHeatmapData.slice().reverse().slice(0, 4).map((d) => ({
+            date: d.date,
+            seconds: d.seconds
+        }));
 
     // Weekly Breakdown Calculation
     const last7Days = Array.from({length: 7}, (_, i) => {
@@ -259,16 +294,16 @@ const Profile = () => {
         return d.toISOString().split('T')[0];
     });
     const weeklyData = last7Days.map(date => {
-        const day = heatmapData.find(h => h.date === date);
+        const day = effectiveHeatmapData.find(h => h.date === date);
         return { date, mins: day ? Math.round(day.seconds / 60) : 0 };
     });
     const maxMins = Math.max(...weeklyData.map(d => d.mins), 60);
 
     return (
-        <div style={{ display: 'flex', gap: '2rem', maxWidth: '1400px', margin: '0 auto', paddingBottom: '4rem', minHeight: '80vh', alignItems: 'flex-start' }}>
+        <div className="profile-page" style={{ display: 'flex', gap: '2rem', maxWidth: '1400px', margin: '0 auto', paddingBottom: '4rem', minHeight: '80vh', alignItems: 'flex-start' }}>
             
             {/* --- LEFT SIDEBAR NAVIGATION --- */}
-            <div data-section="profile-header" style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '2rem', position: 'sticky', top: '80px', height: 'fit-content' }}>
+            <div className="profile-sidebar" data-section="profile-header" style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '2rem', position: 'sticky', top: '80px', height: 'fit-content' }}>
                 
                 {/* User Identity Card */}
                 <div className="glass" style={{ padding: '2rem', borderRadius: '32px', textAlign: 'center', border: `1px solid ${profile.themeColor}33`, position: 'relative', overflow: 'hidden' }}>
@@ -286,8 +321,8 @@ const Profile = () => {
                             }}
                         />
                         {streak >= 3 && (
-                            <div style={{ position: 'absolute', top: '-12px', right: '-12px', background: profile.themeColor, borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 20px ${profile.themeColor}`, animation: 'float 3s infinite' }}>
-                                <Flame size={18} color="white" />
+                            <div style={{ position: 'absolute', top: '-12px', right: '-12px', background: profile.themeColor, borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 20px ${profile.themeColor}`, animation: 'float 3s infinite', overflow: 'hidden' }}>
+                                <StreakIcon size={24} />
                             </div>
                         )}
                     </div>
@@ -301,7 +336,7 @@ const Profile = () => {
                 </div>
 
                 {/* Vertical Navigation Links */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div className="profile-nav" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {[
                         { id: 'dashboard', icon: Layout, label: 'Command Center' },
                         { id: 'history', icon: Calendar, label: 'Study History' },
@@ -337,7 +372,7 @@ const Profile = () => {
             </div>
 
             {/* --- MAIN CONTENT AREA --- */}
-            <div style={{ flex: 1 }}>
+            <div className="profile-main" style={{ flex: 1 }}>
                 
                 {message.text && (
                     <div style={{
@@ -353,7 +388,7 @@ const Profile = () => {
 
                 {/* Dashboard View */}
                 {activeTab === 'dashboard' && (
-                    <div data-section="profile-dashboard" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    <div className="profile-dashboard" data-section="profile-dashboard" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                         
                         {/* Hero XP Banner */}
                         <div className="glass" style={{ padding: '3rem', borderRadius: '40px', position: 'relative', overflow: 'hidden', border: `1px solid ${profile.themeColor}33` }}>
@@ -407,7 +442,7 @@ const Profile = () => {
                                     <BarChart3 size={20} style={{ color: profile.themeColor }} /> Focus Pulse
                                 </h3>
                                 <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center', marginBottom: '-2rem' }}>
-                                    <FocusPulseHeatmap data={heatmapData} streak={streak} />
+                                    <FocusPulseHeatmap data={effectiveHeatmapData} streak={streak} />
                                 </div>
                                 <div style={{ display: 'flex', gap: '1rem', marginTop: 'auto' }}>
                                     <div style={{ flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', textAlign: 'center' }}>
@@ -416,7 +451,7 @@ const Profile = () => {
                                     </div>
                                     <div style={{ flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', textAlign: 'center' }}>
                                         <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Best</p>
-                                        <p style={{ fontSize: '1.2rem', fontWeight: '900' }}>{stats.bestStreak}d</p>
+                                        <p style={{ fontSize: '1.2rem', fontWeight: '900' }}>{bestStreak}d</p>
                                     </div>
                                 </div>
                             </div>
@@ -427,12 +462,12 @@ const Profile = () => {
                                     <Clock size={24} style={{ color: profile.themeColor }} /> Recent Focus Sessions
                                 </h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    {heatmapData.slice().reverse().slice(0, 4).map((act, i) => (
+                                    {recentSessions.map((act, i) => (
                                         <div key={i} className="glass-hover" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderRadius: '20px', background: 'rgba(255,255,255,0.02)' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                                                 <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: act.seconds > 3600 ? '#22c55e' : profile.themeColor, boxShadow: `0 0 10px ${act.seconds > 3600 ? '#22c55e' : profile.themeColor}` }}></div>
                                                 <div>
-                                                    <p style={{ fontSize: '1rem', fontWeight: '800' }}>{new Date(act.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</p>
+                                                    <p style={{ fontSize: '1rem', fontWeight: '800' }}>{new Date(act.date || Date.now()).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</p>
                                                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Focus Block</p>
                                                 </div>
                                             </div>
@@ -512,7 +547,7 @@ const Profile = () => {
                                 { name: 'Pioneer', icon: '🚀', desc: 'Joined the Social Hub' },
                                 { name: 'Early Bird', icon: '🌅', desc: 'Study before 8 AM' },
                                 { name: 'Focus Master', icon: '🧠', desc: '2h Single Session' },
-                                { name: 'Streak King', icon: '🔥', desc: '7 Day Streak' },
+                                { name: 'Streak King', icon: <StreakIcon size={64} />, desc: '7 Day Streak' },
                                 { name: 'Playlist Pro', icon: '📚', desc: 'Finish 5 Playlists' },
                                 { name: 'Midnight Oil', icon: '🌙', desc: 'Study after 10 PM' },
                                 { name: 'Quick Learner', icon: '⚡', desc: '3 Videos in 1 Day' },
@@ -530,7 +565,9 @@ const Profile = () => {
                                         position: 'relative',
                                         animation: isUnlocked ? `pulseGlow 2.5s infinite ${i * 0.3}s` : 'none'
                                     }}>
-                                        <div style={{ fontSize: '4.5rem', marginBottom: '1.5rem', filter: isUnlocked ? 'none' : 'grayscale(1)' }}>{badge.icon}</div>
+                                        <div style={{ fontSize: '4.5rem', marginBottom: '1.5rem', filter: isUnlocked ? 'none' : 'grayscale(1)', display: 'flex', justifyContent: 'center' }}>
+                                            {typeof badge.icon === 'string' ? badge.icon : badge.icon}
+                                        </div>
                                         <h4 style={{ fontWeight: '900', fontSize: '1.1rem', marginBottom: '0.5rem', color: isUnlocked ? 'white' : 'var(--text-muted)' }}>{badge.name}</h4>
                                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>{badge.desc}</p>
                                         {isUnlocked && (
@@ -547,7 +584,7 @@ const Profile = () => {
 
                 {/* Settings View */}
                 {activeTab === 'settings' && (
-                    <div data-section="profile-settings" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
+                    <div data-section="profile-settings" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
                         <div className="glass" style={{ padding: '3rem', borderRadius: '35px' }}>
                             <h3 style={{ fontSize: '1.3rem', fontWeight: '900', marginBottom: '2.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}><User size={24} className="text-primary" /> Profile Identity</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>

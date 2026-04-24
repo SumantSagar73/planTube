@@ -2,12 +2,12 @@ import { Pin, PinOff, Library, Play, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ActiveLibrary = ({ playlists, handleTogglePin }) => (
-    <section>
+    <section className="dashboard-library-card">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem' }}>
             <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--bg-card)', border: '1px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Library size={18} color="var(--primary)" />
             </div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main)' }}>Active Library</h2>
+            <h2 className="dashboard-card-title" style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main)' }}>Active Library</h2>
         </div>
 
         {playlists.length === 0 ? (
@@ -30,9 +30,9 @@ const ActiveLibrary = ({ playlists, handleTogglePin }) => (
                 </Link>
             </div>
         ) : (
-            <div style={{
+            <div className="dashboard-library-grid" style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
                 gap: '1.5rem',
                 paddingBottom: '1.5rem',
             }}>

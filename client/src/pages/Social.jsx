@@ -76,9 +76,9 @@ const Social = () => {
     if (loading) return <LoadingScreen message="Connecting to the hub..." />;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1000px', margin: '0 auto', paddingBottom: '4rem' }}>
+        <div className="social-page" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1000px', margin: '0 auto', paddingBottom: '4rem' }}>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div className="social-hero" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <Users size={32} className="text-primary" />
                 <h1 style={{ fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-1.5px' }}>Social Hub</h1>
             </div>
@@ -94,17 +94,17 @@ const Social = () => {
                 </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem' }}>
+            <div className="social-main-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
                 
                 {/* Main Content */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <div className="social-primary" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     
                     {/* Search Section */}
                     <div className="glass" style={{ padding: '2rem', borderRadius: '24px' }}>
                         <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <Search size={20} className="text-primary" /> Find Learners
                         </h3>
-                        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '1rem', marginBottom: searchResults.length > 0 ? '2rem' : '0' }}>
+                        <form className="social-search-form" onSubmit={handleSearch} style={{ display: 'flex', gap: '1rem', marginBottom: searchResults.length > 0 ? '2rem' : '0' }}>
                             <input
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -120,7 +120,7 @@ const Social = () => {
                         {searchResults.length > 0 && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 {searchResults.map(user => (
-                                    <div key={user._id} className="glass" style={{ padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)' }}>
+                                    <div key={user._id} className="glass social-search-item" style={{ padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)' }}>
                                         <Link to={`/profile/${user.username}`} style={{ display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none', color: 'inherit' }}>
                                             <img 
                                                 src={`https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(user.username || user.name || user._id)}`} 
@@ -157,12 +157,12 @@ const Social = () => {
                                 <p>No friends yet. Start searching to build your circle!</p>
                             </div>
                         ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                            <div className="social-friends-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
                                 {friends.map(friend => (
                                     <Link 
                                         key={friend._id}
                                         to={`/profile/${friend.username}`}
-                                        className="glass"
+                                        className="glass social-friend-card"
                                         style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem', textDecoration: 'none', color: 'inherit', transition: 'transform 0.2s' }}
                                         onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
                                         onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -183,7 +183,7 @@ const Social = () => {
                 </div>
 
                 {/* Sidebar */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <div className="social-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     
                     {/* Requests Section */}
                     <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px', border: pendingRequests.length > 0 ? '1px solid var(--primary)' : '1px solid var(--glass-border)' }}>

@@ -258,7 +258,11 @@ exports.getAllPlaylists = async (req, res) => {
         const sort = parseSort(req.query, { createdAt: -1 });
         const q = (req.query.q || '').trim();
 
-        const filter = {};
+        const filter = {
+            // Standalone single-video imports are stored as pseudo playlists (VIDEO_<youtubeId>).
+            // Exclude them from the Playlists admin tab.
+            playlistId: { $not: /^VIDEO_/ }
+        };
         if (q) {
             filter.$or = [
                 { playlistTitle: { $regex: q, $options: 'i' } },
@@ -322,29 +326,70 @@ exports.getAllVideos = async (req, res) => {
         const q = (req.query.q || '').trim();
         const sort = parseSort(req.query, { lastSyncedAt: -1 });
 
-        const filter = {};
+        const queryPipeline = [
+            {
+                $lookup: {
+                    from: 'playlists',
+                    localField: 'playlistId',
+                    foreignField: '_id',
+                    as: 'playlist'
+                }
+            },
+            { $unwind: '$playlist' },
+            {
+                // Keep only standalone single-video pseudo playlists (VIDEO_<youtubeId>).
+                $match: {
+                    'playlist.playlistId': { $regex: /^VIDEO_/ }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'sharedvideos',
+                    localField: 'sharedVideoId',
+                    foreignField: '_id',
+                    as: 'sharedVideo'
+                }
+            },
+            { $unwind: '$sharedVideo' }
+        ];
+
         if (q) {
-            filter.$or = [
-                { title: { $regex: q, $options: 'i' } },
-                { youtubeId: { $regex: q, $options: 'i' } }
-            ];
+            queryPipeline.push({
+                $match: {
+                    $or: [
+                        { 'sharedVideo.title': { $regex: q, $options: 'i' } },
+                        { 'sharedVideo.youtubeId': { $regex: q, $options: 'i' } }
+                    ]
+                }
+            });
         }
 
-        const [videos, total] = await Promise.all([
-            SharedVideo.find(filter).sort(sort).skip(skip).limit(limit),
-            SharedVideo.countDocuments(filter)
+        const aggregation = await Video.aggregate([
+            ...queryPipeline,
+            {
+                // De-duplicate in case multiple rows point at the same shared video.
+                $group: {
+                    _id: '$sharedVideo._id',
+                    title: { $first: '$sharedVideo.title' },
+                    thumbnail: { $first: '$sharedVideo.thumbnail' },
+                    duration: { $first: '$sharedVideo.duration' },
+                    youtubeId: { $first: '$sharedVideo.youtubeId' },
+                    lastSyncedAt: { $first: '$sharedVideo.lastSyncedAt' },
+                    createdAt: { $first: '$sharedVideo.createdAt' },
+                    updatedAt: { $first: '$sharedVideo.updatedAt' }
+                }
+            },
+            { $sort: sort },
+            {
+                $facet: {
+                    items: [{ $skip: skip }, { $limit: limit }],
+                    total: [{ $count: 'count' }]
+                }
+            }
         ]);
 
-        const payload = videos.map((v) => ({
-            _id: v._id,
-            title: v.title,
-            thumbnail: v.thumbnail,
-            duration: v.duration,
-            youtubeId: v.youtubeId,
-            lastSyncedAt: v.lastSyncedAt,
-            createdAt: v.createdAt,
-            updatedAt: v.updatedAt
-        }));
+        const payload = aggregation[0]?.items || [];
+        const total = aggregation[0]?.total?.[0]?.count || 0;
 
         if (req.query.format === 'csv') {
             const rows = payload.map((v) => ({

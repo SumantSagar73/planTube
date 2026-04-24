@@ -258,7 +258,9 @@ const FocusMode = () => {
 
     const togglePlay = () => {
         if (!playerRef.current) return;
-        if (isPlaying) playerRef.current.pauseVideo();
+        const playerState = playerRef.current.getPlayerState?.();
+        const isActuallyPlaying = playerState === 1;
+        if (isActuallyPlaying) playerRef.current.pauseVideo();
         else playerRef.current.playVideo();
     };
 
@@ -301,9 +303,25 @@ const FocusMode = () => {
 
     const handleUpdateChapters = async (newChapters) => {
         try {
-            const res = await api.put(`/videos/${videoId}/chapters`, { chapters: newChapters });
+            const normalizedChapters = Array.isArray(newChapters)
+                ? newChapters
+                    .filter(c => c && c.title && c.timestamp)
+                    .map(c => ({
+                        title: String(c.title).trim(),
+                        timestamp: String(c.timestamp).trim(),
+                        seconds: Number.isFinite(c.seconds) ? Math.max(0, Math.floor(c.seconds)) : 0
+                    }))
+                : [];
+
+            const res = await api.put(`/videos/${videoId}/chapters`, { chapters: normalizedChapters });
             // Update local state and cache
-            const updatedVideo = { ...video, chapters: newChapters, sharedVideo: { ...video.sharedVideo, chapters: newChapters } };
+            const serverChapters = res?.data?.chapters || normalizedChapters;
+            const updatedVideo = {
+                ...video,
+                chapters: serverChapters,
+                sharedVideo: { ...(video.sharedVideo || {}), chapters: serverChapters },
+                sharedVideoId: { ...(video.sharedVideoId || {}), chapters: serverChapters }
+            };
             setVideo(updatedVideo);
             
             const pId = urlPlaylistId || sessionPlaylistId || video.playlistId;
@@ -377,9 +395,9 @@ const FocusMode = () => {
         const currentIndex = allVideos.findIndex(v => v._id === videoId || v.videoId === videoId);
         if (currentIndex < allVideos.length - 1 && currentIndex !== -1) {
             const nextVideo = allVideos[currentIndex + 1];
-            const pId = playlist?._id || urlPlaylistId || sessionPlaylistId;
+            const pId = urlPlaylistId || sessionPlaylistId || playlist?._id || video?.playlistId;
             const query = pId ? `?playlistId=${pId}` : '';
-            navigate(`/focus/${nextVideo.videoId || nextVideo._id}${query}`);
+            navigate(`/focus/${nextVideo._id || nextVideo.videoId}${query}`);
         }
     };
 
@@ -387,9 +405,9 @@ const FocusMode = () => {
         const currentIndex = allVideos.findIndex(v => (v._id === videoId || v.videoId === videoId));
         if (currentIndex > 0 && currentIndex !== -1) {
             const prevVideo = allVideos[currentIndex - 1];
-            const pId = playlist?._id || urlPlaylistId || sessionPlaylistId;
+            const pId = urlPlaylistId || sessionPlaylistId || playlist?._id || video?.playlistId;
             const query = pId ? `?playlistId=${pId}` : '';
-            navigate(`/focus/${prevVideo.videoId || prevVideo._id}${query}`);
+            navigate(`/focus/${prevVideo._id || prevVideo.videoId}${query}`);
         }
     };
 
@@ -667,8 +685,16 @@ const FocusMode = () => {
     // Keyboard Shortcuts
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            const tagName = e.target?.tagName;
+            const isTypingTarget =
+                tagName === 'INPUT' ||
+                tagName === 'TEXTAREA' ||
+                tagName === 'SELECT' ||
+                e.target?.isContentEditable;
+            if (isTypingTarget) return;
+
             const key = e.key.toLowerCase();
+            const isSpace = e.code === 'Space' || key === ' ';
             if (key === 'f') { handleToggleFullscreen(); e.preventDefault(); }
             if (key === 'm') { toggleMute(); e.preventDefault(); }
             if (key === 'c') { handleToggleComplete(); e.preventDefault(); }
@@ -676,7 +702,7 @@ const FocusMode = () => {
             if (key === 'p' && !e.shiftKey) { setMiniPlayer(prev => !prev); e.preventDefault(); }
             if (key === '/' || key === '?') { setShowShortcutsHelp(prev => !prev); e.preventDefault(); }
             if (key === 'escape') { setShowShortcutsHelp(false); setMiniPlayer(false); }
-            if (key === ' ' || key === 'k') { togglePlay(); e.preventDefault(); }
+            if (isSpace || key === 'k') { togglePlay(); e.preventDefault(); }
             if (key === 'j') { handleSeek(Math.max(0, currentTime - 10)); e.preventDefault(); }
             if (key === 'l') { handleSeek(Math.min(duration, currentTime + 10)); e.preventDefault(); }
             if (key === 'arrowleft') { handleSeek(Math.max(0, currentTime - 5)); e.preventDefault(); }
@@ -690,7 +716,17 @@ const FocusMode = () => {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [currentTime, duration, miniPlayer, showShortcutsHelp]);
+    }, [
+        currentTime,
+        duration,
+        miniPlayer,
+        showShortcutsHelp,
+        togglePlay,
+        handleToggleComplete,
+        handleNextVideo,
+        handlePrevVideo,
+        handleToggleFullscreen
+    ]);
 
     // Pomodoro Timer Effect
     useEffect(() => {
@@ -802,18 +838,18 @@ const FocusMode = () => {
         <div
             ref={containerRef}
             style={{
-                height: '100vh',
+                height: '100dvh',
                 width: '100vw',
                 background: 'black',
                 display: 'flex',
                 overflow: 'hidden',
-                cursor: (showControls && !uiHidden) ? 'default' : 'none',
+                cursor: isMobile ? 'default' : ((showControls && !uiHidden) ? 'default' : 'none'),
                 '--primary': accentColor // Dynamic backup
             }}
             onMouseMove={handleMouseMove}
             onMouseLeave={() => isPlaying && setIsHovering(false)}
         >
-            <div data-section="focus-rail">
+            {!isMobile && <div data-section="focus-rail">
                 <FocusLeftRail 
                     isMonkMode={isMonkMode}
                     setIsMonkMode={setIsMonkMode}
@@ -824,7 +860,7 @@ const FocusMode = () => {
                     glassBlur={glassBlur}
                     accentColor={accentColor}
                 />
-            </div>
+            </div>}
 
             {/* Monk Mode Vignette */}
             {isMonkMode && (
@@ -852,6 +888,7 @@ const FocusMode = () => {
                     <FocusPlayerSlot
                         mainSlotRef={mainSlotRef}
                         video={video}
+                        isMobile={isMobile}
                         playerOptions={playerOptions}
                         handlePlayerStateChange={handlePlayerStateChange}
                         handlePlayerReady={handlePlayerReady}

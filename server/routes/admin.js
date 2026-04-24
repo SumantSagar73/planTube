@@ -3,6 +3,7 @@ const router = express.Router();
 const { auth } = require('../middleware/auth');
 const admin = require('../middleware/admin');
 const adminController = require('../controllers/adminController');
+const notificationController = require('../controllers/notificationController');
 
 // All routes here are protected by both auth and admin middleware
 router.use(auth, admin);
@@ -48,5 +49,8 @@ router.post('/impersonation/start', adminController.logImpersonationStart);
 
 // @route   POST api/admin/impersonation/end
 router.post('/impersonation/end', adminController.logImpersonationEnd);
+
+// @route   POST api/admin/notifications/broadcast
+router.post('/notifications/broadcast', notificationController.createAdminBroadcast);
 
 module.exports = router;

@@ -82,13 +82,13 @@ const Groups = () => {
     }
 
     return (
-        <div style={{ padding: '2rem 3vw', maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+        <div className="groups-page" style={{ padding: '2rem 3vw', maxWidth: '1200px', margin: '0 auto' }}>
+            <div className="groups-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
                 <div>
                     <h1 style={{ fontSize: '2.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>Groups</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Learn together, track progress, and stay motivated with your study groups.</p>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
+                <div className="groups-header-actions" style={{ display: 'flex', gap: '1rem' }}>
                     <button
                         onClick={() => setShowJoinModal(true)}
                         className="btn-secondary"
@@ -111,7 +111,7 @@ const Groups = () => {
             </div>
 
             {groups.length === 0 ? (
-                <div className="glass" style={{ padding: '4rem', textAlign: 'center', borderRadius: '32px' }}>
+                <div className="glass groups-empty" style={{ padding: '4rem', textAlign: 'center', borderRadius: '32px' }}>
                     <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
                         <Users size={40} color="var(--primary)" />
                     </div>
@@ -119,7 +119,7 @@ const Groups = () => {
                     <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', maxWidth: '400px', margin: '0 auto 2rem' }}>
                         Create a group to study with friends, share playlists, and track each other's progress.
                     </p>
-                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                    <div className="groups-empty-actions" style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                         <button
                             onClick={() => setShowJoinModal(true)}
                             className="btn-secondary"
@@ -139,7 +139,7 @@ const Groups = () => {
                     </div>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
+                <div className="groups-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1.5rem' }}>
                     {groups.map((group) => (
                         <div
                             key={group._id}
@@ -220,7 +220,7 @@ const Groups = () => {
                     onClick={() => setShowJoinModal(false)}
                 >
                     <div
-                        className="glass"
+                        className="glass groups-modal-panel"
                         style={{ width: '450px', padding: '2.5rem', borderRadius: '32px' }}
                         onClick={e => e.stopPropagation()}
                     >
@@ -271,7 +271,7 @@ const Groups = () => {
                         onClick={() => setShowCreateModal(false)}
                     >
                         <div
-                            className="glass"
+                            className="glass groups-modal-panel"
                             style={{ width: '500px', padding: '2.5rem', borderRadius: '32px', position: 'relative' }}
                             onClick={e => e.stopPropagation()}
                         >
