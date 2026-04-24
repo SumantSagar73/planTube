@@ -87,7 +87,7 @@ const resolveAudienceForPublicAchievement = async (userId) => {
 
 exports.getMyNotifications = async (req, res) => {
     try {
-        const { page = 1, limit = 20, category = '', unreadOnly = 'false' } = req.query;
+        const { page = 1, limit = 20, category = '', unreadOnly = 'false', includeArchived = 'false', archivedOnly = 'false' } = req.query;
         const numericPage = Math.max(parseInt(page, 10) || 1, 1);
         const numericLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
         const skip = (numericPage - 1) * numericLimit;
@@ -95,11 +95,16 @@ exports.getMyNotifications = async (req, res) => {
         const filter = { recipientId: req.user.id };
         if (category) filter.category = category;
         if (unreadOnly === 'true') filter.isRead = false;
+        if (archivedOnly === 'true') {
+            filter.archivedAt = { $ne: null };
+        } else if (includeArchived !== 'true') {
+            filter.archivedAt = null;
+        }
 
         const [items, total, unreadCount] = await Promise.all([
             Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(numericLimit),
             Notification.countDocuments(filter),
-            Notification.countDocuments({ recipientId: req.user.id, isRead: false })
+            Notification.countDocuments({ recipientId: req.user.id, isRead: false, archivedAt: null })
         ]);
 
         res.json({
@@ -161,7 +166,7 @@ exports.archiveNotification = async (req, res) => {
     try {
         const notification = await Notification.findOneAndUpdate(
             { _id: req.params.id, recipientId: req.user.id },
-            { $set: { archivedAt: new Date() } },
+            { $set: { archivedAt: new Date(), isRead: true, readAt: new Date() } },
             { new: true }
         );
 
@@ -169,6 +174,21 @@ exports.archiveNotification = async (req, res) => {
         res.json(buildNotificationPayload(notification));
     } catch (err) {
         console.error('ArchiveNotification Error:', err);
+        res.status(500).json({ msg: 'Server Error' });
+    }
+};
+
+exports.deleteNotification = async (req, res) => {
+    try {
+        const notification = await Notification.findOneAndDelete({
+            _id: req.params.id,
+            recipientId: req.user.id
+        });
+
+        if (!notification) return res.status(404).json({ msg: 'Notification not found' });
+        res.json({ msg: 'Notification deleted' });
+    } catch (err) {
+        console.error('DeleteNotification Error:', err);
         res.status(500).json({ msg: 'Server Error' });
     }
 };
@@ -300,4 +320,61 @@ exports.createSocialNotification = async ({ req, recipientId, actorId, title, me
         metadata,
         dedupeKey
     });
+};
+
+exports.getAdminNotificationHistory = async (req, res) => {
+    try {
+        const { page = 1, limit = 20, q = '' } = req.query;
+        const numericPage = Math.max(parseInt(page, 10) || 1, 1);
+        const numericLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+        const skip = (numericPage - 1) * numericLimit;
+
+        const filter = { type: 'admin_broadcast', adminId: { $ne: null } };
+        if (q) {
+            filter.$or = [
+                { title: { $regex: q, $options: 'i' } },
+                { message: { $regex: q, $options: 'i' } }
+            ];
+        }
+
+        const [items, total] = await Promise.all([
+            Notification.find(filter)
+                .populate('recipientId', 'name username email')
+                .populate('adminId', 'name email')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(numericLimit),
+            Notification.countDocuments(filter)
+        ]);
+
+        res.json({
+            items: items.map((item) => ({
+                ...buildNotificationPayload(item),
+                recipient: item.recipientId
+                    ? {
+                        _id: item.recipientId._id,
+                        name: item.recipientId.name,
+                        username: item.recipientId.username,
+                        email: item.recipientId.email
+                    }
+                    : null,
+                admin: item.adminId
+                    ? {
+                        _id: item.adminId._id,
+                        name: item.adminId.name,
+                        email: item.adminId.email
+                    }
+                    : null
+            })),
+            pagination: {
+                page: numericPage,
+                limit: numericLimit,
+                total,
+                totalPages: Math.max(Math.ceil(total / numericLimit), 1)
+            }
+        });
+    } catch (err) {
+        console.error('GetAdminNotificationHistory Error:', err);
+        res.status(500).json({ msg: 'Server Error' });
+    }
 };

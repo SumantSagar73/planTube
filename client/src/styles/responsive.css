@@ -278,9 +278,19 @@
     padding: 0.65rem 0.9rem !important;
   }
 
+  .groups-title {
+    font-size: 1.9rem !important;
+    line-height: 1.1;
+  }
+
   .groups-grid {
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
     gap: 1rem !important;
+  }
+
+  .group-card {
+    padding: 1.25rem !important;
+    border-radius: 20px !important;
   }
 
   .groups-empty {
@@ -309,13 +319,17 @@
 
   .group-summary-head {
     gap: 0.9rem !important;
-    flex-direction: column !important;
+    flex-wrap: wrap !important;
   }
 
   .group-summary-actions {
     width: 100%;
     justify-content: flex-end;
     flex-wrap: wrap;
+  }
+
+  .groups-modal-panel {
+    width: min(94vw, 460px) !important;
   }
 
   .group-summary-stats {
@@ -373,12 +387,12 @@
 
   .group-shared-item {
     gap: 0.85rem !important;
-    align-items: flex-start !important;
-    flex-direction: column !important;
+    align-items: center !important;
+    flex-direction: row !important;
   }
 
   .group-shared-actions {
-    width: 100%;
+    width: auto;
     flex-wrap: wrap;
   }
 
@@ -395,6 +409,171 @@
   .group-progress-table-wrap table {
     min-width: 700px;
   }
+
+  /* Individual Playlist Page */
+  .playlist-details-page {
+    height: auto !important;
+    min-height: calc(100vh - 5rem);
+    overflow: visible !important;
+  }
+
+  .playlist-hero {
+    height: 220px !important;
+  }
+
+  .playlist-toolbar {
+    padding: 0.7rem 1rem !important;
+    gap: 0.75rem !important;
+    flex-wrap: wrap;
+  }
+
+  .playlist-toolbar select {
+    width: 100% !important;
+    max-width: 220px;
+  }
+
+  .playlist-main-grid {
+    grid-template-columns: 1fr !important;
+    overflow: visible !important;
+    align-content: start;
+  }
+
+  .playlist-content {
+    padding: 1rem !important;
+    overflow: visible !important;
+  }
+
+  .playlist-hero-full,
+  .playlist-hero-compact {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    gap: 1rem !important;
+  }
+
+  .playlist-hero-full img {
+    width: 220px !important;
+  }
+
+  .playlist-hero-stats {
+    gap: 1rem !important;
+    flex-wrap: wrap !important;
+  }
+
+  .playlist-video-card {
+    padding: 0.9rem !important;
+    gap: 1rem !important;
+  }
+
+  .playlist-video-card img {
+    width: 104px !important;
+    height: 60px !important;
+  }
+
+  .playlist-video-card h3 {
+    font-size: 1rem !important;
+    line-height: 1.25;
+  }
+
+  .playlist-video-actions {
+    gap: 0.6rem !important;
+  }
+
+  .playlist-calendar-panel,
+  .playlist-agenda-panel {
+    padding: 1rem !important;
+    border-radius: 20px !important;
+  }
+
+  .playlist-calendar-header,
+  .playlist-agenda-header {
+    margin-bottom: 1rem !important;
+  }
+
+  .playlist-calendar-weekdays,
+  .playlist-calendar-grid {
+    gap: 0.3rem !important;
+  }
+
+  .playlist-calendar-grid button {
+    border-radius: 8px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .playlist-agenda-list {
+    gap: 0.75rem !important;
+  }
+
+  .playlist-sidebar {
+    border-left: none !important;
+    border-top: 1px solid rgba(255,255,255,0.05) !important;
+    padding: 1rem !important;
+    overflow: visible !important;
+    margin-top: 0.4rem;
+  }
+
+  /* Individual Group Page */
+  .group-main-grid {
+    grid-template-columns: 1fr 320px !important;
+    gap: 1.25rem !important;
+  }
+
+  .group-main-column {
+    gap: 1.25rem !important;
+  }
+
+  .group-summary-card {
+    padding: 1.5rem !important;
+  }
+
+  .group-members-card {
+    padding: 1.1rem !important;
+  }
+
+  .group-members-header {
+    margin-bottom: 0.9rem !important;
+  }
+
+  .group-invite-btn {
+    padding: 0.35rem 0.5rem !important;
+  }
+
+  .group-join-code-card {
+    padding: 0.7rem !important;
+    margin-bottom: 0.85rem !important;
+  }
+
+  .group-join-code-row {
+    padding: 0.4rem 0.65rem !important;
+  }
+
+  .group-join-code-row code {
+    font-size: 0.95rem !important;
+    letter-spacing: 1.25px !important;
+  }
+
+  .group-member-list {
+    gap: 0.75rem !important;
+  }
+
+  .group-member-row {
+    gap: 0.5rem !important;
+  }
+
+  .group-shared-item {
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  .group-shared-item > div:first-child {
+    width: 140px !important;
+    height: 80px !important;
+    flex-shrink: 0;
+  }
+
+  .group-details-sidebar {
+    position: sticky !important;
+    top: 1.25rem !important;
+  }
 }
 
 @media (max-width: 900px) {
@@ -408,6 +587,72 @@
 
   .social-main-grid {
     grid-template-columns: 1fr !important;
+  }
+
+  .group-main-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .group-details-sidebar {
+    position: static !important;
+    top: auto !important;
+  }
+
+  .playlist-hero {
+    height: 200px !important;
+  }
+
+  .playlist-details-page {
+    display: block !important;
+    height: auto !important;
+    min-height: calc(100vh - 5rem) !important;
+    overflow: visible !important;
+  }
+
+  .playlist-main-grid {
+    display: block !important;
+    height: auto !important;
+    flex: 0 0 auto !important;
+    overflow: visible !important;
+  }
+
+  .playlist-content {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .playlist-sidebar {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    z-index: 0 !important;
+  }
+
+  .playlist-toolbar {
+    padding: 0.7rem 0.85rem !important;
+  }
+
+  .group-members-card {
+    padding: 1rem !important;
+  }
+
+  .group-join-code-card {
+    padding: 0.65rem !important;
+  }
+
+  .group-join-code-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .group-join-code-row code {
+    word-break: break-word;
+  }
+
+  .group-copy-code-btn {
+    align-self: flex-end;
   }
 }
 
@@ -431,6 +676,185 @@
   .dashboard-content-grid {
     grid-template-columns: 1fr !important;
     gap: 1.35rem !important;
+  }
+
+  .playlist-details-page {
+    min-height: calc(100vh - 5rem);
+    overflow: visible !important;
+  }
+
+  .playlist-main-grid {
+    display: block !important;
+    height: auto !important;
+    flex: 0 0 auto !important;
+    overflow: visible !important;
+  }
+
+  .playlist-hero {
+    height: 180px !important;
+  }
+
+  .playlist-toolbar {
+    padding: 0.6rem 0.75rem !important;
+  }
+
+  .playlist-toolbar > div:first-child {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .playlist-content {
+    padding: 0.85rem !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  .playlist-sidebar {
+    padding: 0.85rem !important;
+    overflow: visible !important;
+    margin-top: 0.5rem;
+    height: auto !important;
+    max-height: none !important;
+    position: static !important;
+    z-index: 0 !important;
+  }
+
+  .playlist-toolbar {
+    gap: 0.65rem !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .playlist-toolbar > div:first-child {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.65rem !important;
+  }
+
+  .playlist-toolbar > div:first-child > div {
+    width: 100%;
+  }
+
+  .playlist-toolbar select {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .playlist-hero {
+    height: 160px !important;
+  }
+
+  .playlist-hero-full,
+  .playlist-hero-compact {
+    padding-left: 0.8rem !important;
+    padding-right: 0.8rem !important;
+  }
+
+  .playlist-hero-full {
+    gap: 1rem !important;
+  }
+
+  .playlist-hero-full img {
+    display: none !important;
+  }
+
+  .playlist-hero-stats {
+    gap: 0.65rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .playlist-hero-stats > div,
+  .playlist-hero-stats span {
+    font-size: 0.82rem !important;
+  }
+
+  .playlist-content {
+    padding: 0.75rem !important;
+    gap: 0.85rem !important;
+  }
+
+  .playlist-video-card {
+    padding: 0.75rem !important;
+    border-radius: 14px !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .playlist-video-link {
+    gap: 0.75rem !important;
+    align-items: flex-start !important;
+  }
+
+  .playlist-video-card img {
+    width: 88px !important;
+    height: 50px !important;
+  }
+
+  .playlist-video-card h3 {
+    font-size: 0.92rem !important;
+  }
+
+  .playlist-video-card > div:last-child {
+    gap: 0.5rem !important;
+    align-self: flex-end;
+  }
+
+  .playlist-video-actions {
+    flex-wrap: wrap !important;
+    justify-content: flex-end;
+    gap: 0.45rem !important;
+  }
+
+  .playlist-video-actions .btn-secondary {
+    padding: 0.45rem 0.75rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  .playlist-video-actions button[title] {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .playlist-calendar-panel,
+  .playlist-agenda-panel {
+    padding: 0.85rem !important;
+    border-radius: 18px !important;
+  }
+
+  .playlist-calendar-header,
+  .playlist-agenda-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.65rem !important;
+  }
+
+  .playlist-calendar-header > div:last-child {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .playlist-calendar-weekdays,
+  .playlist-calendar-grid {
+    gap: 0.25rem !important;
+  }
+
+  .playlist-calendar-grid button {
+    font-size: 0.7rem !important;
+  }
+
+  .playlist-agenda-list > div {
+    padding: 0.7rem !important;
+    border-radius: 14px !important;
+  }
+
+  .playlist-agenda-list p {
+    font-size: 0.82rem !important;
+  }
+
+  .playlist-agenda-list span {
+    font-size: 0.68rem !important;
   }
 
   .stats-grid-responsive {
@@ -529,7 +953,69 @@
   }
 
   .groups-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .group-main-grid {
+    gap: 1rem !important;
+  }
+
+  .group-summary-head {
+    align-items: flex-start !important;
+  }
+
+  .group-summary-actions {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+
+  .group-shared-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .group-shared-item > div:first-child {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+  }
+
+  .group-shared-actions {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem !important;
+  }
+
+  .group-members-card {
+    padding: 0.85rem !important;
+  }
+
+  .group-members-header {
+    margin-bottom: 0.75rem !important;
+  }
+
+  .group-join-code-card {
+    padding: 0.6rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .group-join-code-row {
+    padding: 0.45rem 0.6rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .group-join-code-row code {
+    font-size: 0.9rem !important;
+    letter-spacing: 1px !important;
+  }
+
+  .group-member-row {
+    align-items: flex-start !important;
+  }
+
+  .group-member-copy p:first-child {
+    white-space: normal !important;
   }
 
   .group-summary-card h1 {
@@ -543,7 +1029,7 @@
 
   .group-shared-actions .btn-secondary,
   .group-shared-actions .btn-primary {
-    flex: 1;
+    flex: 0 0 auto;
     justify-content: center;
     min-width: 0;
   }
@@ -717,6 +1203,66 @@
     padding: 0.95rem 0.1rem 3rem !important;
   }
 
+  .groups-header {
+    margin-bottom: 1.1rem !important;
+  }
+
+  .groups-title {
+    font-size: 1.7rem !important;
+  }
+
+  .groups-header-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .groups-header-actions .btn-secondary,
+  .groups-header-actions .btn-primary {
+    width: 100%;
+  }
+
+  .groups-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.9rem !important;
+  }
+
+  .group-card {
+    padding: 1rem !important;
+    gap: 0.85rem !important;
+    border-radius: 18px !important;
+  }
+
+  .group-card > div:first-child {
+    gap: 0.75rem !important;
+  }
+
+  .group-card h3 {
+    font-size: 1.05rem !important;
+    line-height: 1.2;
+  }
+
+  .group-card p {
+    font-size: 0.85rem !important;
+  }
+
+  .groups-empty {
+    padding: 1.5rem 1rem !important;
+    border-radius: 18px !important;
+  }
+
+  .groups-empty h2 {
+    font-size: 1.25rem !important;
+  }
+
+  .groups-empty-actions .btn-secondary,
+  .groups-empty-actions .btn-primary {
+    width: 100%;
+  }
+
+  .groups-modal-panel {
+    width: min(96vw, 420px) !important;
+    padding: 1.25rem !important;
+  }
+
   .group-back-btn {
     margin-bottom: 1rem !important;
   }
@@ -734,12 +1280,15 @@
 
   .group-shared-item {
     padding: 0.85rem !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
   }
 
   .group-shared-actions {
     display: grid !important;
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem !important;
+    width: 100% !important;
   }
 
   .group-shared-actions a,

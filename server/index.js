@@ -73,6 +73,7 @@ app.use('/api/presence', require('./routes/presence'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/social', require('./routes/socialRoutes'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/feedback', require('./routes/feedback'));
 
 
 const server = require('http').createServer(app);

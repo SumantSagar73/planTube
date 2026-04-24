@@ -254,9 +254,9 @@ const GroupDetails = () => {
                 <span>Back to Groups</span>
             </button>
 
-            <div className="group-main-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', alignItems: 'start' }}>
+            <div className="group-main-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 290px)', gap: '2rem', alignItems: 'start' }}>
                 {/* Main Content */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <div className="group-main-column" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     <div className="glass group-summary-card" style={{ padding: '2.5rem', borderRadius: '32px' }}>
                         <div className="group-summary-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
                             <div>
@@ -312,7 +312,7 @@ const GroupDetails = () => {
                         </div>
                     </div>
 
-                    <div>
+                    <div className="group-shared-section">
                         <div className="group-shared-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                             <h2 style={{ fontSize: '1.5rem', fontWeight: '800' }}>Shared Content</h2>
                             {!isGuestView && (
@@ -420,12 +420,12 @@ const GroupDetails = () => {
                 </div>
 
                 {/* Sidebar: Members */}
-                <div className="group-details-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '2rem' }}>
-                    <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div className="group-details-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '2rem', width: '100%', maxWidth: '290px', justifySelf: 'end', alignSelf: 'start' }}>
+                    <div className="glass group-members-card" style={{ padding: '1.5rem', borderRadius: '24px' }}>
+                        <div className="group-members-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                             <h2 style={{ fontSize: '1.2rem', fontWeight: '800' }}>Members</h2>
                             {!isGuestView && (
-                                <button onClick={() => setShowAddMember(true)} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <button onClick={() => setShowAddMember(true)} className="group-invite-btn" style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                     <span style={{ fontSize: '0.8rem', fontWeight: '700' }}>Invite</span>
                                     <UserPlus size={20} />
                                 </button>
@@ -434,24 +434,25 @@ const GroupDetails = () => {
 
                         {/* Join Code Section */}
                         {group.joinCode && !isGuestView && (
-                            <div style={{
+                            <div className="group-join-code-card" style={{
                                 background: 'rgba(99, 102, 241, 0.1)',
                                 border: '1px solid rgba(99, 102, 241, 0.2)',
                                 borderRadius: '16px',
-                                padding: '1rem',
-                                marginBottom: '1.5rem',
+                                padding: '0.85rem',
+                                marginBottom: '1rem',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                gap: '0.5rem'
+                                gap: '0.45rem'
                             }}>
                                 <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Group Code</span>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '0.5rem 0.8rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                                <div className="group-join-code-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '0.45rem 0.75rem', borderRadius: '10px', border: '1px solid var(--glass-border)', gap: '0.75rem' }}>
                                     <code style={{ fontSize: '1.1rem', fontWeight: '900', color: 'white', letterSpacing: '2px' }}>{group.joinCode}</code>
                                     <button
                                         onClick={() => {
                                             navigator.clipboard.writeText(group.joinCode);
                                             showAlert('Copied', 'Code copied to clipboard!', true);
                                         }}
+                                        className="group-copy-code-btn"
                                         style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '800' }}
                                     >
                                         COPY
@@ -460,16 +461,16 @@ const GroupDetails = () => {
                                 <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>Friends can join using this code from the Groups dashboard.</p>
                             </div>
                         )}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="group-member-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {group.members.map((member) => (
-                                <div key={member._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                                <div key={member._id} className="group-member-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                                        <div className="group-member-badge" style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 'bold', flexShrink: 0 }}>
                                             {member.name[0].toUpperCase()}
                                         </div>
-                                        <div>
-                                            <p style={{ fontSize: '0.9rem', fontWeight: '600' }}>{member.name}</p>
-                                            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{member._id === group.ownerId._id ? 'Owner' : 'Member'}</p>
+                                        <div className="group-member-copy" style={{ minWidth: 0 }}>
+                                            <p style={{ fontSize: '0.9rem', fontWeight: '600', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.name}</p>
+                                            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>{member._id === group.ownerId._id ? 'Owner' : 'Member'}</p>
                                         </div>
                                     </div>
                                     {isOwner && getUserId(member) !== getUserId(group.ownerId) && (

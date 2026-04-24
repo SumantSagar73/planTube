@@ -1,8 +1,8 @@
 import { Clock, CheckCircle } from 'lucide-react';
 
 const AgendaPanel = ({ plannedToday, activeDate, formatDate, message }) => (
-    <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+    <div className="glass playlist-agenda-panel" style={{ padding: '1.5rem', borderRadius: '24px' }}>
+        <div className="playlist-agenda-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <Clock size={18} style={{ color: 'var(--primary)' }} /> Agenda
             </h3>
@@ -10,7 +10,7 @@ const AgendaPanel = ({ plannedToday, activeDate, formatDate, message }) => (
                 {formatDate(activeDate)}
             </span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="playlist-agenda-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {plannedToday.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '2rem 1rem', opacity: 0.5 }}>
                     <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🍃</div>

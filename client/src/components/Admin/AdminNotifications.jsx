@@ -15,6 +15,28 @@ const AdminNotifications = ({ notify }) => {
     const [selectedUserId, setSelectedUserId] = useState('');
     const [selectedUserIds, setSelectedUserIds] = useState([]);
     const [sending, setSending] = useState(false);
+    const [historyItems, setHistoryItems] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyPagination, setHistoryPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
+
+    const loadHistory = async () => {
+        setHistoryLoading(true);
+        try {
+            const res = await notificationService.getAdminHistory({ page: historyPage, limit: 20 });
+            setHistoryItems(res.items || []);
+            setHistoryPagination(res.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 });
+        } catch (err) {
+            console.error('History load failed:', err);
+            notify?.(err?.response?.data?.msg || 'Could not load notification history', 'error');
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadHistory();
+    }, [historyPage]);
 
     useEffect(() => {
         if (audience === 'all') return;
@@ -86,6 +108,8 @@ const AdminNotifications = ({ notify }) => {
             setRecipientResults([]);
             setSelectedUserId('');
             setSelectedUserIds([]);
+            setHistoryPage(1);
+            loadHistory();
         } catch (err) {
             notify?.(err?.response?.data?.msg || 'Failed to send broadcast', 'error');
         } finally {
@@ -289,6 +313,73 @@ const AdminNotifications = ({ notify }) => {
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}><Star size={14} /> Stored in inbox</span>
                 </div>
             </form>
+
+            <div className="glass" style={{ padding: '1.25rem', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <div>
+                        <h3 style={{ fontSize: '1.2rem', fontWeight: '900' }}>Delivery History</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                            Track which notification was sent to which user.
+                        </p>
+                    </div>
+                    <button type="button" className="btn-secondary" onClick={loadHistory} disabled={historyLoading}>
+                        Refresh
+                    </button>
+                </div>
+
+                {historyLoading && historyItems.length === 0 ? (
+                    <div style={{ color: 'var(--text-muted)', padding: '0.5rem 0' }}>Loading history...</div>
+                ) : historyItems.length === 0 ? (
+                    <div style={{ color: 'var(--text-muted)', padding: '0.5rem 0' }}>No broadcast history yet.</div>
+                ) : (
+                    <div style={{ display: 'grid', gap: '0.6rem' }}>
+                        {historyItems.map((item) => (
+                            <div key={item._id} style={{ border: '1px solid var(--glass-border)', borderRadius: '14px', padding: '0.75rem 0.85rem', background: 'rgba(255,255,255,0.02)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontWeight: 800 }}>{item.title}</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.84rem', marginTop: '0.15rem' }}>{item.message}</div>
+                                    </div>
+                                    <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.45rem', borderRadius: '999px', border: '1px solid rgba(99,102,241,0.4)', color: '#a5b4fc' }}>
+                                        {item.priority}
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.45rem', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                                    <span>To: {item.recipient?.name || 'Unknown'} ({item.recipient?.email || 'No email'})</span>
+                                    <span>•</span>
+                                    <span>By: {item.admin?.name || 'Admin'}</span>
+                                    <span>•</span>
+                                    <span>{new Date(item.createdAt).toLocaleString()}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                        Page {historyPagination.page} of {historyPagination.totalPages}
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.45rem' }}>
+                        <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={historyPage <= 1}
+                            onClick={() => setHistoryPage((p) => Math.max(p - 1, 1))}
+                        >
+                            Previous
+                        </button>
+                        <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={historyPage >= historyPagination.totalPages}
+                            onClick={() => setHistoryPage((p) => Math.min(p + 1, historyPagination.totalPages))}
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

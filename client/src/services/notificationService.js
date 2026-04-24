@@ -32,8 +32,16 @@ const notificationService = {
         const res = await api.put(`/notifications/${id}/archive`);
         return res.data;
     },
+    deleteNotification: async (id) => {
+        const res = await api.delete(`/notifications/${id}`);
+        return res.data;
+    },
     broadcastAdmin: async (payload) => {
         const res = await api.post('/admin/notifications/broadcast', payload);
+        return res.data;
+    },
+    getAdminHistory: async (params = {}) => {
+        const res = await api.get(`/admin/notifications/history${buildQuery(params)}`);
         return res.data;
     }
 };

@@ -4,6 +4,7 @@ const { auth } = require('../middleware/auth');
 const admin = require('../middleware/admin');
 const adminController = require('../controllers/adminController');
 const notificationController = require('../controllers/notificationController');
+const feedbackController = require('../controllers/feedbackController');
 
 // All routes here are protected by both auth and admin middleware
 router.use(auth, admin);
@@ -52,5 +53,14 @@ router.post('/impersonation/end', adminController.logImpersonationEnd);
 
 // @route   POST api/admin/notifications/broadcast
 router.post('/notifications/broadcast', notificationController.createAdminBroadcast);
+
+// @route   GET api/admin/notifications/history
+router.get('/notifications/history', notificationController.getAdminNotificationHistory);
+
+// @route   GET api/admin/feedback
+router.get('/feedback', feedbackController.getAdminFeedback);
+
+// @route   PUT api/admin/feedback/:id
+router.put('/feedback/:id', feedbackController.updateAdminFeedback);
 
 module.exports = router;

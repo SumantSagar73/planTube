@@ -21,6 +21,7 @@ import PublicProfile from './pages/PublicProfile';
 import Navbar from './components/Shared/Navbar';
 import HelperBot from './components/Shared/HelperBot';
 import NotificationCenter from './pages/NotificationCenter';
+import Feedback from './pages/Feedback';
 
 import LoadingScreen from './components/Shared/LoadingScreen';
 import ShadowBanner from './components/Admin/ShadowBanner';
@@ -102,6 +103,14 @@ const AppRoutes = () => {
                                             element={
                                                 <ProtectedRoute>
                                                     <NotificationCenter />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/feedback"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <Feedback />
                                                 </ProtectedRoute>
                                             }
                                         />

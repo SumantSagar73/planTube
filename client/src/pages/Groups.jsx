@@ -85,7 +85,7 @@ const Groups = () => {
         <div className="groups-page" style={{ padding: '2rem 3vw', maxWidth: '1200px', margin: '0 auto' }}>
             <div className="groups-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
                 <div>
-                    <h1 style={{ fontSize: '2.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>Groups</h1>
+                    <h1 className="groups-title" style={{ fontSize: '2.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>Groups</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Learn together, track progress, and stay motivated with your study groups.</p>
                 </div>
                 <div className="groups-header-actions" style={{ display: 'flex', gap: '1rem' }}>
@@ -143,7 +143,7 @@ const Groups = () => {
                     {groups.map((group) => (
                         <div
                             key={group._id}
-                            className="glass glass-hover"
+                            className="glass glass-hover group-card"
                             style={{ padding: '1.5rem', borderRadius: '24px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '1rem' }}
                             onClick={() => navigate(`/groups/${group._id}`)}
                         >

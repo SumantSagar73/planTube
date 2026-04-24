@@ -237,15 +237,15 @@ const PlaylistDetails = () => {
     );
 
     return (
-        <div style={{ height: 'calc(100vh - 5rem)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="playlist-details-page" style={{ height: 'calc(100vh - 5rem)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             {/* Collapsible Hero Header */}
-            <div style={{ position: 'relative', height: scrolled ? '72px' : '260px', transition: 'height 0.4s cubic-bezier(0.23, 1, 0.32, 1)', flexShrink: 0, overflow: 'hidden' }}>
+            <div className="playlist-hero" style={{ position: 'relative', height: scrolled ? '72px' : '260px', transition: 'height 0.4s cubic-bezier(0.23, 1, 0.32, 1)', flexShrink: 0, overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${playlist?.thumbnail})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(40px) brightness(0.4)', transform: 'scale(1.1)' }} />
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(15,15,20,0.9), transparent)' }} />
 
                 {/* Compact header (scrolled) */}
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 2rem', gap: '1.5rem', opacity: scrolled ? 1 : 0, transition: 'opacity 0.25s ease', pointerEvents: scrolled ? 'auto' : 'none' }}>
+                <div className="playlist-hero-compact" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 2rem', gap: '1.5rem', opacity: scrolled ? 1 : 0, transition: 'opacity 0.25s ease', pointerEvents: scrolled ? 'auto' : 'none' }}>
                     <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', flexShrink: 0 }}>
                         <ChevronLeft size={16} /> Dashboard
                     </button>
@@ -265,14 +265,14 @@ const PlaylistDetails = () => {
                 </div>
 
                 {/* Full hero (not scrolled) */}
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 3rem', gap: '2.5rem', opacity: scrolled ? 0 : 1, transition: 'opacity 0.2s ease', pointerEvents: scrolled ? 'none' : 'auto' }}>
+                <div className="playlist-hero-full" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 3rem', gap: '2.5rem', opacity: scrolled ? 0 : 1, transition: 'opacity 0.2s ease', pointerEvents: scrolled ? 'none' : 'auto' }}>
                     <img src={playlist?.thumbnail} alt="" style={{ width: '280px', aspectRatio: '16/9', borderRadius: '16px', objectFit: 'cover', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }} />
                     <div style={{ flex: 1 }}>
                         <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.5rem', cursor: 'pointer' }}>
                             <ChevronLeft size={16} /> Dashboard
                         </button>
                         <h1 style={{ fontSize: '2.2rem', fontWeight: '800', marginBottom: '1rem', lineHeight: '1.2' }}>{playlist?.playlistTitle}</h1>
-                        <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem' }}>
+                        <div className="playlist-hero-stats" style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.7)' }}>
                                 <PlayCircle size={20} style={{ color: 'var(--primary)' }} /> <span>{videos.length} Lectures</span>
                             </div>
@@ -303,7 +303,7 @@ const PlaylistDetails = () => {
             </div>
 
             {/* Filter Bar */}
-            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 2rem', background: 'rgba(10,10,12,0.97)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)', gap: '1rem', zIndex: 10 }}>
+            <div className="playlist-toolbar" style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 2rem', background: 'rgba(10,10,12,0.97)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)', gap: '1rem', zIndex: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
                         {['all', 'pending', 'completed'].map(f => (
@@ -329,10 +329,10 @@ const PlaylistDetails = () => {
             </div>
 
             {/* Content Row */}
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: user ? 'minmax(0, 1fr) 360px' : '1fr', gap: '0', overflow: 'hidden' }}>
+            <div className="playlist-main-grid" style={{ flex: 1, display: 'grid', gridTemplateColumns: user ? 'minmax(0, 1fr) 360px' : '1fr', gap: '0', overflow: 'hidden' }}>
 
                 {/* Scrollable Video List */}
-                <div onScroll={e => setScrolled(e.currentTarget.scrollTop > 80)} style={{ overflowY: 'auto', padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="playlist-content" onScroll={e => setScrolled(e.currentTarget.scrollTop > 80)} style={{ overflowY: 'auto', padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
                     {/* Guest Banner */}
                     {!user && (
@@ -371,7 +371,7 @@ const PlaylistDetails = () => {
 
                 {/* Sidebar: Planner & Agenda */}
                 {user && (
-                    <aside style={{ overflowY: 'auto', borderLeft: '1px solid rgba(255,255,255,0.05)', padding: '1.5rem' }}>
+                    <aside className="playlist-sidebar" style={{ overflowY: 'auto', borderLeft: '1px solid rgba(255,255,255,0.05)', padding: '1.5rem' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             <CalendarPanel
                                 viewDate={viewDate}

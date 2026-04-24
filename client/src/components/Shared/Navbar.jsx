@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LogOut, Youtube, User, ChevronDown, Users, Library, Target, Link as LinkIcon, Plus, Shield, AlertTriangle, Menu, X } from 'lucide-react';
+import { LogOut, Youtube, User, ChevronDown, Users, Library, Target, Link as LinkIcon, Plus, Shield, AlertTriangle, Menu, X, MessageSquare } from 'lucide-react';
 import AlertModal from './AlertModal';
 import ThemeSwitcher from './ThemeSwitcher';
 import NotificationBell from './NotificationBell';
@@ -125,6 +125,13 @@ const Navbar = () => {
                     <Link to="/groups" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
                         <Users size={18} />
                         <span>Groups</span>
+                    </Link>
+                )}
+
+                {user && (
+                    <Link to="/feedback" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
+                        <MessageSquare size={18} />
+                        <span>Feedback</span>
                     </Link>
                 )}
 
@@ -251,6 +258,7 @@ const Navbar = () => {
                     {!user && <Link to="/signup" className="btn-primary" style={{ textAlign: 'center' }}>Sign Up</Link>}
                     {user?.role === 'admin' && <Link to="/admin" className="btn-secondary" style={{ textAlign: 'center' }}>Admin</Link>}
                     {user && !user?.isFrozen && <Link to="/social" className="btn-secondary" style={{ textAlign: 'center' }}>Social</Link>}
+                    {user && <Link to="/feedback" className="btn-secondary" style={{ textAlign: 'center' }}>Feedback</Link>}
                     {user && <Link to="/profile" className="btn-secondary" style={{ textAlign: 'center' }}>Profile</Link>}
                 </div>
 

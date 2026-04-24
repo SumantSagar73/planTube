@@ -37,8 +37,8 @@ const CalendarPanel = ({ viewDate, activeDate, getTodayLocal, onDayClick, onChan
     };
 
     return (
-        <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+        <div className="glass playlist-calendar-panel" style={{ padding: '1.5rem', borderRadius: '24px' }}>
+            <div className="playlist-calendar-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
                 <div>
                     <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Study Planner</span>
                     <h2 style={{ fontSize: '1.2rem', fontWeight: '800' }}>
@@ -55,12 +55,12 @@ const CalendarPanel = ({ viewDate, activeDate, getTodayLocal, onDayClick, onChan
                     </div>
                 </div>
             </div>
-            <div style={{ gridTemplateColumns: 'repeat(7, 1fr)', display: 'grid', gap: '0.4rem', marginBottom: '0.75rem' }}>
+            <div className="playlist-calendar-weekdays" style={{ gridTemplateColumns: 'repeat(7, 1fr)', display: 'grid', gap: '0.4rem', marginBottom: '0.75rem' }}>
                 {weekdayNames.map((day, i) => (
                     <div key={i} style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: '800', color: 'rgba(255,255,255,0.2)' }}>{day}</div>
                 ))}
             </div>
-            <div style={{ gridTemplateColumns: 'repeat(7, 1fr)', display: 'grid', gap: '0.4rem' }}>
+            <div className="playlist-calendar-grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', display: 'grid', gap: '0.4rem' }}>
                 {getCalendarDays().map((d, i) => {
                     const isToday = getTodayLocal() === d.full;
                     const isActive = activeDate === d.full;

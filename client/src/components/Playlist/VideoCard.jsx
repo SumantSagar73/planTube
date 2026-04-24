@@ -8,7 +8,7 @@ const VideoCard = ({ video, playlistId, schedule, user, activeDate, formatDate, 
     return (
         <div
             id={`video-${video._id}`}
-            className="glass-hover"
+            className="glass-hover playlist-video-card"
             style={{
                 padding: '1rem',
                 borderRadius: '16px',
@@ -24,6 +24,7 @@ const VideoCard = ({ video, playlistId, schedule, user, activeDate, formatDate, 
             onMouseLeave={e => !isCompleted && (e.currentTarget.style.borderColor = 'var(--glass-border)')}
         >
             <Link
+                className="playlist-video-link"
                 to={`/focus/${video._id}${playlistId ? `?playlistId=${playlistId}` : ''}`}
                 style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1, textDecoration: 'none', color: 'inherit' }}
             >
@@ -60,7 +61,7 @@ const VideoCard = ({ video, playlistId, schedule, user, activeDate, formatDate, 
                 </div>
             </Link>
 
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <div className="playlist-video-actions" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                 {user && (
                     !isPlanned ? (
                         <button

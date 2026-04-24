@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCheck, Filter, MailOpen, BellRing, Archive, Megaphone } from 'lucide-react';
+import { CheckCheck, Filter, MailOpen, BellRing, Archive, Megaphone, Trash2 } from 'lucide-react';
 import notificationService from '../services/notificationService';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 
@@ -44,18 +44,39 @@ const NotificationCenter = () => {
     }, [activeTab, page]);
 
     const markAllRead = async () => {
-        await notificationService.markAllRead();
-        load();
+        try {
+            await notificationService.markAllRead();
+            load();
+        } catch (err) {
+            console.error('Mark all read failed:', err);
+        }
     };
 
     const markRead = async (id) => {
-        await notificationService.markRead(id);
-        load();
+        try {
+            await notificationService.markRead(id);
+            load();
+        } catch (err) {
+            console.error('Mark read failed:', err);
+        }
     };
 
     const archive = async (id) => {
-        await notificationService.archive(id);
-        load();
+        try {
+            await notificationService.archive(id);
+            load();
+        } catch (err) {
+            console.error('Archive failed:', err);
+        }
+    };
+
+    const deleteNotification = async (id) => {
+        try {
+            await notificationService.deleteNotification(id);
+            load();
+        } catch (err) {
+            console.error('Delete notification failed:', err);
+        }
     };
 
     if (loading && items.length === 0) return <LoadingScreen message="Opening notifications..." />;
@@ -111,6 +132,9 @@ const NotificationCenter = () => {
                                 {!item.isRead && <button className="btn-secondary" onClick={() => markRead(item._id)}>Read</button>}
                                 <button className="btn-secondary" onClick={() => archive(item._id)}>
                                     <Archive size={14} style={{ marginRight: 6 }} /> Archive
+                                </button>
+                                <button className="btn-secondary" onClick={() => deleteNotification(item._id)} style={{ color: 'var(--danger)' }}>
+                                    <Trash2 size={14} style={{ marginRight: 6 }} /> Delete
                                 </button>
                             </div>
                         </div>

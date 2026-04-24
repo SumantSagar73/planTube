@@ -493,17 +493,17 @@ const FocusSidebar = ({
                         )}
                     </>
                 ) : sidebarTab === 'playlist' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '0.7rem' : '1rem' }}>
                         <div style={{
                             position: 'sticky',
-                            top: '-1.25rem',
+                            top: 0,
                             background: 'rgba(10, 10, 12, 1)',
-                            padding: '1.25rem 0.5rem',
+                            padding: isMobile ? '0.8rem 0.35rem' : '1.25rem 0.5rem',
                             zIndex: 10,
-                            marginBottom: '1rem',
+                            marginBottom: isMobile ? '0.55rem' : '1rem',
                             borderBottom: '1px solid rgba(255,255,255,0.05)'
                         }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: isMobile ? '0.75rem' : '0.8rem', color: 'var(--text-muted)' }}>
                                 <span>Playlist Progress</span>
                                 <span>{Math.round((playlistSchedules.filter(s => s.status === 'completed').length / (allVideos.length || 1)) * 100)}%</span>
                             </div>
@@ -515,7 +515,7 @@ const FocusSidebar = ({
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '0.45rem' : '0.5rem' }}>
                             {allVideos.map((v, idx) => {
                                 const isActive = v._id === videoId;
                                 const vSchedule = playlistSchedules.find(s => {
@@ -530,23 +530,26 @@ const FocusSidebar = ({
                                         onClick={() => navigate(`/focus/${v._id}${playlist?._id ? `?playlistId=${playlist._id}` : ''}`)}
                                         className="glass-hover"
                                         style={{
-                                            padding: '0.75rem', borderRadius: '12px',
+                                            padding: isMobile ? '0.6rem' : '0.75rem', borderRadius: isMobile ? '10px' : '12px',
                                             background: isActive ? 'var(--primary)' : (isDone ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255, 255, 255, 0.02)'),
                                             border: isActive ? '1px solid var(--primary)' : (isDone ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)'),
-                                            cursor: 'pointer', display: 'flex', gap: '0.75rem', alignItems: 'center'
+                                            cursor: 'pointer', display: 'flex', gap: isMobile ? '0.6rem' : '0.75rem', alignItems: 'center'
                                         }}
                                     >
-                                        <div style={{ fontSize: '0.8rem', fontWeight: '900', color: isActive ? 'white' : (isDone ? '#4ade80' : 'var(--text-muted)'), minWidth: '20px' }}>
+                                        <div style={{ fontSize: isMobile ? '0.72rem' : '0.8rem', fontWeight: '900', color: isActive ? 'white' : (isDone ? '#4ade80' : 'var(--text-muted)'), minWidth: isMobile ? '16px' : '20px', textAlign: 'center' }}>
                                             {idx + 1}
                                         </div>
+                                        <div style={{ width: isMobile ? '56px' : '70px', height: isMobile ? '32px' : '40px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', flexShrink: 0 }}>
+                                            <img src={v.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <p style={{ fontSize: '0.85rem', fontWeight: '600', color: isActive ? 'white' : (isDone ? '#86efac' : 'var(--text-main)'), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</p>
-                                            <p style={{ fontSize: '0.7rem', color: isActive ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>{v.duration}</p>
+                                            <p style={{ fontSize: isMobile ? '0.78rem' : '0.85rem', fontWeight: '600', color: isActive ? 'white' : (isDone ? '#86efac' : 'var(--text-main)'), whiteSpace: isMobile ? 'normal' : 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: isMobile ? 2 : 1, WebkitBoxOrient: 'vertical', lineHeight: 1.3 }}>{v.title}</p>
+                                            <p style={{ fontSize: isMobile ? '0.66rem' : '0.7rem', color: isActive ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)', marginTop: '0.2rem' }}>{v.duration}</p>
                                         </div>
                                         {isActive && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(0,0,0,0.2)', padding: '0.2rem 0.5rem', borderRadius: '8px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(0,0,0,0.2)', padding: isMobile ? '0.15rem 0.4rem' : '0.2rem 0.5rem', borderRadius: '8px', flexShrink: 0 }}>
                                                 <div style={{ width: '6px', height: '6px', background: '#22c55e', borderRadius: '50%', boxShadow: '0 0 8px #22c55e' }}></div>
-                                                <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'white' }}>{presenceCount} Live</span>
+                                                <span style={{ fontSize: isMobile ? '0.64rem' : '0.7rem', fontWeight: '800', color: 'white' }}>{presenceCount} Live</span>
                                                 <Play size={12} fill="white" />
                                             </div>
                                         )}
