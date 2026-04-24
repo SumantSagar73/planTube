@@ -29,6 +29,7 @@ exports.register = async (req, res) => {
                     username: user.username, 
                     email: user.email,
                     role: user.role,
+                    themeColor: user.themeColor,
                     isFrozen: user.isFrozen,
                     wipeRequested: user.wipeRequested
                 } 
@@ -72,6 +73,7 @@ exports.login = async (req, res) => {
                     username: user.username, 
                     email: user.email,
                     role: user.role,
+                    themeColor: user.themeColor,
                     isFrozen: user.isFrozen,
                     wipeRequested: user.wipeRequested
                 } 

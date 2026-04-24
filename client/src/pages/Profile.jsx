@@ -264,18 +264,7 @@ const Profile = () => {
     const streak = analytics?.streak || 0;
     const bestStreak = Math.max(stats.bestStreak || 0, analytics?.bestStreak || 0);
 
-    const scheduleHeatmapMap = schedules.completed.reduce((acc, s) => {
-        const dateKey = new Date(s.updatedAt || s.scheduledDate || Date.now()).toISOString().split('T')[0];
-        const seconds = parseDurationToSeconds(s.videoId?.duration);
-        acc.set(dateKey, (acc.get(dateKey) || 0) + seconds);
-        return acc;
-    }, new Map());
-
-    const scheduleHeatmapData = Array.from(scheduleHeatmapMap.entries())
-        .map(([date, seconds]) => ({ date, seconds }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-
-    const effectiveHeatmapData = scheduleHeatmapData.length > 0 ? scheduleHeatmapData : heatmapData;
+    const effectiveHeatmapData = heatmapData;
 
     const recentSessions = effectiveHeatmapData
         .slice()

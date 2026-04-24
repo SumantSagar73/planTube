@@ -1,6 +1,7 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import api from '../services/api';
 import socket from '../services/socket';
+import { useTheme } from './ThemeContext';
 
 const AuthContext = createContext();
 
@@ -9,6 +10,14 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const { theme, toggleTheme, resolveThemeFromColor } = useTheme();
+
+    const syncThemeWithUser = (userData) => {
+        const matchedTheme = resolveThemeFromColor(userData?.themeColor);
+        if (matchedTheme && matchedTheme !== theme) {
+            toggleTheme(matchedTheme);
+        }
+    };
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -18,7 +27,9 @@ export const AuthProvider = ({ children }) => {
             // Optimistic Load
             if (storedUser) {
                 try {
-                    setUser(JSON.parse(storedUser));
+                    const parsedUser = JSON.parse(storedUser);
+                    setUser(parsedUser);
+                    syncThemeWithUser(parsedUser);
                     setLoading(false); // Immediate unlock
                 } catch (e) {
                     console.error("Failed to parse stored user");
@@ -59,6 +70,7 @@ export const AuthProvider = ({ children }) => {
             const res = await api.get('/auth/me');
             setUser(res.data);
             localStorage.setItem('user', JSON.stringify(res.data)); // Update fresh data
+            syncThemeWithUser(res.data);
             if (blockLoading) setLoading(false);
         } catch (err) {
             console.error('Auth Load Error', err);
@@ -77,6 +89,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', res.data.token);
         localStorage.setItem('user', JSON.stringify(res.data.user));
         setUser(res.data.user);
+        syncThemeWithUser(res.data.user);
         return res.data;
     };
 
@@ -85,6 +98,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', res.data.token);
         localStorage.setItem('user', JSON.stringify(res.data.user));
         setUser(res.data.user);
+        syncThemeWithUser(res.data.user);
         return res.data;
     };
 
@@ -93,6 +107,7 @@ export const AuthProvider = ({ children }) => {
         if (data.user) {
             setUser(data.user);
             localStorage.setItem('user', JSON.stringify(data.user));
+            syncThemeWithUser(data.user);
         }
     };
 

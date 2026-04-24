@@ -20,6 +20,7 @@ const Dashboard = () => {
     const [playlists, setPlaylists] = useState([]);
     const [todayTasks, setTodayTasks] = useState([]);
     const [resumeSchedule, setResumeSchedule] = useState(null);
+    const [resumeSchedules, setResumeSchedules] = useState([]);
     const [analytics, setAnalytics] = useState(null);
     const [heatmapData, setHeatmapData] = useState([]);
     const [dataLoading, setDataLoading] = useState(true);
@@ -44,6 +45,7 @@ const Dashboard = () => {
                     setPlaylists(pinnedItems);
                     setTodayTasks(cachedDashboard.today);
                     setResumeSchedule(cachedDashboard.resumeSchedule || null);
+                    setResumeSchedules(cachedDashboard.resumeSchedules || (cachedDashboard.resumeSchedule ? [cachedDashboard.resumeSchedule] : []));
                     setAnalytics(cachedDashboard.analytics);
                     setHeatmapData(cachedDashboard.heatmapData || []);
                     setDataLoading(false);
@@ -61,14 +63,17 @@ const Dashboard = () => {
 
                 setPlaylists(pinnedItems);
                 setTodayTasks(todayRes.data);
-                setResumeSchedule(resumeRes.data || null);
+                const resumeItems = Array.isArray(resumeRes.data) ? resumeRes.data : (resumeRes.data ? [resumeRes.data] : []);
+                setResumeSchedules(resumeItems);
+                setResumeSchedule(resumeItems[0] || null);
                 setAnalytics(analyticsRes.data);
                 setHeatmapData(heatmapRes.data);
                 
                 cache.set(cacheKey, {
                     playlists: playlistsRes.data,
                     today: todayRes.data,
-                    resumeSchedule: resumeRes.data || null,
+                    resumeSchedule: resumeItems[0] || null,
+                    resumeSchedules: resumeItems,
                     analytics: analyticsRes.data,
                     heatmapData: heatmapRes.data
                 });
@@ -174,7 +179,7 @@ const Dashboard = () => {
 
                         <div className="dashboard-primary-column" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             <div className="dashboard-continue" data-section="schedule">
-                                <ContinueWatching firstPendingTask={firstPendingTask} resumeSchedule={resumeSchedule} navigate={navigate} />
+                                <ContinueWatching firstPendingTask={firstPendingTask} resumeSchedule={resumeSchedule} resumeSchedules={resumeSchedules} navigate={navigate} />
                             </div>
 
                             <div className="dashboard-library" data-section="playlist-grid">

@@ -107,8 +107,7 @@ exports.getCompletedSchedules = async (req, res) => {
 
 exports.getResumeSchedule = async (req, res) => {
     try {
-        // First preference: in-progress items with tracked watch time
-        let resumeSchedule = await Schedule.findOne({
+        const resumeWithProgress = await Schedule.find({
             userId: req.user.id,
             status: 'pending',
             lastWatchedSecond: { $gt: 0 }
@@ -117,11 +116,13 @@ exports.getResumeSchedule = async (req, res) => {
                 path: 'videoId',
                 populate: [{ path: 'playlistId' }, { path: 'sharedVideoId' }]
             })
-            .sort('-updatedAt');
+            .sort('-updatedAt')
+            .limit(3);
 
-        // Fallback: latest pending schedule, even if watch time is missing
-        if (!resumeSchedule) {
-            resumeSchedule = await Schedule.findOne({
+        let resumeSchedule = resumeWithProgress;
+
+        if (resumeSchedule.length < 3) {
+            const extraPending = await Schedule.find({
                 userId: req.user.id,
                 status: 'pending'
             })
@@ -129,14 +130,21 @@ exports.getResumeSchedule = async (req, res) => {
                     path: 'videoId',
                     populate: [{ path: 'playlistId' }, { path: 'sharedVideoId' }]
                 })
-                .sort('-updatedAt');
+                .sort('-updatedAt')
+                .limit(3);
+
+            const seenIds = new Set(resumeSchedule.map((item) => String(item._id)));
+            extraPending.forEach((item) => {
+                if (resumeSchedule.length >= 3) return;
+                if (!seenIds.has(String(item._id))) {
+                    resumeSchedule.push(item);
+                    seenIds.add(String(item._id));
+                }
+            });
         }
 
-        if (!resumeSchedule || !resumeSchedule.videoId) {
-            return res.json(null);
-        }
-
-        res.json(resumeSchedule);
+        const filtered = resumeSchedule.filter((item) => item && item.videoId);
+        res.json(filtered.length > 0 ? filtered : null);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');

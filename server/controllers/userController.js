@@ -43,7 +43,7 @@ exports.updatePreferences = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
     try {
-        const { name, username } = req.body;
+        const { name, username, themeColor } = req.body;
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ msg: 'User not found' });
 
@@ -54,9 +54,10 @@ exports.updateProfile = async (req, res) => {
         }
 
         if (name) user.name = name;
+        if (themeColor) user.themeColor = themeColor;
 
         await user.save();
-        res.json({ id: user._id, name: user.name, username: user.username, email: user.email });
+        res.json({ id: user._id, name: user.name, username: user.username, email: user.email, themeColor: user.themeColor });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');

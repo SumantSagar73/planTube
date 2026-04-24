@@ -1,9 +1,12 @@
 import React from 'react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 import { Check, Palette } from 'lucide-react';
 
 const ThemeSwitcher = () => {
     const { theme, toggleTheme, themes } = useTheme();
+    const { user, setAuth } = useAuth();
     const [isOpen, setIsOpen] = React.useState(false);
 
     return (
@@ -49,8 +52,20 @@ const ThemeSwitcher = () => {
                             {themes.map((t) => (
                                 <button
                                     key={t.id}
-                                    onClick={() => {
+                                    onClick={async () => {
                                         toggleTheme(t.id);
+                                        if (user) {
+                                            try {
+                                                const res = await api.put('/user/profile', {
+                                                    name: user.name,
+                                                    username: user.username,
+                                                    themeColor: t.color
+                                                });
+                                                setAuth({ user: { ...user, themeColor: t.color, ...res.data } });
+                                            } catch (err) {
+                                                console.warn('Failed to save theme preference:', err);
+                                            }
+                                        }
                                         setIsOpen(false);
                                     }}
                                     style={{

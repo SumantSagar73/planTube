@@ -11,20 +11,6 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-    const [theme, setTheme] = useState(() => {
-        const savedTheme = localStorage.getItem('plantube-theme');
-        return savedTheme || 'default';
-    });
-
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('plantube-theme', theme);
-    }, [theme]);
-
-    const toggleTheme = (newTheme) => {
-        setTheme(newTheme);
-    };
-
     const themes = [
         { id: 'default', name: 'Original Dark', color: '#6366f1' },
         { id: 'indigo', name: 'Deep Indigo', color: '#3F51B5' },
@@ -38,8 +24,35 @@ export const ThemeProvider = ({ children }) => {
         { id: 'youtube', name: 'YouTube Red', color: '#FF0000' }
     ];
 
+    const resolveThemeFromColor = (color) => {
+        if (!color) return null;
+        const match = themes.find((option) => option.color.toLowerCase() === String(color).toLowerCase());
+        return match?.id || null;
+    };
+
+    const [theme, setTheme] = useState(() => {
+        const savedTheme = localStorage.getItem('plantube-theme');
+        if (savedTheme) return savedTheme;
+
+        try {
+            const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+            return resolveThemeFromColor(storedUser?.themeColor) || 'default';
+        } catch (err) {
+            return 'default';
+        }
+    });
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('plantube-theme', theme);
+    }, [theme]);
+
+    const toggleTheme = (newTheme) => {
+        setTheme(newTheme);
+    };
+
     return (
-        <ThemeContext.Provider value={{ theme, toggleTheme, themes }}>
+        <ThemeContext.Provider value={{ theme, toggleTheme, themes, resolveThemeFromColor }}>
             {children}
         </ThemeContext.Provider>
     );
