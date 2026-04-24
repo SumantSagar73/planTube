@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Schedule = require('../models/Schedule');
 const Video = require('../models/Video');
+const Activity = require('../models/Activity');
 
 exports.createSchedule = async (req, res) => {
     let { videoId, scheduledDate, scheduledTime, status } = req.body;
@@ -168,18 +169,24 @@ exports.getAnalytics = async (req, res) => {
     try {
         const userId = req.user.id;
         const completedSchedules = await Schedule.find({ userId, status: 'completed' }).populate('videoId');
+        const activitySummary = await Activity.aggregate([
+            { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+            { $group: { _id: null, totalSeconds: { $sum: '$seconds' } } }
+        ]);
 
         // Total Completed Videos
         const totalCompleted = completedSchedules.length;
 
-        // Total Watch Time
+        // Total completed-video duration (kept for legacy completeness)
         let totalSeconds = 0;
         completedSchedules.forEach(s => {
             if (s.videoId && s.videoId.duration) {
                 totalSeconds += parseDurationToSeconds(s.videoId.duration);
             }
         });
-        const totalTime = formatSecondsToTime(totalSeconds);
+        const totalFocusSeconds = activitySummary.length > 0 ? activitySummary[0].totalSeconds : 0;
+        const totalFocusTime = formatSecondsToTime(totalFocusSeconds);
+        const totalFocusHours = (totalFocusSeconds / 3600).toFixed(1);
 
         // Weekly Completed (Last 7 Days)
         const sevenDaysAgo = new Date();
@@ -237,7 +244,11 @@ exports.getAnalytics = async (req, res) => {
 
         res.json({
             totalCompleted,
-            totalTime,
+            totalTime: totalFocusTime,
+            totalCompletedTime: formatSecondsToTime(totalSeconds),
+            totalFocusSeconds,
+            totalFocusTime,
+            totalFocusHours,
             weeklyCompleted,
             streak,
             bestStreak: user?.bestStreak || streak,

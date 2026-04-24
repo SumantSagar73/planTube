@@ -4,6 +4,13 @@ const Schedule = require('../models/Schedule');
 const User = require('../models/User');
 const notificationController = require('./notificationController');
 
+const getLocalDateString = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const checkAndAwardBadges = async (user, activityData) => {
     const badges = user.badges || [];
     const newBadges = [];
@@ -49,22 +56,24 @@ const checkAndAwardBadges = async (user, activityData) => {
 };
 
 exports.updateActivity = async (req, res) => {
-    const { videoId, seconds, date } = req.body;
+    const { seconds, date } = req.body;
     const userId = req.user.id;
+    const activityDate = date || getLocalDateString();
+    const numericSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
 
     try {
-        let activity = await Activity.findOne({ userId, videoId, date });
+        let activity = await Activity.findOne({ userId, date: activityDate });
 
         if (activity) {
-            activity.seconds += seconds;
+            activity.seconds += numericSeconds;
             await activity.save();
         } else {
-            activity = new Activity({ userId, videoId, seconds, date });
+            activity = new Activity({ userId, seconds: numericSeconds, date: activityDate });
             await activity.save();
         }
 
         // Update XP (10 XP per minute)
-        const xpGained = Math.floor(seconds / 60) * 10;
+        const xpGained = Math.floor(numericSeconds / 60) * 10;
         const user = await User.findById(userId);
         if (user) {
             user.xp += xpGained;

@@ -112,7 +112,7 @@ const GroupPlaylistProgress = () => {
                 <p style={{ color: 'var(--text-muted)' }}>{playlist?.playlistTitle} in {group?.groupName}</p>
             </div>
 
-            <div className="group-progress-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', alignItems: 'start' }}>
+            <div className="group-progress-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 340px)', gap: '1.5rem', alignItems: 'start' }}>
                 {/* Left Column: Table */}
                 <div style={{ minWidth: 0 }}>
                     <div className="glass group-progress-table-shell" style={{ borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
@@ -176,8 +176,8 @@ const GroupPlaylistProgress = () => {
                 </div>
 
                 {/* Right Column: Calendar Sidebar */}
-                <div className="group-progress-sidebar" style={{ position: 'sticky', top: '2rem' }}>
-                    <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
+                <div className="group-progress-sidebar" style={{ position: 'sticky', top: '2rem', width: '100%', maxWidth: '340px', justifySelf: 'end' }}>
+                    <div className="glass" style={{ padding: '1.1rem', borderRadius: '22px' }}>
                         {/* Calendar Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                             <h2 style={{ fontSize: '1.1rem', fontWeight: '800' }}>
@@ -194,7 +194,7 @@ const GroupPlaylistProgress = () => {
                         </div>
 
                         {/* Calendar Grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '0.35rem', marginBottom: '1rem' }}>
                             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
                                 <div key={i} style={{ textAlign: 'center', fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)' }}>{d}</div>
                             ))}
@@ -208,9 +208,9 @@ const GroupPlaylistProgress = () => {
                                     <div
                                         key={i}
                                         onClick={() => setSelectedDate(date)}
-                                        style={{
+                                            style={{
                                             aspectRatio: '1/1',
-                                            borderRadius: '8px',
+                                            borderRadius: '7px',
                                             background: isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.02)',
                                             border: isToday ? '1px solid var(--primary)' : '1px solid var(--glass-border)',
                                             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -219,14 +219,14 @@ const GroupPlaylistProgress = () => {
                                             position: 'relative'
                                         }}
                                     >
-                                        <span style={{ fontSize: '0.8rem', fontWeight: isSelected || isToday ? '800' : '600', color: isSelected ? 'white' : 'var(--text-main)' }}>{date.getDate()}</span>
+                                        <span style={{ fontSize: '0.72rem', fontWeight: isSelected || isToday ? '800' : '600', color: isSelected ? 'white' : 'var(--text-main)' }}>{date.getDate()}</span>
                                         {/* Dot indicators */}
-                                        <div style={{ display: 'flex', gap: '2px', position: 'absolute', bottom: '4px' }}>
+                                        <div style={{ display: 'flex', gap: '2px', position: 'absolute', bottom: '3px' }}>
                                             {schedulesForDay.slice(0, 3).map((s, idx) => (
                                                 <div
                                                     key={idx}
                                                     style={{
-                                                        width: '4px', height: '4px', borderRadius: '50%',
+                                                        width: '3.5px', height: '3.5px', borderRadius: '50%',
                                                         background: isSelected ? 'white' : `hsl(${s.colorIndex * 120}, 70%, 60%)`,
                                                     }}
                                                 />

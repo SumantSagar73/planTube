@@ -67,6 +67,13 @@ const percentDelta = (current, previous) => {
     return Math.round(((current - previous) / previous) * 100);
 };
 
+const getLocalDateString = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 // @desc    Get platform-wide statistics
 // @route   GET /api/admin/stats
 exports.getStats = async (req, res) => {
@@ -88,12 +95,16 @@ exports.getStats = async (req, res) => {
         currentStart.setDate(now.getDate() - 7);
         const previousStart = new Date(now);
         previousStart.setDate(now.getDate() - 14);
+        const currentStartDate = getLocalDateString(currentStart);
+        const currentEndDate = getLocalDateString(now);
+        const previousStartDate = getLocalDateString(previousStart);
+        const previousEndDate = getLocalDateString(currentStart);
 
         const [newUsersCurrent, newUsersPrevious, studyCurrentAgg, studyPreviousAgg] = await Promise.all([
             User.countDocuments({ createdAt: { $gte: currentStart, $lte: now } }),
             User.countDocuments({ createdAt: { $gte: previousStart, $lt: currentStart } }),
-            Activity.aggregate([{ $match: { createdAt: { $gte: currentStart, $lte: now } } }, { $group: { _id: null, totalSeconds: { $sum: '$seconds' } } }]),
-            Activity.aggregate([{ $match: { createdAt: { $gte: previousStart, $lt: currentStart } } }, { $group: { _id: null, totalSeconds: { $sum: '$seconds' } } }])
+            Activity.aggregate([{ $match: { date: { $gte: currentStartDate, $lte: currentEndDate } } }, { $group: { _id: null, totalSeconds: { $sum: '$seconds' } } }]),
+            Activity.aggregate([{ $match: { date: { $gte: previousStartDate, $lt: previousEndDate } } }, { $group: { _id: null, totalSeconds: { $sum: '$seconds' } } }])
         ]);
 
         const studyCurrent = studyCurrentAgg[0]?.totalSeconds || 0;
@@ -617,10 +628,11 @@ exports.getChartData = async (req, res) => {
             start.setHours(0, 0, 0, 0);
             const end = new Date(start);
             end.setHours(23, 59, 59, 999);
+            const dayKey = getLocalDateString(start);
 
             const [activityAgg, newUsers] = await Promise.all([
                 Activity.aggregate([
-                    { $match: { createdAt: { $gte: start, $lte: end } } },
+                    { $match: { date: dayKey } },
                     { $group: { _id: null, totalSeconds: { $sum: '$seconds' }, uniqueUsers: { $addToSet: '$userId' } } }
                 ]),
                 User.countDocuments({ createdAt: { $gte: start, $lte: end } })

@@ -400,6 +400,8 @@
   .group-progress-sidebar {
     position: static !important;
     top: auto !important;
+    max-width: 100% !important;
+    justify-self: stretch !important;
   }
 
   .group-progress-heading {
@@ -408,6 +410,19 @@
 
   .group-progress-table-wrap table {
     min-width: 700px;
+  }
+
+  .group-progress-sidebar .glass {
+    padding: 1rem !important;
+  }
+
+  .group-progress-sidebar > .glass > div:nth-child(2) {
+    gap: 0.3rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .group-progress-sidebar > .glass > div:nth-child(2) > div {
+    border-radius: 6px !important;
   }
 
   /* Individual Playlist Page */
@@ -1309,6 +1324,19 @@
 
   .group-progress-table-wrap table {
     min-width: 620px;
+  }
+
+  .group-progress-sidebar .glass {
+    padding: 0.9rem !important;
+  }
+
+  .group-progress-sidebar > .glass > div:nth-child(2) {
+    gap: 0.25rem !important;
+    margin-bottom: 0.85rem !important;
+  }
+
+  .group-progress-sidebar > .glass > div:nth-child(2) > div {
+    border-radius: 5px !important;
   }
 
   .admin-playlist-actions {

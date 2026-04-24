@@ -277,12 +277,11 @@ const Profile = () => {
 
     const effectiveHeatmapData = scheduleHeatmapData.length > 0 ? scheduleHeatmapData : heatmapData;
 
-    const recentSessions = schedules.completed.length > 0
-        ? schedules.completed.slice(0, 4).map((s) => ({
-            date: s.updatedAt || s.scheduledDate,
-            seconds: parseDurationToSeconds(s.videoId?.duration)
-        }))
-        : effectiveHeatmapData.slice().reverse().slice(0, 4).map((d) => ({
+    const recentSessions = effectiveHeatmapData
+        .slice()
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 4)
+        .map((d) => ({
             date: d.date,
             seconds: d.seconds
         }));
@@ -298,6 +297,8 @@ const Profile = () => {
         return { date, mins: day ? Math.round(day.seconds / 60) : 0 };
     });
     const maxMins = Math.max(...weeklyData.map(d => d.mins), 60);
+    const focusStatsTotalSeconds = effectiveHeatmapData.reduce((sum, day) => sum + (day.seconds || 0), 0);
+    const focusStatsTotalHours = (focusStatsTotalSeconds / 3600).toFixed(1);
 
     return (
         <div className="profile-page" style={{ display: 'flex', gap: '2rem', maxWidth: '1400px', margin: '0 auto', paddingBottom: '4rem', minHeight: '80vh', alignItems: 'flex-start' }}>
@@ -403,6 +404,7 @@ const Profile = () => {
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
                                         <p style={{ fontSize: '1rem', fontWeight: '900', color: 'white' }}>{stats.nextLevelXp - stats.xp} XP to Level {stats.level + 1}</p>
+                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>{focusStatsTotalHours} total focus hours</p>
                                     </div>
                                 </div>
                                 
