@@ -8,6 +8,7 @@ router.get('/today', auth, scheduleController.getTodaySchedules);
 router.get('/upcoming', auth, scheduleController.getUpcomingSchedules);
 router.get('/missed', auth, scheduleController.getMissedSchedules);
 router.get('/completed', auth, scheduleController.getCompletedSchedules);
+router.get('/resume', auth, scheduleController.getResumeSchedule);
 router.get('/progress', auth, scheduleController.getProgress);
 router.get('/playlist/:playlistId', auth, scheduleController.getPlaylistSchedules);
 

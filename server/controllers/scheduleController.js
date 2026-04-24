@@ -104,6 +104,44 @@ exports.getCompletedSchedules = async (req, res) => {
     }
 };
 
+exports.getResumeSchedule = async (req, res) => {
+    try {
+        // First preference: in-progress items with tracked watch time
+        let resumeSchedule = await Schedule.findOne({
+            userId: req.user.id,
+            status: 'pending',
+            lastWatchedSecond: { $gt: 0 }
+        })
+            .populate({
+                path: 'videoId',
+                populate: [{ path: 'playlistId' }, { path: 'sharedVideoId' }]
+            })
+            .sort('-updatedAt');
+
+        // Fallback: latest pending schedule, even if watch time is missing
+        if (!resumeSchedule) {
+            resumeSchedule = await Schedule.findOne({
+                userId: req.user.id,
+                status: 'pending'
+            })
+                .populate({
+                    path: 'videoId',
+                    populate: [{ path: 'playlistId' }, { path: 'sharedVideoId' }]
+                })
+                .sort('-updatedAt');
+        }
+
+        if (!resumeSchedule || !resumeSchedule.videoId) {
+            return res.json(null);
+        }
+
+        res.json(resumeSchedule);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+};
+
 const parseDurationToSeconds = (durationStr) => {
     if (!durationStr) return 0;
     const parts = durationStr.split(':').map(Number);

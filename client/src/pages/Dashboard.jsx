@@ -19,6 +19,7 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const [playlists, setPlaylists] = useState([]);
     const [todayTasks, setTodayTasks] = useState([]);
+    const [resumeSchedule, setResumeSchedule] = useState(null);
     const [analytics, setAnalytics] = useState(null);
     const [heatmapData, setHeatmapData] = useState([]);
     const [dataLoading, setDataLoading] = useState(true);
@@ -42,14 +43,16 @@ const Dashboard = () => {
                     const pinnedItems = cachedDashboard.playlists.filter(item => item.isPinned);
                     setPlaylists(pinnedItems);
                     setTodayTasks(cachedDashboard.today);
+                    setResumeSchedule(cachedDashboard.resumeSchedule || null);
                     setAnalytics(cachedDashboard.analytics);
                     setHeatmapData(cachedDashboard.heatmapData || []);
                     setDataLoading(false);
                 }
 
-                const [playlistsRes, todayRes, analyticsRes, heatmapRes] = await Promise.all([
+                const [playlistsRes, todayRes, resumeRes, analyticsRes, heatmapRes] = await Promise.all([
                     api.get('/playlists/library'),
                     api.get('/schedules/today'),
+                    api.get('/schedules/resume'),
                     api.get('/schedules/analytics'),
                     api.get('/analytics/heatmap')
                 ]);
@@ -58,12 +61,14 @@ const Dashboard = () => {
 
                 setPlaylists(pinnedItems);
                 setTodayTasks(todayRes.data);
+                setResumeSchedule(resumeRes.data || null);
                 setAnalytics(analyticsRes.data);
                 setHeatmapData(heatmapRes.data);
                 
                 cache.set(cacheKey, {
                     playlists: playlistsRes.data,
                     today: todayRes.data,
+                    resumeSchedule: resumeRes.data || null,
                     analytics: analyticsRes.data,
                     heatmapData: heatmapRes.data
                 });
@@ -169,7 +174,7 @@ const Dashboard = () => {
 
                         <div className="dashboard-primary-column" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             <div className="dashboard-continue" data-section="schedule">
-                                <ContinueWatching firstPendingTask={firstPendingTask} navigate={navigate} />
+                                <ContinueWatching firstPendingTask={firstPendingTask} resumeSchedule={resumeSchedule} navigate={navigate} />
                             </div>
 
                             <div className="dashboard-library" data-section="playlist-grid">
