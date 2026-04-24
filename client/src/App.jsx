@@ -20,6 +20,7 @@ import Social from './pages/Social';
 import PublicProfile from './pages/PublicProfile';
 import Navbar from './components/Shared/Navbar';
 import HelperBot from './components/Shared/HelperBot';
+import InstallAppPrompt from './components/Shared/InstallAppPrompt';
 import NotificationCenter from './pages/NotificationCenter';
 import Feedback from './pages/Feedback';
 
@@ -48,6 +49,7 @@ const AppRoutes = () => {
     return (
         <Router>
             <div className="app-container">
+                <InstallAppPrompt />
                 <ShadowBanner />
                 <Routes>
                     <Route path="/login" element={<Login />} />
