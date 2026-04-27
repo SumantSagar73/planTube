@@ -81,7 +81,7 @@ const FocusPlayerSlot = ({
                     style={{ 
                         width: '100%', 
                         height: '100%', 
-                        transform: miniPlayer ? 'scale(1)' : (isMobile ? 'scale(1)' : 'scale(1.15)'),
+                        transform: 'scale(1)',
                         transition: 'transform 0.5s ease'
                     }}
                 />
