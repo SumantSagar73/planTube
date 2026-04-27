@@ -8,6 +8,7 @@ import AdminPlaylists from '../components/Admin/AdminPlaylists';
 import AdminVideos from '../components/Admin/AdminVideos';
 import AdminNotifications from '../components/Admin/AdminNotifications';
 import AdminFeedback from '../components/Admin/AdminFeedback';
+import AdminLivePresence from '../components/Admin/AdminLivePresence';
 import UserDetailsModal from '../components/Admin/UserDetailsModal';
 import AdminAuditLogs from '../components/Admin/AdminAuditLogs';
 import AdminOverviewPanel from '../components/Admin/AdminOverviewPanel';
@@ -34,6 +35,7 @@ const AdminDashboard = () => {
         playlists: 'Playlists',
         videos: 'Videos',
         notifications: 'Notifications',
+        live: 'Live Presence',
         feedback: 'Feedback',
         audit: 'Audit'
     };
@@ -165,6 +167,8 @@ const AdminDashboard = () => {
                 return <AdminVideos />;
             case 'notifications':
                 return <AdminNotifications notify={notify} />;
+            case 'live':
+                return <AdminLivePresence notify={notify} />;
             case 'feedback':
                 return <AdminFeedback notify={notify} />;
             case 'audit':

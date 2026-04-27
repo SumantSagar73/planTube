@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { CheckCheck, Filter, MailOpen, BellRing, Archive, Megaphone, Trash2 } from 'lucide-react';
 import notificationService from '../services/notificationService';
 import LoadingScreen from '../components/Shared/LoadingScreen';
+import { formatDateTime } from '../utils/dateTime';
 
 const tabs = [
     { id: 'all', label: 'All', icon: BellRing },
@@ -126,7 +127,7 @@ const NotificationCenter = () => {
                                     {!item.isRead && <span style={{ fontSize: '0.68rem', background: 'var(--primary)', color: 'white', borderRadius: '999px', padding: '0.15rem 0.5rem' }}>New</span>}
                                 </div>
                                 <p style={{ color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '0.6rem' }}>{item.message}</p>
-                                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{new Date(item.createdAt).toLocaleString()}</p>
+                                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{formatDateTime(item.createdAt)}</p>
                             </div>
                             <div style={{ display: 'flex', gap: '0.45rem', flexShrink: 0 }}>
                                 {!item.isRead && <button className="btn-secondary" onClick={() => markRead(item._id)}>Read</button>}

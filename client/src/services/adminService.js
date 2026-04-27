@@ -60,6 +60,10 @@ const adminService = {
         const res = await api.get(`/admin/audit-logs${buildQuery(params)}`);
         return res.data;
     },
+    getLivePresence: async () => {
+        const res = await api.get('/admin/live-presence');
+        return res.data;
+    },
     updateUserRole: async (id, role) => {
         const res = await api.put(`/admin/users/${id}/role`, { role });
         return res.data;

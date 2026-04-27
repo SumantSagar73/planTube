@@ -78,7 +78,8 @@ const userSchema = new mongoose.Schema({
       end: { type: String, default: '20:00' }
     },
     videosPerDay: { type: Number, default: 3 },
-    maxWatchTimePerDay: { type: Number, default: 120 } // minutes
+    maxWatchTimePerDay: { type: Number, default: 120 }, // minutes
+    timezone: { type: String, default: '' }
   },
   xp: {
     type: Number,
@@ -93,6 +94,13 @@ const userSchema = new mongoose.Schema({
     icon: String,
     description: String,
     earnedAt: { type: Date, default: Date.now }
+  }],
+  achievements: [{
+    key: String,
+    name: String,
+    icon: String,
+    description: String,
+    unlockedAt: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });
 

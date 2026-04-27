@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, User, Mail, Calendar, BookOpen, Layers, Activity as ActivityIcon, Clock } from 'lucide-react';
 import adminService from '../../services/adminService';
 import LoadingScreen from '../Shared/LoadingScreen';
+import { formatDate } from '../../utils/dateTime';
 
 const UserDetailsModal = ({ userId, onClose }) => {
     const [details, setDetails] = useState(null);
@@ -135,7 +136,7 @@ const UserDetailsModal = ({ userId, onClose }) => {
                                 </div>
                                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '20px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
                                     <Calendar size={24} color="#eab308" style={{ margin: '0 auto 10px' }} />
-                                    <div style={{ fontSize: '1.2rem', fontWeight: '800' }}>{new Date(user.createdAt).toLocaleDateString()}</div>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: '800' }}>{formatDate(user.createdAt)}</div>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Joined Date</div>
                                 </div>
                             </div>
@@ -166,7 +167,7 @@ const UserDetailsModal = ({ userId, onClose }) => {
                                     <div key={a._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                             <span style={{ fontWeight: '600', color: 'white' }}>Study Session</span>
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(a.date).toLocaleDateString()}</span>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(a.date)}</span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a855f7', fontWeight: '700', background: 'rgba(168, 85, 247, 0.1)', padding: '0.2rem 0.8rem', borderRadius: '20px' }}>
                                             <Clock size={14} /> {Math.round(a.seconds / 60)} mins
@@ -189,7 +190,7 @@ const UserDetailsModal = ({ userId, onClose }) => {
                                         <p style={{ fontWeight: '700', color: 'white', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {p.playlistId?.playlistTitle || 'Untitled Playlist'}
                                         </p>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Created {new Date(p.createdAt).toLocaleDateString()}</p>
+                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Created {formatDate(p.createdAt)}</p>
                                     </div>
                                 ))}
                                 {playlists.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', gridColumn: 'span 2' }}>No playlists added yet.</p>}

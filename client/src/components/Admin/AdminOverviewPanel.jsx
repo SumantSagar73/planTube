@@ -1,6 +1,7 @@
 import React from 'react';
 import { Activity, TrendingUp, RefreshCw, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { formatDateTime } from '../../utils/dateTime';
 
 const StatCard = ({ icon, label, value, trend, suffix }) => (
     <div className="glass-card" style={{
@@ -34,7 +35,7 @@ const AdminOverviewPanel = ({ stats, health, chartData, fetchOverview, autoRefre
                         Admin Command Center
                     </h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.98rem' }}>
-                        Last updated: {stats?.lastUpdatedAt ? new Date(stats.lastUpdatedAt).toLocaleString() : 'N/A'}
+                        Last updated: {stats?.lastUpdatedAt ? formatDateTime(stats.lastUpdatedAt) : 'N/A'}
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

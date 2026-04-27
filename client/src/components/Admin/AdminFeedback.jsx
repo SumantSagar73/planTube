@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import feedbackService from '../../services/feedbackService';
+import { formatDateTime } from '../../utils/dateTime';
 
 const statusOptions = [
     { value: '', label: 'All Statuses' },
@@ -19,6 +20,15 @@ const categoryOptions = [
     { value: 'other', label: 'Other' }
 ];
 
+const priorityOptions = ['critical', 'high', 'medium', 'low'];
+
+const priorityStyles = {
+    critical: { border: '1px solid rgba(239,68,68,0.45)', color: '#fca5a5', background: 'rgba(239,68,68,0.12)' },
+    high: { border: '1px solid rgba(249,115,22,0.45)', color: '#fdba74', background: 'rgba(249,115,22,0.12)' },
+    medium: { border: '1px solid rgba(245,158,11,0.4)', color: '#fcd34d', background: 'rgba(245,158,11,0.12)' },
+    low: { border: '1px solid rgba(34,197,94,0.35)', color: '#86efac', background: 'rgba(34,197,94,0.12)' }
+};
+
 const AdminFeedback = ({ notify }) => {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -28,6 +38,7 @@ const AdminFeedback = ({ notify }) => {
     const [categoryFilter, setCategoryFilter] = useState('');
     const [q, setQ] = useState('');
     const [statusCounts, setStatusCounts] = useState({});
+    const [priorityCounts, setPriorityCounts] = useState({});
     const [savingId, setSavingId] = useState('');
 
     const load = async () => {
@@ -43,6 +54,7 @@ const AdminFeedback = ({ notify }) => {
             setItems(res.items || []);
             setPagination(res.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 });
             setStatusCounts(res.statusCounts || {});
+            setPriorityCounts(res.priorityCounts || {});
         } catch (err) {
             console.error('Load admin feedback failed:', err);
             notify?.(err?.response?.data?.msg || 'Failed to load feedback', 'error');
@@ -74,7 +86,7 @@ const AdminFeedback = ({ notify }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
                 <h2 style={{ fontSize: '1.8rem', fontWeight: 900, letterSpacing: '-1px' }}>Feedback</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Review user feedback and manage resolution workflow.</p>
+                <p style={{ color: 'var(--text-muted)' }}>Review user feedback in priority order, then manage resolution workflow.</p>
             </div>
 
             <div className="glass" style={{ padding: '1rem', borderRadius: '18px', display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
@@ -85,7 +97,7 @@ const AdminFeedback = ({ notify }) => {
                 ))}
             </div>
 
-            <div className="glass" style={{ padding: '1rem', borderRadius: '18px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '0.75rem' }} className="admin-filters-grid">
+            <div className="glass admin-filters-grid" style={{ padding: '1rem', borderRadius: '18px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '0.75rem' }}>
                 <select className="styled-input" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
                     {statusOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
@@ -94,6 +106,24 @@ const AdminFeedback = ({ notify }) => {
                 </select>
                 <input className="styled-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search subject/message/page" />
                 <button className="btn-secondary" onClick={() => { setPage(1); load(); }}>Search</button>
+            </div>
+
+            <div className="glass" style={{ padding: '1rem', borderRadius: '18px', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 700 }}>Queue priority</span>
+                {priorityOptions.map((priority) => (
+                    <span
+                        key={priority}
+                        style={{
+                            fontSize: '0.78rem',
+                            padding: '0.25rem 0.55rem',
+                            borderRadius: '999px',
+                            ...priorityStyles[priority]
+                        }}
+                    >
+                        {priority}: {priorityCounts[priority] || 0}
+                    </span>
+                ))}
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>Sorted by priority score, then newest first.</span>
             </div>
 
             {loading && items.length === 0 ? (
@@ -114,6 +144,9 @@ const AdminFeedback = ({ notify }) => {
                                 <div style={{ display: 'inline-flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                                     <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.45rem', borderRadius: '999px', border: '1px solid rgba(99,102,241,0.35)' }}>{item.category}</span>
                                     <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.45rem', borderRadius: '999px', border: '1px solid rgba(16,185,129,0.35)' }}>{item.impact}</span>
+                                    <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.45rem', borderRadius: '999px', ...priorityStyles[(item.priorityLabel || 'low').toLowerCase()] }}>
+                                        {item.priorityLabel || 'Low'} priority
+                                    </span>
                                 </div>
                             </div>
 
@@ -122,7 +155,7 @@ const AdminFeedback = ({ notify }) => {
                             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
                                 <span>Page: {item.pagePath || '-'}</span>
                                 <span>•</span>
-                                <span>Submitted: {new Date(item.createdAt).toLocaleString()}</span>
+                                <span>Submitted: {formatDateTime(item.createdAt)}</span>
                                 <span>•</span>
                                 <span>Contact: {item.contactAllowed ? (item.contactEmail || item.userId?.email || 'Yes') : 'No'}</span>
                             </div>

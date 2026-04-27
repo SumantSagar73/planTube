@@ -17,7 +17,7 @@ exports.getPreferences = async (req, res) => {
 
 exports.updatePreferences = async (req, res) => {
     try {
-        const { dailyStudyTime, videosPerDay, maxWatchTimePerDay } = req.body;
+        const { dailyStudyTime, videosPerDay, maxWatchTimePerDay, timezone } = req.body;
 
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ msg: 'User not found' });
@@ -32,6 +32,9 @@ exports.updatePreferences = async (req, res) => {
         if (maxWatchTimePerDay !== undefined) {
             user.preferences.maxWatchTimePerDay = maxWatchTimePerDay;
         }
+        if (typeof timezone === 'string') {
+            user.preferences.timezone = timezone.trim();
+        }
 
         await user.save();
         res.json({ msg: 'Preferences updated', preferences: user.preferences });
@@ -43,7 +46,7 @@ exports.updatePreferences = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
     try {
-        const { name, username, themeColor } = req.body;
+        const { name, username, themeColor, motto, isPublic } = req.body;
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ msg: 'User not found' });
 
@@ -55,9 +58,19 @@ exports.updateProfile = async (req, res) => {
 
         if (name) user.name = name;
         if (themeColor) user.themeColor = themeColor;
+        if (typeof motto === 'string') user.motto = motto;
+        if (typeof isPublic === 'boolean') user.isPublic = isPublic;
 
         await user.save();
-        res.json({ id: user._id, name: user.name, username: user.username, email: user.email, themeColor: user.themeColor });
+        res.json({
+            id: user._id,
+            name: user.name,
+            username: user.username,
+            email: user.email,
+            themeColor: user.themeColor,
+            motto: user.motto,
+            isPublic: user.isPublic
+        });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');

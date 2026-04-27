@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
     LayoutDashboard, Users as UsersIcon, BookOpen, 
-    Play, Shield, LogOut, ChevronLeft, ChevronRight, FileClock, MessageSquare
+    Play, Shield, LogOut, ChevronLeft, ChevronRight, FileClock, MessageSquare, Activity
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -11,6 +11,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, collapsed, setCollapsed, isMobi
     const menuItems = [
         { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={20} /> },
         { id: 'users', label: 'Users', icon: <UsersIcon size={20} /> },
+        { id: 'live', label: 'Live Presence', icon: <Activity size={20} /> },
         { id: 'playlists', label: 'Playlists', icon: <BookOpen size={20} /> },
         { id: 'videos', label: 'Videos', icon: <Play size={20} /> },
         { id: 'notifications', label: 'Notifications', icon: <Shield size={20} /> },

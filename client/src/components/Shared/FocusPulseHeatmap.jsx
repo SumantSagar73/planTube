@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
 
 import StreakIcon from './StreakIcon';
+import { formatMonthYear } from '../../utils/dateTime';
 
 const FocusPulseHeatmap = ({ data, streak }) => {
     const [viewDate, setViewDate] = useState(new Date());
@@ -60,7 +61,7 @@ const FocusPulseHeatmap = ({ data, streak }) => {
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'white' }}>
-                        {viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                        {formatMonthYear(viewDate)}
                     </span>
                     <div style={{ display: 'flex', gap: '0.25rem', marginLeft: '0.5rem' }}>
                         <button onClick={() => changeMonth(-1)} className="icon-btn-deck" style={{ padding: '0.4rem', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}><ChevronLeft size={16} /></button>

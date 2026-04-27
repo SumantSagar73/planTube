@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatMonthYear } from '../../utils/dateTime';
 
 const CalendarPanel = ({ viewDate, activeDate, getTodayLocal, onDayClick, onChangeMonth, onGoToToday }) => {
     const weekdayNames = ['s', 'm', 't', 'w', 'th', 'f', 'sa'];
@@ -42,7 +43,7 @@ const CalendarPanel = ({ viewDate, activeDate, getTodayLocal, onDayClick, onChan
                 <div>
                     <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Study Planner</span>
                     <h2 style={{ fontSize: '1.2rem', fontWeight: '800' }}>
-                        {viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                        {formatMonthYear(viewDate)}
                     </h2>
                 </div>
                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>

@@ -3,7 +3,7 @@ import {
     CheckCircle, Map, AlignLeft, List as ListIcon,
     ChevronRight, Play, Users, Copy, Check, Settings,
     FileText, Type, Bold, Italic, ListOrdered, List, Code, Image, Trash2, Zap,
-    Tag, X, ExternalLink, RefreshCw
+    Tag, X, ExternalLink, RefreshCw, Pencil
 } from 'lucide-react';
 
 const FocusSidebar = ({
@@ -36,6 +36,9 @@ const FocusSidebar = ({
     notes = [],
     onSaveNote,
     onDeleteNote,
+    onEditNote,
+    editingNoteId,
+    onCancelNote,
     isAddingNote,
     setIsAddingNote,
     noteText,
@@ -44,6 +47,7 @@ const FocusSidebar = ({
     setGlassBlur,
     accentColor,
     setAccentColor,
+    isLocked,
     onUpdateChapters,
     onUpdateVideo,
     isFrozen,
@@ -670,17 +674,19 @@ const FocusSidebar = ({
                 ) : sidebarTab === 'notes' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         {!isAddingNote ? (
-                            <button
-                                onClick={() => { setIsAddingNote(true); onPauseVideo?.(); }}
-                                style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                                    background: 'rgba(99, 102, 241, 0.1)', border: '1px dashed var(--primary)',
-                                    color: 'var(--primary)', padding: '1rem', borderRadius: '12px',
-                                    cursor: 'pointer', fontWeight: '700', fontSize: '0.9rem'
-                                }}
-                            >
-                                <span style={{ fontSize: '1.2rem' }}>+</span> Create new note at {formatTime(currentTime)}
-                            </button>
+            <button
+                onClick={() => { if (!isLocked) { setIsAddingNote(true); onPauseVideo?.(); } }}
+                disabled={isLocked}
+                style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                    background: 'rgba(99, 102, 241, 0.1)', border: '1px dashed var(--primary)',
+                    color: 'var(--primary)', padding: '1rem', borderRadius: '12px',
+                    cursor: isLocked ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '0.9rem',
+                    opacity: isLocked ? 0.5 : 1
+                }}
+            >
+                <span style={{ fontSize: '1.2rem' }}>+</span> {editingNoteId ? 'Resume editing note' : `Create new note at ${formatTime(currentTime)}`}
+            </button>
                         ) : (
                             <div style={{
                                 background: 'rgba(255,255,255,0.02)',
@@ -691,7 +697,7 @@ const FocusSidebar = ({
                                 <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                         <div style={{ background: 'var(--primary)', color: 'white', padding: '2px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '900' }}>
-                                            {formatTime(currentTime)}
+                                            {editingNoteId ? `Editing note at ${formatTime(notes.find(n => n.id === editingNoteId)?.time || 0)}` : formatTime(currentTime)}
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                                             <button onClick={() => handleFormat('bold')} className="toolbar-btn" title="Bold"><Bold size={14} /></button>
@@ -715,7 +721,7 @@ const FocusSidebar = ({
                                 />
                                 <div style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', background: 'rgba(0,0,0,0.2)' }}>
                                     <button
-                                        onClick={() => { setIsAddingNote(false); setNoteText(''); }}
+                                        onClick={onCancelNote || (() => { setIsAddingNote(false); setNoteText(''); })}
                                         style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
                                     >
                                         Cancel
@@ -736,7 +742,7 @@ const FocusSidebar = ({
                                             fontSize: '0.85rem', fontWeight: '700'
                                         }}
                                     >
-                                        Save note
+                                        {editingNoteId ? 'Save changes' : 'Save note'}
                                     </button>
                                 </div>
                             </div>
@@ -765,13 +771,24 @@ const FocusSidebar = ({
                                             >
                                                 {formatTime(note.time)}
                                             </button>
-                                            <button
-                                                onClick={() => onDeleteNote(note.id)}
-                                                style={{ background: 'none', border: 'none', color: 'rgba(239,68,68,0.5)', cursor: 'pointer' }}
-                                                title="Delete note"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                <button
+                                                    onClick={() => !isLocked && onEditNote(note)}
+                                                    disabled={isLocked}
+                                                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.3 : 1 }}
+                                                    title="Edit note"
+                                                >
+                                                    <Pencil size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() => !isLocked && onDeleteNote(note.id)}
+                                                    disabled={isLocked}
+                                                    style={{ background: 'none', border: 'none', color: 'rgba(239,68,68,0.7)', cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.3 : 1 }}
+                                                    title="Delete note"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
                                         </div>
                                         <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)', lineHeight: '1.6', wordBreak: 'break-word' }}>
                                             {renderFormattedText(note.text)}

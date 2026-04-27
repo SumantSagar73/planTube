@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { ArrowLeft, Users, Clock, CheckCircle, Play, ChevronDown, ChevronUp, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatDate, formatMonthYear } from '../utils/dateTime';
 
 const GroupPlaylistProgress = () => {
     const { groupId, playlistId } = useParams();
@@ -181,7 +182,7 @@ const GroupPlaylistProgress = () => {
                         {/* Calendar Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                             <h2 style={{ fontSize: '1.1rem', fontWeight: '800' }}>
-                                {calendarDate.toLocaleDateString('default', { month: 'long', year: 'numeric' })}
+                                {formatMonthYear(calendarDate)}
                             </h2>
                             <div style={{ display: 'flex', gap: '0.25rem' }}>
                                 <button onClick={() => changeMonth(-1)} className="btn-secondary" style={{ padding: '0.25rem' }}>
@@ -241,7 +242,7 @@ const GroupPlaylistProgress = () => {
                         <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                             <h3 style={{ fontSize: '0.9rem', fontWeight: '800', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <Calendar size={14} color="var(--primary)" />
-                                <span>{selectedDate.toLocaleDateString()}</span>
+                                <span>{formatDate(selectedDate)}</span>
                             </h3>
 
                             {getSchedulesForDate(selectedDate).length === 0 ? (

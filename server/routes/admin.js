@@ -5,6 +5,8 @@ const admin = require('../middleware/admin');
 const adminController = require('../controllers/adminController');
 const notificationController = require('../controllers/notificationController');
 const feedbackController = require('../controllers/feedbackController');
+const presenceController = require('../controllers/presenceController');
+const achievementController = require('../controllers/achievementController');
 
 // All routes here are protected by both auth and admin middleware
 router.use(auth, admin);
@@ -62,5 +64,17 @@ router.get('/feedback', feedbackController.getAdminFeedback);
 
 // @route   PUT api/admin/feedback/:id
 router.put('/feedback/:id', feedbackController.updateAdminFeedback);
+
+// @route   GET api/admin/live-presence
+router.get('/live-presence', presenceController.getLiveUsers);
+
+// @route   GET api/admin/achievements
+router.get('/achievements', achievementController.listAdminAchievements);
+
+// @route   POST api/admin/achievements/seed
+router.post('/achievements/seed', achievementController.seedDefaultAchievements);
+
+// @route   POST api/admin/achievements/:key/award
+router.post('/achievements/:key/award', achievementController.awardAchievementToUser);
 
 module.exports = router;

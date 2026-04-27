@@ -8,6 +8,7 @@ import {
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import FocusPulseHeatmap from '../components/Shared/FocusPulseHeatmap';
 import { useAuth } from '../context/AuthContext';
+import { formatDate } from '../utils/dateTime';
 
 import StreakIcon from '../components/Shared/StreakIcon';
 
@@ -208,7 +209,7 @@ const PublicProfile = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                 <p style={{ fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>MEMBER SINCE</p>
-                                <p style={{ fontWeight: '800' }}>{new Date(user.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p>
+                                <p style={{ fontWeight: '800' }}>{formatDate(user.createdAt, { month: 'long', year: 'numeric' })}</p>
                             </div>
                             <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                 <p style={{ fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>RANK</p>

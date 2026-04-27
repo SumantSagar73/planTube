@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FileClock, Search } from 'lucide-react';
 import adminService from '../../services/adminService';
+import { formatDateTime } from '../../utils/dateTime';
 
 const AdminAuditLogs = () => {
     const [items, setItems] = useState([]);
@@ -39,7 +40,7 @@ const AdminAuditLogs = () => {
         action: log.action,
         actor: log.actorAdminId?.name || 'Unknown admin',
         target: log.targetUserId?.email || '-',
-        when: new Date(log.createdAt).toLocaleString(),
+        when: formatDateTime(log.createdAt),
         details: JSON.stringify(log.metadata || {})
     })), [items]);
 

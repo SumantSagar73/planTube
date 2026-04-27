@@ -3,6 +3,7 @@ import { Search, Clock, ExternalLink, Hash, Calendar, Download, RefreshCw } from
 import adminService from '../../services/adminService';
 import LoadingScreen from '../Shared/LoadingScreen';
 import { useSearchParams } from 'react-router-dom';
+import { formatDateTime } from '../../utils/dateTime';
 
 const AdminVideos = () => {
     const [videos, setVideos] = useState([]);
@@ -150,7 +151,7 @@ const AdminVideos = () => {
                                 <td style={{ padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <Calendar size={14} />
-                                        {new Date(v.lastSyncedAt || v.updatedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        {formatDateTime(v.lastSyncedAt || v.updatedAt)}
                                     </div>
                                 </td>
                                 <td style={{ padding: '1.5rem', textAlign: 'right' }}>

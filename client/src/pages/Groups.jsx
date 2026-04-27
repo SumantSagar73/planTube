@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Users, Plus, ChevronRight, User as UserIcon, Calendar, ArrowRight, UserPlus } from 'lucide-react';
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import AlertModal from '../components/Shared/AlertModal';
+import { formatDate } from '../utils/dateTime';
 
 const Groups = () => {
     const { user, setAuth } = useAuth();
@@ -201,7 +202,7 @@ const Groups = () => {
                                 </div>
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                     <Calendar size={12} />
-                                    {new Date(group.createdAt).toLocaleDateString()}
+                                    {formatDate(group.createdAt)}
                                 </div>
                             </div>
                         </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
-import { CheckCircle, RefreshCw, XCircle, AlignLeft, Zap } from 'lucide-react';
+import { CheckCircle, RefreshCw, XCircle, AlignLeft, Zap, Lock } from 'lucide-react';
 import { cache } from '../utils/cache';
 import FocusSidebar from '../components/Focus/FocusSidebar';
 import FocusControls from '../components/Focus/FocusControls';
@@ -58,6 +58,8 @@ const FocusMode = () => {
     const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
     const [isAddingNote, setIsAddingNote] = useState(false);
     const [noteText, setNoteText] = useState('');
+    const [editingNoteId, setEditingNoteId] = useState(null);
+    const [isLocked, setIsLocked] = useState(false);
     
     // Advanced Focus Features
     const [isMonkMode, setIsMonkMode] = useState(false);
@@ -285,20 +287,39 @@ const FocusMode = () => {
     };
 
     const handleSaveNote = (text) => {
-        const newNote = {
-            id: Date.now(),
-            videoId,
-            time: currentTime,
-            text,
-            createdAt: new Date().toISOString()
-        };
-        const updatedNotes = [...notes, newNote].sort((a, b) => a.time - b.time);
-        setNotes(updatedNotes);
-        localStorage.setItem(`notes_${videoId}`, JSON.stringify(updatedNotes));
+        if (editingNoteId) {
+            const updatedNotes = notes.map(n => 
+                n.id === editingNoteId ? { ...n, text, updatedAt: new Date().toISOString() } : n
+            );
+            setNotes(updatedNotes);
+            localStorage.setItem(`notes_${videoId}`, JSON.stringify(updatedNotes));
+            setEditingNoteId(null);
+        } else {
+            const newNote = {
+                id: Date.now(),
+                videoId,
+                time: currentTime,
+                text,
+                createdAt: new Date().toISOString()
+            };
+            const updatedNotes = [...notes, newNote].sort((a, b) => a.time - b.time);
+            setNotes(updatedNotes);
+            localStorage.setItem(`notes_${videoId}`, JSON.stringify(updatedNotes));
+        }
         
         // Reset editor state
         setNoteText('');
         setIsAddingNote(false);
+    };
+
+    const handleEditNote = (note) => {
+        setEditingNoteId(note.id);
+        setNoteText(note.text);
+        setIsAddingNote(true);
+        if (playerRef.current) {
+            playerRef.current.pauseVideo();
+            setIsPlaying(false);
+        }
     };
 
     const handleUpdateChapters = async (newChapters) => {
@@ -359,6 +380,12 @@ const FocusMode = () => {
         const updatedNotes = notes.filter(n => n.id !== noteId);
         setNotes(updatedNotes);
         localStorage.setItem(`notes_${videoId}`, JSON.stringify(updatedNotes));
+    };
+
+    const handleCancelNote = () => {
+        setIsAddingNote(false);
+        setEditingNoteId(null);
+        setNoteText('');
     };
 
     const handleSeekChange = (e) => {
@@ -452,6 +479,9 @@ const FocusMode = () => {
 
     const safeSetShowSidebar = (show) => {
         if (!show && sidebarTab === 'notes' && !checkUnsavedNotes()) return;
+        if (!show) {
+            setEditingNoteId(null);
+        }
         setShowSidebar(show);
     };
 
@@ -682,6 +712,16 @@ const FocusMode = () => {
         };
     }, [isPlaying, isDragging, activeChapterIndex, videoId, schedule?._id]);
 
+    // Lock Mode Side Effects
+    useEffect(() => {
+        if (isLocked) {
+            setShowSidebar(false);
+            if (!isFullscreen) {
+                handleToggleFullscreen();
+            }
+        }
+    }, [isLocked]);
+
     // Keyboard Shortcuts
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -695,6 +735,18 @@ const FocusMode = () => {
 
             const key = e.key.toLowerCase();
             const isSpace = e.code === 'Space' || key === ' ';
+
+            // If locked, only allow basic navigation and play/pause
+            if (isLocked) {
+                if (key === 'l' && (e.ctrlKey || e.metaKey)) { /* Allow specific unlock combo if needed? */ }
+                if (isSpace || key === 'k') { togglePlay(); e.preventDefault(); }
+                if (key === 'j') { handleSeek(Math.max(0, currentTime - 10)); e.preventDefault(); }
+                if (key === 'l') { handleSeek(Math.min(duration, currentTime + 10)); e.preventDefault(); }
+                if (key === 'arrowleft') { handleSeek(Math.max(0, currentTime - 5)); e.preventDefault(); }
+                if (key === 'arrowright') { handleSeek(Math.min(duration, currentTime + 5)); e.preventDefault(); }
+                return;
+            }
+
             if (key === 'f') { handleToggleFullscreen(); e.preventDefault(); }
             if (key === 'm') { toggleMute(); e.preventDefault(); }
             if (key === 'c') { handleToggleComplete(); e.preventDefault(); }
@@ -904,60 +956,84 @@ const FocusMode = () => {
                     />
                 </div>
 
-                <FocusTopBar
-                    showControls={showControls && !uiHidden}
-                    compactMode={compactMode}
-                    isMobile={isMobile}
-                    video={video}
-                    playlist={playlist}
-                    presenceCount={presenceCount}
-                    navigate={navigate}
-                    toggleShortcutsHelp={() => setShowShortcutsHelp(prev => !prev)}
-                />
+                {/* Top Bar Navigation */}
+                {!isLocked && (
+                    <FocusTopBar
+                        showControls={showControls && !uiHidden}
+                        compactMode={compactMode}
+                        isMobile={isMobile}
+                        video={video}
+                        playlist={playlist}
+                        presenceCount={presenceCount}
+                        navigate={navigate}
+                        toggleShortcutsHelp={() => setShowShortcutsHelp(prev => !prev)}
+                    />
+                )}
+
+                {isLocked && (
+                    <button 
+                        onClick={() => setIsLocked(false)}
+                        style={{
+                            position: 'absolute', top: isMobile ? '1rem' : '2rem', right: isMobile ? '1rem' : '2rem', zIndex: 1000,
+                            background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+                            borderRadius: '50%', width: isMobile ? '40px' : '50px', height: isMobile ? '40px' : '50px', display: 'flex', 
+                            alignItems: 'center', justifyContent: 'center', color: 'white',
+                            backdropFilter: 'blur(10px)', cursor: 'pointer', transition: 'all 0.3s'
+                        }}
+                        className="lock-floating-btn"
+                        title="Unlock Screen"
+                    >
+                        <Lock size={isMobile ? 20 : 24} />
+                    </button>
+                )}
 
                 {showShortcutsHelp && <KeyboardShortcutsHelp onClose={() => setShowShortcutsHelp(false)} />}
 
-                <div data-section="focus-controls">
-                    <FocusControls
-                        showControls={showControls}
-                        uiHidden={uiHidden}
-                        isMobile={isMobile}
-                        compactMode={compactMode}
-                        video={video}
-                        activeChapterIndex={activeChapterIndex}
-                        currentTime={currentTime}
-                        duration={duration}
-                        playbackRate={playbackRate}
-                        volume={volume}
-                        isPlaying={isPlaying}
-                        isCompleted={isCompleted}
-                        isFrozen={user?.isFrozen}
-                        showSidebar={showSidebar}
-                        sidebarTab={sidebarTab}
-                        currentIndex={currentIndex}
-                        allVideos={allVideos}
-                        playlist={playlist}
-                        handleSeekChange={handleSeekChange}
-                        setIsDragging={setIsDragging}
-                        toggleSpeed={toggleSpeed}
-                        handleVolumeChange={handleVolumeChange}
-                        handlePrevVideo={handlePrevVideo}
-                        togglePlay={togglePlay}
-                        handleNextVideo={handleNextVideo}
-                        setIsHovering={setIsHovering}
-                        handleToggleComplete={handleToggleComplete}
-                        setSidebarTab={safeSetSidebarTab}
-                        setShowSidebar={safeSetShowSidebar}
-                        formatTime={formatTime}
-                        isFullscreen={isFullscreen}
-                        handleToggleFullscreen={handleToggleFullscreen}
-                        isLoading={videoLoading || !playerRef.current}
-                        miniPlayer={miniPlayer}
-                        setMiniPlayer={setMiniPlayer}
-                    />
-                </div>
+                {!isLocked && (
+                    <div data-section="focus-controls">
+                        <FocusControls
+                            showControls={showControls}
+                            uiHidden={uiHidden}
+                            isMobile={isMobile}
+                            compactMode={compactMode}
+                            video={video}
+                            activeChapterIndex={activeChapterIndex}
+                            currentTime={currentTime}
+                            duration={duration}
+                            playbackRate={playbackRate}
+                            volume={volume}
+                            isPlaying={isPlaying}
+                            isCompleted={isCompleted}
+                            isFrozen={user?.isFrozen}
+                            showSidebar={showSidebar}
+                            sidebarTab={sidebarTab}
+                            currentIndex={currentIndex}
+                            allVideos={allVideos}
+                            playlist={playlist}
+                            handleSeekChange={handleSeekChange}
+                            setIsDragging={setIsDragging}
+                            toggleSpeed={toggleSpeed}
+                            handleVolumeChange={handleVolumeChange}
+                            handlePrevVideo={handlePrevVideo}
+                            togglePlay={togglePlay}
+                            handleNextVideo={handleNextVideo}
+                            setIsHovering={setIsHovering}
+                            handleToggleComplete={handleToggleComplete}
+                            setSidebarTab={safeSetSidebarTab}
+                            setShowSidebar={safeSetShowSidebar}
+                            formatTime={formatTime}
+                            isFullscreen={isFullscreen}
+                            handleToggleFullscreen={handleToggleFullscreen}
+                            isLoading={videoLoading || !playerRef.current}
+                            miniPlayer={miniPlayer}
+                            setMiniPlayer={setMiniPlayer}
+                            isLocked={isLocked}
+                            setIsLocked={setIsLocked}
+                        />
+                    </div>
+                )}
 
-                {!showControls && (
+                {!showControls && !isLocked && (
                     <div 
                         style={{ position: 'absolute', inset: 0, zIndex: 5, cursor: 'none' }} 
                         onClick={togglePlay} 
@@ -966,8 +1042,9 @@ const FocusMode = () => {
             </div>
 
             {/* Right Side: Sidebar Panel */}
-            <div data-section="focus-sidebar">
-                <FocusSidebar
+            {!isLocked && (
+                <div data-section="focus-sidebar">
+                    <FocusSidebar
                     showSidebar={showSidebar}
                     setShowSidebar={safeSetShowSidebar}
                     sidebarTab={sidebarTab}
@@ -991,6 +1068,9 @@ const FocusMode = () => {
                     notes={notes}
                     onSaveNote={handleSaveNote}
                     onDeleteNote={handleDeleteNote}
+                    onEditNote={handleEditNote}
+                    editingNoteId={editingNoteId}
+                    onCancelNote={handleCancelNote}
                     onUpdateChapters={handleUpdateChapters}
                     onUpdateVideo={handleUpdateVideo}
                     isFrozen={user?.isFrozen}
@@ -998,6 +1078,7 @@ const FocusMode = () => {
                     setIsAddingNote={setIsAddingNote}
                     noteText={noteText}
                     setNoteText={setNoteText}
+                    isLocked={isLocked}
                     glassBlur={glassBlur}
                     setGlassBlur={setGlassBlur}
                     accentColor={accentColor}
@@ -1010,6 +1091,7 @@ const FocusMode = () => {
                     }}
                 />
             </div>
+            )}
 
             <style>{`
                 .spinner {

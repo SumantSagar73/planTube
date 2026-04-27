@@ -72,11 +72,11 @@ exports.updateActivity = async (req, res) => {
             await activity.save();
         }
 
-        // Update XP (10 XP per minute)
-        const xpGained = Math.floor(numericSeconds / 60) * 10;
+        // Update XP at 10 XP per minute, preserving progress from short pulse updates.
+        const xpGained = Math.round((numericSeconds / 6) * 100) / 100;
         const user = await User.findById(userId);
         if (user) {
-            user.xp += xpGained;
+            user.xp = Math.round((Number(user.xp || 0) + xpGained) * 100) / 100;
             // Level formula: Level = floor(sqrt(xp) / 5) + 1
             const newLevel = Math.floor(Math.sqrt(user.xp) / 5) + 1;
             user.level = newLevel;

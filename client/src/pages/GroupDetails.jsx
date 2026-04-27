@@ -6,6 +6,7 @@ import { Users, UserPlus, Share2, ArrowLeft, MoreVertical, Trash2, LogOut, Exter
 import LoadingScreen from '../components/Shared/LoadingScreen';
 import AlertModal from '../components/Shared/AlertModal';
 import ConfirmModal from '../components/Shared/ConfirmModal';
+import { formatDate } from '../utils/dateTime';
 
 const GroupDetails = () => {
     const { id } = useParams();
@@ -382,7 +383,7 @@ const GroupDetails = () => {
                                                         </span>
                                                     ) : null}
                                                 </div>
-                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Shared by {shared.sharedBy.name} • {new Date(shared.sharedAt).toLocaleDateString()}</p>
+                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Shared by {shared.sharedBy.name} • {formatDate(shared.sharedAt)}</p>
                                             </div>
                                             <div className="group-shared-actions" style={{ display: 'flex', gap: '0.75rem' }}>
                                                 {currentUser && (

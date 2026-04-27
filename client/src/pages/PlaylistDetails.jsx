@@ -14,16 +14,11 @@ import CalendarPanel from '../components/Playlist/CalendarPanel';
 import AgendaPanel from '../components/Playlist/AgendaPanel';
 import { AlignLeft, GitGraph, Users } from 'lucide-react';
 import socket from '../services/socket';
+import { formatDate } from '../utils/dateTime';
 
 const getTodayLocal = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-
-const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    const [y, m, d] = dateStr.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 };
 
 const PlaylistDetails = () => {

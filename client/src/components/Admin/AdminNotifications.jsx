@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Send, Megaphone, Users, Star, Search, X, UserPlus, UsersRound, User } from 'lucide-react';
 import adminService from '../../services/adminService';
 import notificationService from '../../services/notificationService';
+import { formatDateTime } from '../../utils/dateTime';
 
 const AdminNotifications = ({ notify }) => {
     const [title, setTitle] = useState('');
@@ -349,7 +350,7 @@ const AdminNotifications = ({ notify }) => {
                                     <span>•</span>
                                     <span>By: {item.admin?.name || 'Admin'}</span>
                                     <span>•</span>
-                                    <span>{new Date(item.createdAt).toLocaleString()}</span>
+                                    <span>{formatDateTime(item.createdAt)}</span>
                                 </div>
                             </div>
                         ))}

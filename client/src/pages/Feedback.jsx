@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { MessageSquare, Send, CircleHelp } from 'lucide-react';
 import feedbackService from '../services/feedbackService';
 import { useAuth } from '../context/AuthContext';
+import { formatDateTime } from '../utils/dateTime';
 
 const categoryOptions = [
     { value: 'bug', label: 'Bug' },
@@ -182,7 +183,7 @@ const Feedback = () => {
                                     <strong>{item.subject}</strong>
                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.status}</span>
                                 </div>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.84rem', marginTop: '0.25rem' }}>{new Date(item.createdAt).toLocaleString()}</p>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.84rem', marginTop: '0.25rem' }}>{formatDateTime(item.createdAt)}</p>
                             </div>
                         ))}
                     </div>

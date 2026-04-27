@@ -1,5 +1,7 @@
 const Activity = require('../models/Activity');
 const Schedule = require('../models/Schedule');
+const User = require('../models/User');
+const presenceStore = require('../utils/presenceStore');
 
 // Memory store for simple presence (cleared on restart, fine for this scale)
 // In production, use Redis
@@ -61,4 +63,43 @@ exports.getPlaylistPresence = (req, res) => {
     });
 
     res.json({ count: uniqueUsers.size });
+};
+
+exports.getLiveUsers = async (_req, res) => {
+    try {
+        const records = presenceStore.getOnlineUsersSnapshot();
+        const userIds = records.map((record) => record.userId);
+
+        if (userIds.length === 0) {
+            return res.json({ items: [], total: 0 });
+        }
+
+        const users = await User.find({ _id: { $in: userIds } })
+            .select('name username email themeColor isPublic level xp createdAt')
+            .lean();
+
+        const userMap = users.reduce((acc, user) => {
+            acc[String(user._id)] = user;
+            return acc;
+        }, {});
+
+        const items = records
+            .map((record) => {
+                const user = userMap[String(record.userId)];
+                if (!user) return null;
+
+                return {
+                    ...user,
+                    connectionCount: record.connectionCount,
+                    status: 'online'
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        res.json({ items, total: items.length });
+    } catch (err) {
+        console.error('GetLiveUsers Error:', err);
+        res.status(500).json({ msg: 'Server Error' });
+    }
 };

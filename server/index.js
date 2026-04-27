@@ -74,6 +74,8 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/social', require('./routes/socialRoutes'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/feedback', require('./routes/feedback'));
+// Public achievements catalog
+app.use('/api/achievements', require('./routes/achievements'));
 
 
 const server = require('http').createServer(app);
@@ -83,6 +85,7 @@ const io = require('socket.io')(server, {
         credentials: true
     }
 });
+const presenceStore = require('./utils/presenceStore');
 
 app.set('io', io);
 
@@ -120,11 +123,17 @@ io.on('connection', (socket) => {
     socket.on('join_user', ({ userId }) => {
         if (!userId) return;
         socket.join(`user_${userId}`);
+        socket.data.userId = userId;
+        presenceStore.markUserOnline(userId, socket.id);
     });
 
     socket.on('leave_user', ({ userId }) => {
         if (!userId) return;
         socket.leave(`user_${userId}`);
+        presenceStore.markUserOffline(userId, socket.id);
+        if (socket.data.userId === userId) {
+            socket.data.userId = null;
+        }
     });
 
     socket.on('join_video', ({ videoId, userId, visitorId }) => {
@@ -191,6 +200,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnecting', () => {
+        if (socket.data.userId) {
+            presenceStore.markUserOffline(socket.data.userId, socket.id);
+        }
         socket.rooms.forEach(room => {
             if (room.startsWith('video_')) {
                 const videoId = room.replace('video_', '');

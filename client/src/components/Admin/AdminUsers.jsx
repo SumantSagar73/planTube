@@ -3,6 +3,7 @@ import { Search, Eye, Shield, ShieldAlert, Trash2, Mail, Hash, Snowflake, Downlo
 import { useSearchParams } from 'react-router-dom';
 import adminService from '../../services/adminService';
 import AdminConfirmModal from './AdminConfirmModal';
+import { formatDate } from '../../utils/dateTime';
 
 const getParam = (params, key, fallback = '') => params.get(key) || fallback;
 
@@ -238,7 +239,7 @@ const AdminUsers = ({ onViewDetails, onImpersonate, notify }) => {
                                         {u.playlistCount || 0} playlists / {u.groupCount || 0} groups
                                     </td>
                                     <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
-                                        {new Date(u.createdAt).toLocaleDateString()}
+                                        {formatDate(u.createdAt)}
                                     </td>
                                     <td style={{ padding: '1rem', textAlign: 'right' }}>
                                         <div className="admin-user-row-actions" style={{ display: 'flex', gap: '0.45rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>

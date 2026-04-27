@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
     ChevronLeft, ChevronRight, Play, CheckCircle,
     Eye, EyeOff, Map, AlignLeft, List as ListIcon,
-    Maximize, ExternalLink, Monitor, FileText, Zap, MoreHorizontal
+    Maximize, ExternalLink, Monitor, FileText, Zap, MoreHorizontal,
+    Lock, Unlock
 } from 'lucide-react';
 
 const FocusControls = ({
@@ -40,7 +41,9 @@ const FocusControls = ({
     handleToggleFullscreen,
     isLoading,
     miniPlayer,
-    setMiniPlayer
+    setMiniPlayer,
+    isLocked,
+    setIsLocked
 }) => {
     const [hoverTime, setHoverTime] = useState(null);
     const [hoverPos, setHoverPos] = useState(0);
@@ -167,9 +170,10 @@ const FocusControls = ({
                         min={0}
                         max={duration}
                         value={currentTime || 0}
-                        onChange={handleSeekChange}
-                        onMouseDown={() => setIsDragging(true)}
-                        onMouseUp={() => setIsDragging(false)}
+                        onChange={isLocked ? null : handleSeekChange}
+                        onMouseDown={() => !isLocked && setIsDragging(true)}
+                        onMouseUp={() => !isLocked && setIsDragging(false)}
+                        disabled={isLocked}
                         style={{
                             width: '100%',
                             height: '4px',
@@ -195,7 +199,13 @@ const FocusControls = ({
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: isMobile ? '0.6rem' : '1.5rem', width: '100%' }}>
                 {/* Left Group: Volume & Speed */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: isMobile ? 'none' : 1, width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start', opacity: isLoading ? 0.4 : 1, pointerEvents: isLoading ? 'none' : 'auto' }}>
-                    <button onClick={toggleSpeed} className="icon-btn-deck text-xs font-bold" style={{ width: isMobile ? '52px' : '40px', fontSize: isMobile ? '0.75rem' : '0.8rem' }} title="Playback Speed">
+                    <button 
+                        onClick={() => !isLocked && toggleSpeed()} 
+                        disabled={isLocked}
+                        className="icon-btn-deck text-xs font-bold" 
+                        style={{ width: isMobile ? '52px' : '40px', fontSize: isMobile ? '0.75rem' : '0.8rem', opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }} 
+                        title={isLocked ? "Controls Locked" : "Playback Speed"}
+                    >
                         {playbackRate}x
                     </button>
 
@@ -209,7 +219,8 @@ const FocusControls = ({
                             max="100"
                             value={volume}
                             onChange={handleVolumeChange}
-                            style={{ width: '60px', marginLeft: '0.5rem', accentColor: 'white', height: '4px' }}
+                            disabled={isLocked}
+                            style={{ width: '60px', marginLeft: '0.5rem', accentColor: isLocked ? 'gray' : 'white', height: '4px', opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         />
                     </div>}
                 </div>
@@ -250,35 +261,52 @@ const FocusControls = ({
                 {isMobile ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flex: 'none', width: '100%', justifyContent: 'flex-start', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'thin' }}>
                         <button
-                            onClick={() => setIsHovering(false)}
+                            onClick={() => !isLocked && setIsHovering(false)}
                             className="icon-btn-deck"
-                            title="Hide UI (Click to clear view)"
+                            disabled={isLocked}
+                            title={isLocked ? "Controls Locked" : "Hide UI (Click to clear view)"}
+                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         >
                             <EyeOff size={18} />
                         </button>
 
                         <button
-                            onClick={() => setMiniPlayer(!miniPlayer)}
+                            onClick={() => !isLocked && setMiniPlayer(!miniPlayer)}
                             className={`icon-btn-deck ${miniPlayer ? 'active' : ''}`}
-                            title="Mini Player (P)"
+                            disabled={isLocked}
+                            title={isLocked ? "Controls Locked" : "Mini Player (P)"}
+                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         >
                             <Monitor size={18} />
                         </button>
 
                         <button
-                            onClick={() => window.open(`https://www.youtube.com/watch?v=${video.youtubeVideoId || video.videoId}`, '_blank')}
+                            onClick={() => !isLocked && window.open(`https://www.youtube.com/watch?v=${video.youtubeVideoId || video.videoId}`, '_blank')}
                             className="icon-btn-deck"
-                            title="Watch on YouTube"
+                            disabled={isLocked}
+                            title={isLocked ? "Controls Locked" : "Watch on YouTube"}
+                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         >
                             <ExternalLink size={18} />
                         </button>
 
                         <button
-                            onClick={handleToggleFullscreen}
+                            onClick={() => !isLocked && handleToggleFullscreen()}
                             className={`icon-btn-deck ${isFullscreen ? 'active' : ''}`}
-                            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                            disabled={isLocked}
+                            title={isLocked ? "Controls Locked" : (isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen")}
+                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         >
                             <Maximize size={18} />
+                        </button>
+
+                        <button
+                            onClick={() => setIsLocked(!isLocked)}
+                            className={`icon-btn-deck ${isLocked ? 'active' : ''}`}
+                            title={isLocked ? "Unlock Screen" : "Lock Screen Controls"}
+                            style={{ background: isLocked ? 'var(--primary)' : 'transparent', color: isLocked ? 'white' : 'inherit' }}
+                        >
+                            {isLocked ? <Lock size={18} /> : <Unlock size={18} />}
                         </button>
 
                         <button
@@ -323,9 +351,11 @@ const FocusControls = ({
                             <Zap size={18} />
                         </button>
                         <button
-                            onClick={() => setSidebarTab('description')}
+                            onClick={() => !isLocked && setSidebarTab('description')}
                             className={`icon-btn-deck ${showSidebar && sidebarTab === 'description' ? 'active' : ''}`}
-                            title="About"
+                            disabled={isLocked}
+                            title={isLocked ? "Controls Locked" : "About"}
+                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         >
                             <AlignLeft size={18} />
                         </button>
@@ -333,53 +363,72 @@ const FocusControls = ({
                 ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
                         <button
-                            onClick={() => setMiniPlayer(!miniPlayer)}
+                            onClick={() => !isLocked && setMiniPlayer(!miniPlayer)}
                             className={`icon-btn-deck ${miniPlayer ? 'active' : ''}`}
-                            title="Mini Player (P)"
+                            disabled={isLocked}
+                            title={isLocked ? "Controls Locked" : "Mini Player (P)"}
+                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         >
                             <Monitor size={18} />
                         </button>
 
                         <button
-                            onClick={handleToggleFullscreen}
+                            onClick={() => !isLocked && handleToggleFullscreen()}
                             className={`icon-btn-deck ${isFullscreen ? 'active' : ''}`}
-                            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                            disabled={isLocked}
+                            title={isLocked ? "Controls Locked" : (isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen")}
+                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         >
                             <Maximize size={18} />
+                        </button>
+
+                        <button
+                            onClick={() => setIsLocked(!isLocked)}
+                            className={`icon-btn-deck ${isLocked ? 'active' : ''}`}
+                            title={isLocked ? "Unlock Screen" : "Lock Screen Controls"}
+                            style={{ background: isLocked ? 'var(--primary)' : 'transparent', color: isLocked ? 'white' : 'inherit' }}
+                        >
+                            {isLocked ? <Lock size={18} /> : <Unlock size={18} />}
                         </button>
 
                         <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 0.2rem' }}></div>
 
                         {playlist && playlist.playlistId !== 'SINGLES' && !playlist.playlistId?.startsWith('VIDEO_') && (
                             <button
-                                onClick={() => setSidebarTab('playlist')}
+                                onClick={() => !isLocked && setSidebarTab('playlist')}
                                 className={`icon-btn-deck ${showSidebar && sidebarTab === 'playlist' ? 'active' : ''}`}
-                                title="Playlist"
+                                disabled={isLocked}
+                                title={isLocked ? "Controls Locked" : "Playlist"}
+                                style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                             >
                                 <ListIcon size={18} />
                             </button>
                         )}
                         <button
-                            onClick={() => setSidebarTab('chapters')}
+                            onClick={() => !isLocked && setSidebarTab('chapters')}
                             className={`icon-btn-deck ${showSidebar && sidebarTab === 'chapters' ? 'active' : ''}`}
-                            title="Video Map"
+                            disabled={isLocked}
+                            title={isLocked ? "Controls Locked" : "Video Map"}
+                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         >
                             <Map size={18} />
                         </button>
                         <button
-                            onClick={() => setSidebarTab('notes')}
+                            onClick={() => !isLocked && setSidebarTab('notes')}
                             className={`icon-btn-deck ${showSidebar && sidebarTab === 'notes' ? 'active' : ''}`}
-                            title="Notes"
+                            disabled={isLocked}
+                            title={isLocked ? "Controls Locked" : "Notes"}
+                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         >
                             <FileText size={18} />
                         </button>
 
                         <button
-                            onClick={handleToggleComplete}
-                            disabled={isFrozen}
+                            onClick={() => !isLocked && handleToggleComplete()}
+                            disabled={isLocked || isFrozen}
                             className={`deck-primary-btn ${isCompleted ? 'completed' : ''}`}
-                            title={isFrozen ? "Progress tracking disabled while account is frozen" : (isCompleted ? "Mark Undone" : "Mark Complete")}
-                            style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: isFrozen ? 0.5 : 1, cursor: isFrozen ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                            title={isLocked ? "Controls Locked" : (isFrozen ? "Progress tracking disabled while account is frozen" : (isCompleted ? "Mark Undone" : "Mark Complete"))}
+                            style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: (isLocked || isFrozen) ? 0.5 : 1, cursor: (isLocked || isFrozen) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
                         >
                             <CheckCircle size={16} fill={isCompleted ? "white" : "none"} />
                             <span>{isCompleted ? 'Done' : 'Mark'}</span>
@@ -387,9 +436,11 @@ const FocusControls = ({
 
                         <div ref={moreMenuRef} style={{ position: 'relative' }}>
                             <button
-                                onClick={() => setShowMoreMenu(prev => !prev)}
+                                onClick={() => !isLocked && setShowMoreMenu(prev => !prev)}
                                 className={`icon-btn-deck ${showMoreMenu ? 'active' : ''}`}
-                                title="More options"
+                                disabled={isLocked}
+                                title={isLocked ? "Controls Locked" : "More options"}
+                                style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                             >
                                 <MoreHorizontal size={18} />
                             </button>

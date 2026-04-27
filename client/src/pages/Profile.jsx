@@ -11,6 +11,22 @@ import FocusPulseHeatmap from '../components/Shared/FocusPulseHeatmap';
 import Modal from '../components/Shared/Modal';
 
 import StreakIcon from '../components/Shared/StreakIcon';
+import { formatDate } from '../utils/dateTime';
+
+const timezoneOptions = [
+    'UTC',
+    'Asia/Kolkata',
+    'Asia/Dubai',
+    'Asia/Singapore',
+    'Europe/London',
+    'Europe/Paris',
+    'Europe/Berlin',
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Los_Angeles',
+    'Australia/Sydney'
+];
 
 const parseDurationToSeconds = (duration) => {
     if (!duration || typeof duration !== 'string') return 0;
@@ -48,7 +64,8 @@ const Profile = () => {
     const [preferences, setPreferences] = useState({
         dailyStudyTime: { start: '18:00', end: '20:00' },
         videosPerDay: 3,
-        maxWatchTimePerDay: 120
+        maxWatchTimePerDay: 120,
+        timezone: ''
     });
 
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -134,7 +151,10 @@ const Profile = () => {
 
     const handleUpdatePreferences = async () => {
         try {
-            await api.put('/users/preferences', preferences);
+            const res = await api.put('/users/preferences', preferences);
+            if (authUser) {
+                setAuth({ user: { ...authUser, preferences: res.data.preferences } });
+            }
             showMessage('Preferences saved successfully!');
         } catch (err) {
             console.error('Error updating preferences:', err);
@@ -221,7 +241,7 @@ const Profile = () => {
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Clock size={12} /> {s.videoId?.duration}</span>
                                     {s.scheduledDate && (
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                            <Calendar size={12} /> {new Date(s.scheduledDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                                            <Calendar size={12} /> {formatDate(s.scheduledDate, { day: 'numeric', month: 'short' })}
                                         </span>
                                     )}
                                 </div>
@@ -458,7 +478,7 @@ const Profile = () => {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                                                 <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: act.seconds > 3600 ? '#22c55e' : profile.themeColor, boxShadow: `0 0 10px ${act.seconds > 3600 ? '#22c55e' : profile.themeColor}` }}></div>
                                                 <div>
-                                                    <p style={{ fontSize: '1rem', fontWeight: '800' }}>{new Date(act.date || Date.now()).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</p>
+                                                    <p style={{ fontSize: '1rem', fontWeight: '800' }}>{formatDate(act.date || Date.now(), { day: 'numeric', month: 'short' })}</p>
                                                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Focus Block</p>
                                                 </div>
                                             </div>
@@ -476,7 +496,7 @@ const Profile = () => {
                                         {weeklyData.map((d, i) => (
                                             <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
                                                 <div style={{ width: '16px', height: `${(d.mins / maxMins) * 100}%`, background: d.date === new Date().toISOString().split('T')[0] ? profile.themeColor : 'rgba(255,255,255,0.1)', borderRadius: '4px' }}></div>
-                                                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: '700' }}>{new Date(d.date).toLocaleDateString(undefined, { weekday: 'short' }).charAt(0)}</span>
+                                                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: '700' }}>{formatDate(d.date, { weekday: 'short' }).charAt(0)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -618,6 +638,28 @@ const Profile = () => {
                                 <input type="password" placeholder="New Password" value={passwordData.newPassword} onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })} className="styled-input" required />
                                 <button type="submit" className="btn-secondary" style={{ justifyContent: 'center' }}>Update Security</button>
                             </form>
+                        </div>
+
+                        <div className="glass" style={{ padding: '3rem', borderRadius: '35px' }}>
+                            <h3 style={{ fontSize: '1.3rem', fontWeight: '900', marginBottom: '1rem' }}>Timezone</h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Set the timezone you want PlanTube to use for schedule and activity displays.</p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div>
+                                    <label className="input-label">Preferred timezone</label>
+                                    <input
+                                        list="timezone-options"
+                                        className="styled-input"
+                                        value={preferences.timezone || ''}
+                                        onChange={(e) => setPreferences({ ...preferences, timezone: e.target.value })}
+                                        placeholder="Asia/Kolkata"
+                                    />
+                                    <datalist id="timezone-options">
+                                        {timezoneOptions.map((zone) => <option key={zone} value={zone} />)}
+                                    </datalist>
+                                </div>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>Use an IANA timezone like Asia/Kolkata, Europe/London, or America/New_York.</p>
+                                <button onClick={handleUpdatePreferences} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Save Timezone</button>
+                            </div>
                         </div>
 
                         <div className="glass" style={{ padding: '3rem', borderRadius: '35px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
