@@ -5,6 +5,8 @@ import {
     FileText, Type, Bold, Italic, ListOrdered, List, Code, Image, Trash2, Zap,
     Tag, X, ExternalLink, RefreshCw, Pencil
 } from 'lucide-react';
+import AdSense from '../Shared/AdSense';
+
 
 const FocusSidebar = ({
     showSidebar,
@@ -944,7 +946,16 @@ const FocusSidebar = ({
                         </div>
                     </div>
                 )}
-            </div>
+                </div>
+
+                {/* Advertisement at the bottom of sidebar */}
+                <div style={{ padding: '0 1.25rem 1.25rem 1.25rem', marginTop: 'auto', flexShrink: 0 }}>
+                    <AdSense 
+                        adSlot="" // User needs to provide a slot ID for manual ads
+                        style={{ background: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.05)' }} 
+                    />
+                </div>
+
             <style>{`
                 .toolbar-btn {
                     background: none;

@@ -14,6 +14,8 @@ import ActiveLibrary from '../components/Dashboard/ActiveLibrary';
 import DailyAgenda from '../components/Dashboard/DailyAgenda';
 
 import StreakIcon from '../components/Shared/StreakIcon';
+import AdSense from '../components/Shared/AdSense';
+
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -205,7 +207,14 @@ const Dashboard = () => {
                                     />
                                 </div>
                             )}
+
+                            {/* Advertisement placement in sidebar */}
+                            <AdSense 
+                                adSlot="" // User needs to provide a slot ID for manual ads
+                                style={{ marginTop: '2rem' }} 
+                            />
                         </div>
+
 
                     </div>
                 </div>
