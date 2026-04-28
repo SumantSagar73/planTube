@@ -85,12 +85,10 @@ const Library = () => {
             }));
 
         try {
-            if (item.type === 'video') {
-                // Use the database-backed Video ID for pinning
-                await api.put(`/videos/${item.videoDbId}/pin`);
-            } else {
-                await api.put(`/playlists/${item.dbId || item._id}/pin`);
-            }
+            // Consistently use the playlist pin endpoint for items in the library (both playlists and standalone videos)
+            // as their pinning status is managed via the UserPlaylist link.
+            await api.put(`/playlists/${item.dbId || item._id}/pin`);
+            
             sessionStorage.setItem('library_items', JSON.stringify(items));
         } catch (err) {
             setItems(originalItems);
@@ -233,8 +231,9 @@ const Library = () => {
                     <button onClick={() => navigate('/import')} className="btn-primary" style={{ padding: '1rem 2rem' }}>Import First Playlist</button>
                 </div>
             ) : (
-                viewMode === 'grid' ? (
-                    <div className="library-grid" data-section="playlist-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+            <div data-section="playlist-grid">
+                {viewMode === 'grid' ? (
+                    <div className="library-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
                         {filteredItems.map(item => (
                             <LibraryItem
                                 key={item._id}
@@ -273,7 +272,8 @@ const Library = () => {
                             </tbody>
                         </table>
                     </div>
-                )
+                )}
+            </div>
             )}
 
             <style>{`

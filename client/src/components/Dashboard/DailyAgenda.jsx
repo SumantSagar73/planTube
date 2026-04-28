@@ -1,7 +1,7 @@
 import { Check, Play, Clock, ListChecks } from 'lucide-react';
 
 const DailyAgenda = ({ todayTasks, completedTodayCount, progressPercent, navigate }) => (
-    <aside className="dashboard-agenda-card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <aside className="dashboard-agenda-card" data-section="recent-activity" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         <div className="glass dashboard-card-shell" style={{ padding: '2rem', borderRadius: '28px', border: '1px solid var(--glass-border)' }}>
             <div className="dashboard-card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

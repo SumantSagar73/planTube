@@ -17,11 +17,11 @@ const PAGE_SECTIONS = {
     '/dashboard': {
         title: 'Dashboard', subtitle: 'Your daily study mission control',
         sections: [
-            { icon: BarChart3, color: '#6366f1', name: 'Overview Stats', where: 'Top of page', desc: 'Total focus hours, XP points, level, and your ongoing streak — all at a glance.', selector: '[data-section="overview-cards"]' },
-            { icon: Clock, color: '#22c55e', name: "Today's Schedule", where: 'Centre', desc: 'Videos planned for today. Click any item to jump straight into Focus Mode.', selector: '[data-section="schedule"]' },
-            { icon: StreakIcon, color: '#f97316', name: 'Streak Tracker', where: 'Left panel', desc: 'Your daily study streak. Study at least once a day to keep it alive!', selector: '[data-section="streak"]' },
-            { icon: Trophy, color: '#eab308', name: 'Trophy Shelf', where: 'Right panel', desc: 'Achievements unlocked based on XP, hours, and milestones. Hover each for details.', selector: '[data-section="trophies"]' },
-            { icon: History, color: '#a855f7', name: 'Recent Activity', where: 'Bottom', desc: 'Last 5 study sessions with timestamps and progress.', selector: '[data-section="recent-activity"]' },
+            { icon: BarChart3, color: '#6366f1', name: 'Focus Overview', where: 'Top', desc: 'Your current learning velocity and streak status at a glance.', selector: '[data-section="overview-cards"]' },
+            { icon: Clock, color: '#22c55e', name: 'Current Mission', where: 'Centre', desc: 'The next video in your schedule. Click to jump straight into Focus Mode.', selector: '[data-section="schedule"]' },
+            { icon: BookOpen, color: '#38bdf8', name: 'Active Library', where: 'Centre', desc: 'Your pinned playlists and videos for quick access.', selector: '[data-section="playlist-grid"]' },
+            { icon: History, color: '#a855f7', name: 'Daily Agenda', where: 'Right Sidebar', desc: "Today's specific learning tasks and your completion progress.", selector: '[data-section="recent-activity"]' },
+            { icon: Activity, color: '#f97316', name: 'Activity Pulse', where: 'Right Sidebar', desc: 'Visual heatmap of your study consistency over the past few weeks.', selector: '[data-section="heatmap"]' },
         ]
     },
     '/library': {

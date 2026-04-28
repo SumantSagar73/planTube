@@ -27,7 +27,7 @@ const ContinueWatching = ({ firstPendingTask, resumeSchedule, resumeSchedules = 
     };
 
     return (
-        <section className="dashboard-continue-card">
+        <section className="dashboard-continue-card" data-section="schedule">
             <div className="glass dashboard-card-shell" style={{ padding: '2rem', borderRadius: '28px', border: '1px solid var(--primary)', position: 'relative', overflow: 'hidden' }}>
                 <div className="dashboard-card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
                     <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>

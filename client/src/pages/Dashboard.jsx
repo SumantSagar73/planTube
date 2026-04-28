@@ -95,11 +95,10 @@ const Dashboard = () => {
 
     const handleTogglePin = async (item) => {
         try {
-            if (item.type === 'video') {
-                await api.put(`/videos/${item.dbId || item._id}/pin`);
-            } else {
-                await api.put(`/playlists/${item._id}/pin`);
-            }
+            // Both playlists and standalone videos in the library are pinned via their UserPlaylist link.
+            // item.dbId contains the Playlist document ID (p._id) for both types.
+            await api.put(`/playlists/${item.dbId || item._id}/pin`);
+            
             cache.invalidate(`dashboard_data_${user._id || user.id}`);
             // Optimistic update
             setPlaylists(prev => {
@@ -180,17 +179,17 @@ const Dashboard = () => {
                     <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: '3.5rem', alignItems: 'start' }}>
 
                         <div className="dashboard-primary-column" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                            <div className="dashboard-continue" data-section="schedule">
+                            <div className="dashboard-continue">
                                 <ContinueWatching firstPendingTask={firstPendingTask} resumeSchedule={resumeSchedule} resumeSchedules={resumeSchedules} navigate={navigate} />
                             </div>
 
-                            <div className="dashboard-library" data-section="playlist-grid">
+                            <div className="dashboard-library">
                                 <ActiveLibrary playlists={playlists} handleTogglePin={handleTogglePin} />
                             </div>
                         </div>
 
                         <div className="dashboard-sidebar-column" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                            <div className="dashboard-agenda" data-section="recent-activity">
+                            <div className="dashboard-agenda">
                                 <DailyAgenda
                                     todayTasks={todayTasks}
                                     completedTodayCount={completedTodayCount}
@@ -200,7 +199,7 @@ const Dashboard = () => {
                             </div>
 
                             {user && (
-                                <div className="dashboard-tracker" data-section="streak">
+                                <div className="dashboard-tracker" data-section="heatmap">
                                     <FocusPulseHeatmap 
                                         data={heatmapData} 
                                         streak={analytics?.streak || 0} 

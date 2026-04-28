@@ -2,7 +2,7 @@ import { Pin, PinOff, Library, Play, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ActiveLibrary = ({ playlists, handleTogglePin }) => (
-    <section className="dashboard-library-card">
+    <section className="dashboard-library-card" data-section="playlist-grid">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem' }}>
             <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--bg-card)', border: '1px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Library size={18} color="var(--primary)" />
