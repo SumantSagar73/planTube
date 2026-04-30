@@ -3,6 +3,8 @@ const SharedVideo = require('../models/SharedVideo');
 const axios = require('axios');
 const mongoose = require('mongoose');
 const { parseDuration, formatDuration, parseChapters } = require('../utils/videoUtils');
+const { fetchTranscriptFromYouTube } = require('../utils/youtubeTranscript');
+const { generateBrainstormNotes, chatWithVideo } = require('../utils/aiService');
 
 // Helper to fetch single video data from YouTube
 const fetchYouTubeData = async (videoId) => {
@@ -30,6 +32,161 @@ const fetchYouTubeData = async (videoId) => {
         description,
         chapters: parseChapters(description, durationSecs)
     };
+};
+
+exports.getTranscript = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { lang } = req.query;
+
+        let youtubeId = id;
+        
+        // If it's a MongoDB ID, find the video and get its YouTube ID from SharedVideo
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            const video = await Video.findById(id).populate('sharedVideoId');
+            if (video) {
+                // Try to get from SharedVideo first, then fallback to deprecated videoId field
+                youtubeId = video.sharedVideoId?.youtubeId || video.videoId;
+            }
+        }
+
+        if (!youtubeId) {
+            return res.status(404).json({ msg: 'Video not found' });
+        }
+
+        console.log(`Fetching transcript for YouTube ID: ${youtubeId} (requested lang: ${lang || 'default'})`);
+        const transcript = await fetchTranscriptFromYouTube(youtubeId, lang);
+        res.json(transcript);
+    } catch (err) {
+        console.error('Fetch Transcript Error:', err.message);
+        res.status(500).json({ 
+            msg: 'Failed to fetch transcript. It might be disabled or unavailable for this video.',
+            error: err.message 
+        });
+    }
+};
+
+exports.getBrainstorm = async (req, res) => {
+    try {
+        const { id } = req.params;
+        let youtubeId = id;
+        let videoTitle = 'this video';
+        let sharedVideo = null;
+
+        // Resolve YouTube ID and fetch SharedVideo
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            const video = await Video.findById(id).populate('sharedVideoId');
+            if (video) {
+                youtubeId = video.sharedVideoId?.youtubeId || video.videoId;
+                videoTitle = video.sharedVideoId?.title || video.title;
+                sharedVideo = video.sharedVideoId;
+            } else {
+                // Try as SharedVideo directly
+                sharedVideo = await SharedVideo.findById(id);
+                if (sharedVideo) {
+                    youtubeId = sharedVideo.youtubeId;
+                    videoTitle = sharedVideo.title;
+                }
+            }
+        } else {
+            // It's a YouTube ID string
+            sharedVideo = await SharedVideo.findOne({ youtubeId: id });
+            if (sharedVideo) videoTitle = sharedVideo.title;
+        }
+
+        if (!youtubeId || youtubeId.length > 20) { // Simple sanity check for YouTube ID
+             // If it's a 24-char hex string that wasn't found in DB, it's definitely not a YouTube ID
+             if (id.length === 24) return res.status(404).json({ msg: 'Video record not found.' });
+        }
+
+        // 1. Check if we already have a cached plan in SharedVideo
+        if (sharedVideo && sharedVideo.brainstormPlan) {
+            console.log(`Serving cached brainstorm plan for: ${youtubeId}`);
+            return res.json({ content: sharedVideo.brainstormPlan });
+        }
+
+        // 2. If not cached, fetch transcript
+        let transcript;
+        try {
+            transcript = await fetchTranscriptFromYouTube(youtubeId);
+        } catch (tErr) {
+            return res.status(400).json({ msg: 'Transcript not available for this video.', error: tErr.message });
+        }
+        
+        // 3. Generate with AI
+        const brainstormData = await generateBrainstormNotes(transcript, videoTitle);
+        
+        // 4. Cache it in SharedVideo for next time
+        if (sharedVideo) {
+            sharedVideo.brainstormPlan = brainstormData;
+            await sharedVideo.save();
+        } else {
+            // Create SharedVideo if missing
+            await SharedVideo.findOneAndUpdate(
+                { youtubeId },
+                { brainstormPlan: brainstormData, title: videoTitle },
+                { upsert: true }
+            );
+        }
+        
+        res.json({ content: brainstormData });
+    } catch (err) {
+        console.error('Brainstorm Error:', err.message);
+        res.status(500).json({ msg: 'Failed to generate brainstorm plan.', error: err.message });
+    }
+};
+exports.chatWithVideo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { message, chatHistory } = req.body;
+        
+        let youtubeId = id;
+        let videoTitle = 'this video';
+        let brainstormPlan = '';
+
+        // Resolve YouTube ID and fetch Plan
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            const video = await Video.findById(id).populate('sharedVideoId');
+            if (video) {
+                youtubeId = video.sharedVideoId?.youtubeId || video.videoId;
+                videoTitle = video.sharedVideoId?.title || video.title;
+                brainstormPlan = video.sharedVideoId?.brainstormPlan || '';
+            } else {
+                const shared = await SharedVideo.findById(id);
+                if (shared) {
+                    youtubeId = shared.youtubeId;
+                    videoTitle = shared.title;
+                    brainstormPlan = shared.brainstormPlan || '';
+                }
+            }
+        } else {
+            const shared = await SharedVideo.findOne({ youtubeId: id });
+            if (shared) {
+                videoTitle = shared.title;
+                brainstormPlan = shared.brainstormPlan || '';
+            }
+        }
+
+        if (!youtubeId || youtubeId.length > 20) {
+            if (id.length === 24) return res.status(404).json({ msg: 'Video not found.' });
+        }
+
+        // 1. Fetch transcript
+        let transcript;
+        try {
+            transcript = await fetchTranscriptFromYouTube(youtubeId);
+        } catch (tErr) {
+            return res.status(400).json({ msg: 'Transcript not available for chat.' });
+        }
+
+        // 2. Chat with AI using the Roadmap as context to save tokens
+        const aiResponse = await chatWithVideo(videoTitle, transcript, message, chatHistory, brainstormPlan);
+        
+        res.json({ content: aiResponse });
+    } catch (err) {
+        console.error('Chat Error:', err.message);
+        res.status(500).json({ msg: 'Failed to get response from AI.', error: err.message });
+    }
 };
 
 exports.getVideoById = async (req, res) => {

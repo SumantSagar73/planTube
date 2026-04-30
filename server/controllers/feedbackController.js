@@ -218,3 +218,14 @@ exports.updateAdminFeedback = async (req, res) => {
         res.status(500).json({ msg: 'Server Error' });
     }
 };
+
+exports.deleteAdminFeedback = async (req, res) => {
+    try {
+        const item = await Feedback.findByIdAndDelete(req.params.id);
+        if (!item) return res.status(404).json({ msg: 'Feedback not found' });
+        res.json({ msg: 'Feedback deleted permanently' });
+    } catch (err) {
+        console.error('DeleteAdminFeedback Error:', err);
+        res.status(500).json({ msg: 'Server Error' });
+    }
+};

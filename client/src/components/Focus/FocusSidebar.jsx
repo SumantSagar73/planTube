@@ -1,10 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import useFeatureFlags from '../../hooks/useFeatureFlags';
 import {
     CheckCircle, Map, AlignLeft, List as ListIcon,
     ChevronRight, Play, Users, Copy, Check, Settings,
     FileText, Type, Bold, Italic, ListOrdered, List, Code, Image, Trash2, Zap,
-    Tag, X, ExternalLink, RefreshCw, Pencil
+    Tag, X, ExternalLink, RefreshCw, Pencil, Lightbulb, Sparkles, BrainCircuit
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import AdSense from '../Shared/AdSense';
 
 
@@ -54,10 +57,28 @@ const FocusSidebar = ({
     onUpdateVideo,
     isFrozen,
     onPauseVideo,
+    brainstormPlan = '',
+    isBrainstormLoading = false,
+    onRegenerateBrainstorm,
+    suggestedQuestions = [],
+    chatMessages = [],
+    isChatLoading = false,
+    onSendMessage,
 }) => {
+    const { isEnabled } = useFeatureFlags();
+    const [chatInput, setChatInput] = useState('');
+    const chatEndRef = useRef(null);
+    const [copyPlanDone, setCopyPlanDone] = useState(false);
+    const [copyMsgDone, setCopyMsgDone] = useState(null); // stores index of message being copied
     const [copyDone, setCopyDone] = useState(false);
     const [isEditingChapters, setIsEditingChapters] = useState(false);
     const [editableChapters, setEditableChapters] = useState([]);
+
+    useEffect(() => {
+        if (chatEndRef.current) {
+            chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [chatMessages]);
     const [newChapter, setNewChapter] = useState({ title: '', timestamp: '' });
     
     // Keywords (Tags) state
@@ -205,8 +226,8 @@ const FocusSidebar = ({
                 position: 'relative',
                 width: isMobile ? (showSidebar ? '100vw' : '0') : (showSidebar ? '400px' : '0'),
                 height: isMobile ? (showSidebar ? '75vh' : '0') : '100vh',
-                background: 'rgba(10, 10, 12, 0.98)',
-                backdropFilter: 'blur(40px)',
+                background: 'rgba(0, 0, 0, 0.2)',
+                backdropFilter: 'blur(30px) saturate(180%)',
                 borderLeft: !showSidebar ? 'none' : (isMobile ? 'none' : '1px solid var(--glass-border)'),
                 opacity: showSidebar ? 1 : 0,
                 transition: 'all 0.6s cubic-bezier(0.23, 1, 0.32, 1)',
@@ -222,14 +243,19 @@ const FocusSidebar = ({
                 <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--primary)' }}>
-                            {sidebarTab === 'chapters' ? 'Video Map' : (sidebarTab === 'playlist' ? 'Playlist' : (sidebarTab === 'settings' ? 'Settings' : (sidebarTab === 'notes' ? 'My Notes' : (sidebarTab === 'resources' ? 'Resources' : 'About'))))}
+                            {sidebarTab === 'chapters' ? 'Video Map' : (sidebarTab === 'playlist' ? 'Playlist' : (sidebarTab === 'settings' ? 'Settings' : (sidebarTab === 'notes' ? 'My Notes' : (sidebarTab === 'resources' ? 'Resources' : (sidebarTab === 'brainstorm' ? 'AI Brainstorm' : 'About')))))}
                         </h3>
                         {compactMode && (
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                                  {playlist && playlist.playlistId !== 'SINGLES' && !playlist.playlistId?.startsWith('VIDEO_') && (
                                     <button onClick={() => setSidebarTab('playlist')} style={{ color: sidebarTab === 'playlist' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Playlist</button>
                                 )}
-                                <button onClick={() => setSidebarTab('notes')} style={{ color: sidebarTab === 'notes' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Notes</button>
+                                {isEnabled('feat_notes') && (
+                                    <button onClick={() => setSidebarTab('notes')} style={{ color: sidebarTab === 'notes' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Notes</button>
+                                )}
+                                {isEnabled('feat_ai_brainstorm') && (
+                                    <button onClick={() => setSidebarTab('brainstorm')} style={{ color: sidebarTab === 'brainstorm' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Brainstorm</button>
+                                )}
                                 <button onClick={() => setSidebarTab('resources')} style={{ color: sidebarTab === 'resources' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Resources</button>
                                 <button onClick={() => setSidebarTab('settings')} style={{ color: sidebarTab === 'settings' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Settings</button>
                             </div>
@@ -673,7 +699,227 @@ const FocusSidebar = ({
                             </div>
                         )}
                     </div>
-                ) : sidebarTab === 'notes' ? (
+                ) : (sidebarTab === 'brainstorm' && isEnabled('feat_ai_brainstorm')) ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '-0.5rem' }}>
+                            <button 
+                                onClick={() => {
+                                    navigator.clipboard.writeText(brainstormPlan);
+                                    setCopyPlanDone(true);
+                                    setTimeout(() => setCopyPlanDone(false), 2000);
+                                }}
+                                style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', opacity: 0.8 }}
+                            >
+                                {copyPlanDone ? <Check size={14} /> : <Copy size={14} />}
+                                {copyPlanDone ? 'Copied!' : 'Copy Plan'}
+                            </button>
+                            
+                            <button 
+                                onClick={onRegenerateBrainstorm}
+                                style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', opacity: isBrainstormLoading ? 0.5 : 0.8 }}
+                                disabled={isBrainstormLoading}
+                            >
+                                <RefreshCw size={14} className={isBrainstormLoading ? 'spin' : ''} />
+                                Regenerate
+                            </button>
+                        </div>
+                        {isBrainstormLoading ? (
+                            <div style={{ padding: '6rem 1rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <div className="neural-loader">
+                                    <div className="neural-circle"></div>
+                                    <div className="neural-circle"></div>
+                                    <div className="neural-circle"></div>
+                                    <BrainCircuit size={40} className="neural-icon" />
+                                </div>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginTop: '2rem', background: 'linear-gradient(90deg, #fff, var(--primary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                    Generating Video Insights
+                                </h3>
+                                <p style={{ fontSize: '0.85rem', opacity: 0.6, marginTop: '0.5rem', maxWidth: '240px' }}>
+                                    Extracting key concepts, building a study roadmap, and preparing actionable next steps...
+                                </p>
+                            </div>
+                        ) : brainstormPlan ? (
+                            <div className="brainstorm-content" style={{ 
+                                fontSize: '0.95rem', 
+                                color: 'rgba(255,255,255,0.9)', 
+                                lineHeight: '1.7',
+                                padding: '0.5rem'
+                            }}>
+                                <ReactMarkdown 
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                    h1: ({node, ...props}) => <h1 style={{fontSize: '1.4rem', color: 'var(--primary)', marginBottom: '1.2rem', marginTop: '1rem', borderLeft: '4px solid var(--primary)', paddingLeft: '0.8rem'}} {...props} />,
+                                    h2: ({node, ...props}) => <h2 style={{fontSize: '1.2rem', color: 'white', marginTop: '2rem', marginBottom: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '8px'}} {...props} />,
+                                    h3: ({node, ...props}) => <h3 style={{fontSize: '1.1rem', color: 'var(--primary)', marginTop: '1.5rem', marginBottom: '0.8rem'}} {...props} />,
+                                    ul: ({node, ...props}) => <ul style={{paddingLeft: '1.2rem', marginBottom: '1.5rem', listStyleType: 'disc'}} {...props} />,
+                                    li: ({node, ...props}) => <li style={{marginBottom: '0.8rem', color: 'rgba(255,255,255,0.8)'}} {...props} />,
+                                    p: ({node, ...props}) => <p style={{marginBottom: '1.2rem', color: 'rgba(255,255,255,0.85)', lineHeight: '1.6'}} {...props} />,
+                                    code: ({node, ...props}) => <code style={{background: 'rgba(99, 102, 241, 0.2)', color: 'var(--primary)', padding: '0.2rem 0.4rem', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.85rem'}} {...props} />,
+                                    strong: ({node, ...props}) => <strong style={{color: 'white', fontWeight: '700'}} {...props} />,
+                                    blockquote: ({node, ...props}) => <blockquote style={{borderLeft: '4px solid rgba(255,255,255,0.1)', paddingLeft: '1rem', margin: '1rem 0', fontStyle: 'italic', color: 'rgba(255,255,255,0.6)'}} {...props} />,
+                                    table: ({node, ...props}) => (
+                                        <div style={{ 
+                                            overflowX: 'auto', 
+                                            marginBottom: '1.5rem', 
+                                            borderRadius: '12px', 
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            background: 'rgba(255,255,255,0.02)'
+                                        }}>
+                                            <table style={{ 
+                                                width: '100%', 
+                                                borderCollapse: 'collapse', 
+                                                fontSize: '0.82rem',
+                                                textAlign: 'left'
+                                            }} {...props} />
+                                        </div>
+                                    ),
+                                    th: ({node, ...props}) => (
+                                        <th style={{ 
+                                            background: 'rgba(255,255,255,0.08)', 
+                                            color: 'white', 
+                                            padding: '0.75rem 0.6rem', 
+                                            borderBottom: '2px solid rgba(255,255,255,0.1)', 
+                                            fontWeight: '800',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px',
+                                            fontSize: '0.75rem'
+                                        }} {...props} />
+                                    ),
+                                    td: ({node, ...props}) => (
+                                        <td style={{ 
+                                            padding: '0.75rem 0.6rem', 
+                                            borderBottom: '1px solid rgba(255,255,255,0.05)', 
+                                            color: 'rgba(255,255,255,0.8)',
+                                            verticalAlign: 'top'
+                                        }} {...props} />
+                                    ),
+                                    tr: ({node, ...props}) => (
+                                        <tr style={{ 
+                                            transition: 'background 0.2s'
+                                        }} 
+                                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                        {...props} />
+                                    ),
+                                }}>
+                                    {brainstormPlan}
+                                </ReactMarkdown>
+
+                            </div>
+                        ) : (
+                            <div style={{ padding: '4rem 1rem', textAlign: 'center', opacity: 0.5 }}>
+                                <Lightbulb size={48} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
+                                <p style={{ fontSize: '1rem', fontWeight: '600' }}>Ready to Brainstorm?</p>
+                                <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>Click the AI button to generate a step-by-step plan from this video.</p>
+                            </div>
+                        )}
+
+                        {/* Always-on Chat Section */}
+                        {isEnabled('feat_ai_chat') && !isBrainstormLoading && (
+                            <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '2rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.5rem' }}>
+                                    <div style={{ padding: '0.5rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '10px' }}>
+                                        <BrainCircuit size={20} style={{ color: 'var(--primary)' }} />
+                                    </div>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'white' }}>Brainstorm Lab</h3>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+                                    {chatMessages.map((msg, idx) => (
+                                        <div key={idx} style={{ 
+                                            alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                                            maxWidth: '92%',
+                                            background: msg.role === 'user' ? 'var(--primary)' : 'rgba(255,255,255,0.06)',
+                                            padding: '0.8rem 1.1rem',
+                                            borderRadius: msg.role === 'user' ? '18px 18px 2px 18px' : '18px 18px 18px 2px',
+                                            fontSize: '0.9rem',
+                                            color: 'rgba(255,255,255,0.95)',
+                                            lineHeight: '1.6',
+                                            boxShadow: msg.role === 'user' ? '0 4px 15px rgba(99,102,241,0.3)' : 'none',
+                                            border: msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.05)'
+                                        }}>
+                                            <ReactMarkdown 
+                                                remarkPlugins={[remarkGfm]}
+                                                components={{
+                                                    p: ({node, ...props}) => <p style={{marginBottom: '0.8rem'}} {...props} />,
+                                                    strong: ({node, ...props}) => <strong style={{color: 'white', fontWeight: '700'}} {...props} />,
+                                                    h1: ({node, ...props}) => <h1 style={{fontSize: '1rem', color: 'var(--primary)', marginBottom: '0.5rem', fontWeight: '800'}} {...props} />,
+                                                    h2: ({node, ...props}) => <h2 style={{fontSize: '0.95rem', color: 'white', marginBottom: '0.4rem', fontWeight: '700'}} {...props} />,
+                                                    ul: ({node, ...props}) => <ul style={{paddingLeft: '1.2rem', marginBottom: '0.8rem', listStyleType: 'disc'}} {...props} />,
+                                                    ol: ({node, ...props}) => <ol style={{paddingLeft: '1.2rem', marginBottom: '0.8rem', listStyleType: 'decimal'}} {...props} />,
+                                                    li: ({node, ...props}) => <li style={{marginBottom: '0.4rem'}} {...props} />,
+                                                    code: ({node, ...props}) => <code style={{background: 'rgba(0,0,0,0.3)', padding: '0.1rem 0.3rem', borderRadius: '4px', fontFamily: 'monospace', color: 'var(--primary)'}} {...props} />,
+                                                    table: ({node, ...props}) => (
+                                                        <div style={{ 
+                                                            overflowX: 'auto', 
+                                                            marginBottom: '1.5rem', 
+                                                            borderRadius: '12px', 
+                                                            border: '1px solid rgba(255,255,255,0.1)',
+                                                            background: 'rgba(255,255,255,0.02)'
+                                                        }}>
+                                                            <table style={{ 
+                                                                width: '100%', 
+                                                                borderCollapse: 'collapse', 
+                                                                fontSize: '0.82rem',
+                                                                textAlign: 'left'
+                                                            }} {...props} />
+                                                        </div>
+                                                    ),
+                                                    th: ({node, ...props}) => (
+                                                        <th style={{ 
+                                                            background: 'rgba(255,255,255,0.08)', 
+                                                            color: 'white', 
+                                                            padding: '0.75rem 0.6rem', 
+                                                            borderBottom: '2px solid rgba(255,255,255,0.1)', 
+                                                            fontWeight: '800',
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '0.5px',
+                                                            fontSize: '0.75rem'
+                                                        }} {...props} />
+                                                    ),
+                                                    td: ({node, ...props}) => (
+                                                        <td style={{ 
+                                                            padding: '0.75rem 0.6rem', 
+                                                            borderBottom: '1px solid rgba(255,255,255,0.05)', 
+                                                            color: 'rgba(255,255,255,0.8)',
+                                                            verticalAlign: 'top'
+                                                        }} {...props} />
+                                                    ),
+                                                    tr: ({node, ...props}) => (
+                                                        <tr style={{ 
+                                                            transition: 'background 0.2s'
+                                                        }} 
+                                                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                        {...props} />
+                                                    ),
+                                                }}
+                                            >
+                                                {msg.content}
+                                            </ReactMarkdown>
+                                        </div>
+                                    ))}
+                                    {isChatLoading && <div className="typing-dot"></div>}
+                                    <div ref={chatEndRef} />
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <input
+                                        type="text"
+                                        value={chatInput}
+                                        onChange={(e) => setChatInput(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && onSendMessage(chatInput)}
+                                        placeholder="Ask a question..."
+                                        style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '0.6rem 1rem', color: 'white' }}
+                                    />
+                                    <button onClick={() => onSendMessage(chatInput)} className="icon-btn-deck" style={{ background: 'var(--primary)', color: 'white' }}>
+                                        <ChevronRight size={20} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : (sidebarTab === 'notes' && isEnabled('feat_notes')) ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         {!isAddingNote ? (
             <button

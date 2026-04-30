@@ -62,7 +62,12 @@ app.use('/api/schedules', require('./routes/schedule'));
 app.use('/api/users', require('./routes/user'));
 
 // Video Routes
-app.use('/api/videos', require('./routes/video'));
+const videoRoutes = require('./routes/video');
+const settingsRoutes = require('./routes/settings');
+const { initializeSettings } = require('./controllers/settingsController');
+
+app.use('/api/videos', videoRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Group Routes
 app.use('/api/groups', require('./routes/group'));
@@ -93,13 +98,13 @@ app.set('io', io);
 const activeUsers = new Map(); // videoId -> Set of socketId/userId
 
 io.on('connection', (socket) => {
-    console.log('\ud83d\udd17 Socket connected:', socket.id);
+    // console.log('\ud83d\udd17 Socket connected:', socket.id);
 
     const broadcastPresence = (videoId) => {
         const videoMap = activeUsers.get(videoId);
         const count = videoMap ? videoMap.size : 0;
 
-        console.log(`\ud83d\udce1 Broadcasting presence for video ${videoId}: ${count} users`);
+//         console.log(`\ud83d\udce1 Broadcasting presence for video ${videoId}: ${count} users`);
 
         // Notify video room
         io.to(`video_${videoId}`).emit('presence_update', { videoId, count });
@@ -138,7 +143,7 @@ io.on('connection', (socket) => {
 
     socket.on('join_video', ({ videoId, userId, visitorId }) => {
         const id = userId || visitorId || socket.id;
-        console.log(`\ud83d\udc65 User joining video room - videoId: ${videoId}, id: ${id}`);
+//         console.log(`\ud83d\udc65 User joining video room - videoId: ${videoId}, id: ${id}`);
 
         // Leave any existing video rooms first to ensure user is only in one video at a time per socket
         socket.rooms.forEach(room => {
@@ -163,7 +168,7 @@ io.on('connection', (socket) => {
         const videoMap = activeUsers.get(videoId);
         videoMap.set(socket.id, { id, timestamp: Date.now() });
 
-        console.log(`\u2705 User ${id} added to video ${videoId}. Total viewers: ${videoMap.size}`);
+//         console.log(`\u2705 User ${id} added to video ${videoId}. Total viewers: ${videoMap.size}`);
 
         broadcastPresence(videoId);
     });
@@ -224,6 +229,9 @@ const startServer = async () => {
         });
 
         console.log('MongoDB Connected');
+
+        // Initialize system settings
+        await initializeSettings();
 
         server.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);

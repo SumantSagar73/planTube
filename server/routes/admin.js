@@ -65,6 +65,9 @@ router.get('/feedback', feedbackController.getAdminFeedback);
 // @route   PUT api/admin/feedback/:id
 router.put('/feedback/:id', feedbackController.updateAdminFeedback);
 
+// @route   DELETE api/admin/feedback/:id
+router.delete('/feedback/:id', feedbackController.deleteAdminFeedback);
+
 // @route   GET api/admin/live-presence
 router.get('/live-presence', presenceController.getLiveUsers);
 
@@ -76,5 +79,10 @@ router.post('/achievements/seed', achievementController.seedDefaultAchievements)
 
 // @route   POST api/admin/achievements/:key/award
 router.post('/achievements/:key/award', achievementController.awardAchievementToUser);
+
+// Achievement CRUD
+router.post('/achievements', achievementController.createAchievement);
+router.put('/achievements/:id', achievementController.updateAchievement);
+router.delete('/achievements/:id', achievementController.deleteAchievement);
 
 module.exports = router;

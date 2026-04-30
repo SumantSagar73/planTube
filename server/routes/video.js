@@ -1,9 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const { getVideoById, togglePin, syncVideo, deleteVideo, updateChapters, updateVideo } = require('../controllers/videoController');
+const { 
+    getVideoById, togglePin, syncVideo, deleteVideo, 
+    updateChapters, updateVideo, getTranscript, 
+    getBrainstorm, chatWithVideo 
+} = require('../controllers/videoController');
 const { auth, optionalAuth } = require('../middleware/auth');
 
 router.get('/:id', optionalAuth, getVideoById);
+router.get('/:id/transcript', optionalAuth, getTranscript);
+router.get('/:id/brainstorm', optionalAuth, getBrainstorm);
+router.post('/:id/chat', optionalAuth, chatWithVideo);
 router.put('/:id', auth, updateVideo);
 router.put('/:id/pin', auth, togglePin);
 router.put('/:id/sync', auth, syncVideo);

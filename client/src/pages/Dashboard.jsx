@@ -15,9 +15,11 @@ import DailyAgenda from '../components/Dashboard/DailyAgenda';
 
 import StreakIcon from '../components/Shared/StreakIcon';
 import AdSense from '../components/Shared/AdSense';
+import useFeatureFlags from '../hooks/useFeatureFlags';
 
 
 const Dashboard = () => {
+    const { isEnabled } = useFeatureFlags();
     const navigate = useNavigate();
     const [playlists, setPlaylists] = useState([]);
     const [todayTasks, setTodayTasks] = useState([]);
@@ -198,7 +200,7 @@ const Dashboard = () => {
                                 />
                             </div>
 
-                            {user && (
+                            {user && isEnabled('feat_heatmap') && (
                                 <div className="dashboard-tracker" data-section="heatmap">
                                     <FocusPulseHeatmap 
                                         data={heatmapData} 

@@ -12,6 +12,7 @@ import Modal from '../components/Shared/Modal';
 
 import StreakIcon from '../components/Shared/StreakIcon';
 import { formatDate } from '../utils/dateTime';
+import useFeatureFlags from '../hooks/useFeatureFlags';
 
 const timezoneOptions = [
     'UTC',
@@ -38,6 +39,7 @@ const parseDurationToSeconds = (duration) => {
 };
 
 const Profile = () => {
+    const { isEnabled } = useFeatureFlags();
     const { user: authUser, logout, setAuth } = useAuth();
     const navigate = useNavigate();
     const [profile, setProfile] = useState({ name: '', username: '', email: '', motto: '', themeColor: '#6366f1', isPublic: false });
@@ -51,9 +53,11 @@ const Profile = () => {
         xp: 0,
         level: 1,
         badges: [],
+        achievements: [],
         nextLevelXp: 100,
         bestStreak: 0
     });
+    const [achievementCatalog, setAchievementCatalog] = useState([]);
 
     const [schedules, setSchedules] = useState({
         upcoming: [],
@@ -86,14 +90,15 @@ const Profile = () => {
 
     const fetchProfileData = async () => {
         try {
-            const [analyticsRes, upcomingRes, missedRes, completedRes, prefsRes, heatmapRes, statsRes] = await Promise.all([
+            const [analyticsRes, upcomingRes, missedRes, completedRes, prefsRes, heatmapRes, statsRes, catalogRes] = await Promise.all([
                 api.get('/schedules/analytics'),
                 api.get('/schedules/upcoming'),
                 api.get('/schedules/missed'),
                 api.get('/schedules/completed'),
                 api.get('/users/preferences'),
                 api.get('/analytics/heatmap'),
-                api.get('/analytics/stats')
+                api.get('/analytics/stats'),
+                api.get('/achievements')
             ]);
 
             setAnalytics(analyticsRes.data);
@@ -109,6 +114,7 @@ const Profile = () => {
 
             setHeatmapData(heatmapRes.data);
             setStats(statsRes.data);
+            setAchievementCatalog(catalogRes.data);
 
             if (authUser) {
                 setProfile({
@@ -408,11 +414,11 @@ const Profile = () => {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
                                     <div>
                                         <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '3px', marginBottom: '0.75rem' }}>Current Rank</p>
-                                        <h1 style={{ fontSize: '3rem', fontWeight: '900', letterSpacing: '-2px' }}>Level {stats.level} <span style={{ color: profile.themeColor, fontSize: '1.5rem', verticalAlign: 'middle', marginLeft: '0.5rem' }}>({stats.xp} XP)</span></h1>
+                                        <h1 style={{ fontSize: '3rem', fontWeight: '900', letterSpacing: '-2px' }}>Level {stats.level} <span style={{ color: profile.themeColor, fontSize: '1.5rem', verticalAlign: 'middle', marginLeft: '0.5rem' }}>({Math.floor(stats.xp)} XP)</span></h1>
                                         <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>"{profile.motto}"</p>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                        <p style={{ fontSize: '1rem', fontWeight: '900', color: 'white' }}>{stats.nextLevelXp - stats.xp} XP to Level {stats.level + 1}</p>
+                                        <p style={{ fontSize: '1rem', fontWeight: '900', color: 'white' }}>{Math.floor(stats.nextLevelXp - stats.xp)} XP to Level {stats.level + 1}</p>
                                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>{focusStatsTotalHours} total focus hours</p>
                                     </div>
                                 </div>
@@ -448,24 +454,26 @@ const Profile = () => {
                             </div>
 
                             {/* Heatmap Mini Card */}
-                            <div className="glass" style={{ padding: '2rem', borderRadius: '32px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                    <BarChart3 size={20} style={{ color: profile.themeColor }} /> Focus Pulse
-                                </h3>
-                                <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center', marginBottom: '-2rem' }}>
-                                    <FocusPulseHeatmap data={effectiveHeatmapData} streak={streak} />
-                                </div>
-                                <div style={{ display: 'flex', gap: '1rem', marginTop: 'auto' }}>
-                                    <div style={{ flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', textAlign: 'center' }}>
-                                        <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Streak</p>
-                                        <p style={{ fontSize: '1.2rem', fontWeight: '900' }}>{streak}d</p>
+                            {isEnabled('feat_heatmap') && (
+                                <div className="glass" style={{ padding: '2rem', borderRadius: '32px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                        <BarChart3 size={20} style={{ color: profile.themeColor }} /> Focus Pulse
+                                    </h3>
+                                    <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center', marginBottom: '-2rem' }}>
+                                        <FocusPulseHeatmap data={effectiveHeatmapData} streak={streak} />
                                     </div>
-                                    <div style={{ flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', textAlign: 'center' }}>
-                                        <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Best</p>
-                                        <p style={{ fontSize: '1.2rem', fontWeight: '900' }}>{bestStreak}d</p>
+                                    <div style={{ display: 'flex', gap: '1rem', marginTop: 'auto' }}>
+                                        <div style={{ flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', textAlign: 'center' }}>
+                                            <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Streak</p>
+                                            <p style={{ fontSize: '1.2rem', fontWeight: '900' }}>{streak}d</p>
+                                        </div>
+                                        <div style={{ flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', textAlign: 'center' }}>
+                                            <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Best</p>
+                                            <p style={{ fontSize: '1.2rem', fontWeight: '900' }}>{bestStreak}d</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Recent Sessions Feed */}
                             <div className="glass" style={{ padding: '2.5rem', borderRadius: '32px' }}>
@@ -546,24 +554,15 @@ const Profile = () => {
                             <Trophy size={48} style={{ color: profile.themeColor }} />
                         </div>
                         <h1 style={{ fontSize: '3rem', fontWeight: '900', marginBottom: '1rem' }}>Trophy Room</h1>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '4rem', fontSize: '1.2rem' }}>{stats.badges.length} / 6 Artifacts Unlocked</p>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '4rem', fontSize: '1.2rem' }}>{((stats.badges?.length || 0) + (stats.achievements?.length || 0))} / {achievementCatalog.length || 0} Artifacts Unlocked</p>
                         
                         <div style={{ width: '100%', maxWidth: '500px', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', margin: '0 auto 5rem', overflow: 'hidden' }}>
-                            <div style={{ width: `${(stats.badges.length / 6) * 100}%`, height: '100%', background: profile.themeColor, borderRadius: '4px', transition: 'width 1.5s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
+                            <div style={{ width: `${((stats.badges?.length || 0) + (stats.achievements?.length || 0)) / Math.max(1, achievementCatalog.length) * 100}%`, height: '100%', background: profile.themeColor, borderRadius: '4px', transition: 'width 1.5s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '3rem' }}>
-                            {[
-                                { name: 'First Step', icon: '🌱', desc: 'Created your profile' },
-                                { name: 'Pioneer', icon: '🚀', desc: 'Joined the Social Hub' },
-                                { name: 'Early Bird', icon: '🌅', desc: 'Study before 8 AM' },
-                                { name: 'Focus Master', icon: '🧠', desc: '2h Single Session' },
-                                { name: 'Streak King', icon: <StreakIcon size={64} />, desc: '7 Day Streak' },
-                                { name: 'Playlist Pro', icon: '📚', desc: 'Finish 5 Playlists' },
-                                { name: 'Midnight Oil', icon: '🌙', desc: 'Study after 10 PM' },
-                                { name: 'Quick Learner', icon: '⚡', desc: '3 Videos in 1 Day' },
-                            ].map((badge, i) => {
-                                const isUnlocked = stats.badges.some(b => b.name === badge.name);
+                            {achievementCatalog.length > 0 ? achievementCatalog.map((badge, i) => {
+                                const isUnlocked = stats.achievements?.some(b => b.key === badge.key) || stats.badges?.some(b => b.name === badge.name);
                                 return (
                                     <div key={i} style={{ 
                                         opacity: isUnlocked ? 1 : 0.15,
@@ -577,10 +576,14 @@ const Profile = () => {
                                         animation: isUnlocked ? `pulseGlow 2.5s infinite ${i * 0.3}s` : 'none'
                                     }}>
                                         <div style={{ fontSize: '4.5rem', marginBottom: '1.5rem', filter: isUnlocked ? 'none' : 'grayscale(1)', display: 'flex', justifyContent: 'center' }}>
-                                            {typeof badge.icon === 'string' ? badge.icon : badge.icon}
+                                            {badge.iconType === 'image' ? (
+                                                <img src={badge.icon} alt={badge.name} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '20px' }} />
+                                            ) : (
+                                                typeof badge.icon === 'string' ? badge.icon : badge.icon
+                                            )}
                                         </div>
                                         <h4 style={{ fontWeight: '900', fontSize: '1.1rem', marginBottom: '0.5rem', color: isUnlocked ? 'white' : 'var(--text-muted)' }}>{badge.name}</h4>
-                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>{badge.desc}</p>
+                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>{badge.description}</p>
                                         {isUnlocked && (
                                             <div style={{ position: 'absolute', top: '15px', right: '15px', background: '#22c55e', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 10px rgba(34, 197, 94, 0.5)' }}>
                                                 <Check size={14} color="white" strokeWidth={4} />
@@ -588,7 +591,9 @@ const Profile = () => {
                                         )}
                                     </div>
                                 );
-                            })}
+                            }) : (
+                                <p style={{ color: 'var(--text-muted)', gridColumn: '1 / -1' }}>Syncing Trophy Catalog with the Server...</p>
+                            )}
                         </div>
                     </div>
                 )}

@@ -27,6 +27,10 @@ const feedbackService = {
     updateAdminFeedback: async (id, payload) => {
         const res = await api.put(`/admin/feedback/${id}`, payload);
         return res.data;
+    },
+    deleteAdminFeedback: async (id) => {
+        const res = await api.delete(`/admin/feedback/${id}`);
+        return res.data;
     }
 };
 

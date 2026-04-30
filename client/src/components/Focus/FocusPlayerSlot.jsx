@@ -71,20 +71,26 @@ const FocusPlayerSlot = ({
                     pointerEvents: (isPlaying && !miniPlayer) ? 'none' : 'auto'
                 }}
             >
-                <YouTube
-                    videoId={(video.youtubeVideoId || video.videoId)}
-                    opts={playerOptions}
-                    onStateChange={handlePlayerStateChange}
-                    onReady={handlePlayerReady}
-                    onEnd={handleVideoEnd}
-                    className="youtube-player"
-                    style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        transform: 'scale(1)',
-                        transition: 'transform 0.5s ease'
-                    }}
-                />
+                {(video.youtubeVideoId || video.videoId) ? (
+                    <YouTube
+                        videoId={(video.youtubeVideoId || video.videoId)}
+                        opts={playerOptions}
+                        onStateChange={handlePlayerStateChange}
+                        onReady={handlePlayerReady}
+                        onEnd={handleVideoEnd}
+                        className="youtube-player"
+                        style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            transform: 'scale(1)',
+                            transition: 'transform 0.5s ease'
+                        }}
+                    />
+                ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.3)' }}>
+                        Initializing Player...
+                    </div>
+                )}
             </div>
 
             {/* Simple Mini player controls (individual buttons, no full-area overlay) */}
@@ -147,40 +153,7 @@ const FocusPlayerSlot = ({
         </div>
 
         {/* Pause overlay — NO blur so on-screen code stays readable */}
-        {!miniPlayer && !isPlaying && !videoLoading && !initialLoading && (
-            <div
-                style={{
-                    position: 'absolute',
-                    inset: 0,
-                    zIndex: 10,
-                    background: 'rgba(0,0,0,0.35)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.4s ease',
-                    cursor: 'pointer',
-                }}
-                onClick={togglePlay}
-            >
-                <div style={{
-                    width: isMobile ? '66px' : '80px', height: isMobile ? '66px' : '80px', borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.12)',
-                    border: '1px solid rgba(255,255,255,0.25)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginBottom: isMobile ? '1rem' : '1.5rem',
-                    boxShadow: '0 0 40px rgba(99,102,241,0.3)',
-                }}>
-                    <Play size={isMobile ? 30 : 36} fill="white" style={{ marginLeft: '4px' }} />
-                </div>
-                <h2 style={{ fontSize: '1.3rem', fontWeight: '800', opacity: 0.9, color: 'white', textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
-                    {video.title}
-                </h2>
-                <p style={{ color: 'rgba(255,255,255,0.5)', marginTop: '0.5rem', fontSize: isMobile ? '0.8rem' : '0.9rem' }}>
-                    Paused · click to resume
-                </p>
-            </div>
-        )}
+        {/* Pause overlay removed as requested */}
 
         {/* No click mask needed — pointer-events: none on the iframe wrapper
             lets clicks reach the FocusMode parent div which calls togglePlay */}

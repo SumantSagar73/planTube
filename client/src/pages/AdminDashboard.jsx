@@ -12,6 +12,8 @@ import AdminLivePresence from '../components/Admin/AdminLivePresence';
 import UserDetailsModal from '../components/Admin/UserDetailsModal';
 import AdminAuditLogs from '../components/Admin/AdminAuditLogs';
 import AdminOverviewPanel from '../components/Admin/AdminOverviewPanel';
+import AdminCommandCenter from '../components/Admin/AdminCommandCenter';
+import AdminAchievements from '../components/Admin/AdminAchievements';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState(() => {
@@ -31,12 +33,14 @@ const AdminDashboard = () => {
 
     const tabLabelMap = {
         overview: 'Overview',
+        command: 'Command Center',
         users: 'Users',
         playlists: 'Playlists',
         videos: 'Videos',
         notifications: 'Notifications',
         live: 'Live Presence',
         feedback: 'Feedback',
+        achievements: 'Achievements',
         audit: 'Audit'
     };
 
@@ -171,8 +175,12 @@ const AdminDashboard = () => {
                 return <AdminLivePresence notify={notify} />;
             case 'feedback':
                 return <AdminFeedback notify={notify} />;
+            case 'achievements':
+                return <AdminAchievements notify={notify} />;
             case 'audit':
                 return <AdminAuditLogs />;
+            case 'command':
+                return <AdminCommandCenter notify={notify} />;
             default:
                 return null;
         }

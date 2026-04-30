@@ -166,6 +166,7 @@ exports.getLibraryStats = async (req, res) => {
             xp: user?.xp || 0,
             level: user?.level || 1,
             badges: user?.badges || [],
+            achievements: user?.achievements || [],
             nextLevelXp: Math.pow((user?.level || 1) * 5, 2),
             motto: user?.motto || 'Keep focusing, keep growing.',
             themeColor: user?.themeColor || '#6366f1',

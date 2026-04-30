@@ -82,6 +82,19 @@ const AdminFeedback = ({ notify }) => {
         }
     };
 
+    const handleDelete = async (id) => {
+        if (!window.confirm('Permanently delete this feedback? This cannot be undone.')) return;
+        try {
+            await feedbackService.deleteAdminFeedback(id);
+            notify?.('Feedback deleted', 'success');
+            setItems(prev => prev.filter(item => item._id !== id));
+            load();
+        } catch (err) {
+            console.error('Delete feedback failed:', err);
+            notify?.(err?.response?.data?.msg || 'Failed to delete feedback', 'error');
+        }
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
@@ -176,13 +189,22 @@ const AdminFeedback = ({ notify }) => {
                                     onChange={(e) => setItems((prev) => prev.map((it) => it._id === item._id ? { ...it, adminNotes: e.target.value } : it))}
                                     placeholder="Internal admin notes"
                                 />
-                                <button
-                                    className="btn-primary"
-                                    disabled={savingId === item._id}
-                                    onClick={() => save(item, { status: item.status, adminNotes: item.adminNotes || '' })}
-                                >
-                                    {savingId === item._id ? 'Saving...' : 'Save'}
-                                </button>
+                                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                    <button
+                                        className="btn-primary"
+                                        disabled={savingId === item._id}
+                                        onClick={() => save(item, { status: item.status, adminNotes: item.adminNotes || '' })}
+                                    >
+                                        {savingId === item._id ? 'Saving...' : 'Save'}
+                                    </button>
+                                    <button
+                                        className="btn-secondary"
+                                        style={{ border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}
+                                        onClick={() => handleDelete(item._id)}
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ))}

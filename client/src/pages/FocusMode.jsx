@@ -11,8 +11,11 @@ import FocusLeftRail from '../components/Focus/FocusLeftRail';
 import KeyboardShortcutsHelp from '../components/Focus/KeyboardShortcutsHelp';
 import socket from '../services/socket';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import useFeatureFlags from '../hooks/useFeatureFlags';
 
 const FocusMode = () => {
+    const { isEnabled } = useFeatureFlags();
     const { videoId } = useParams();
     const [searchParams] = useSearchParams();
     const urlPlaylistId = searchParams.get('playlistId');
@@ -60,12 +63,20 @@ const FocusMode = () => {
     const [noteText, setNoteText] = useState('');
     const [editingNoteId, setEditingNoteId] = useState(null);
     const [isLocked, setIsLocked] = useState(false);
+    const [brainstormPlan, setBrainstormPlan] = useState('');
+    const [suggestedQuestions, setSuggestedQuestions] = useState([]);
+    const [chatMessages, setChatMessages] = useState([]);
+    const [isBrainstormLoading, setIsBrainstormLoading] = useState(false);
+    const [isChatLoading, setIsChatLoading] = useState(false);
+
     
     // Advanced Focus Features
+    const { theme, themes } = useTheme();
+    const initialThemeColor = themes.find(t => t.id === theme)?.color || '#6366f1';
     const [isMonkMode, setIsMonkMode] = useState(false);
     const [ambientSound, setAmbientSound] = useState('none');
     const [glassBlur, setGlassBlur] = useState(20);
-    const [accentColor, setAccentColor] = useState('#6366f1'); // Default Indigo
+    const [accentColor, setAccentColor] = useState(initialThemeColor); 
     const [pomodoro, setPomodoro] = useState({
         isActive: false,
         secondsLeft: 25 * 60,
@@ -214,7 +225,24 @@ const FocusMode = () => {
         }
     };
 
+    const markChapterDone = async (idx) => {
+        if (!schedule || !video) return;
+        const currentCompleted = schedule.completedChapters || [];
+        if (currentCompleted.includes(idx)) return;
+        
+        const newCompleted = [...currentCompleted, idx];
+        setSchedule(prev => ({ ...prev, completedChapters: newCompleted }));
+        try {
+            await api.put(`/schedules/${schedule._id}`, { completedChapters: newCompleted });
+        } catch (err) {
+            console.error('Auto-mark chapter error:', err);
+        }
+    };
+
     const handleVideoEnd = () => {
+        if (video?.chapters?.length > 0) {
+            markChapterDone(video.chapters.length - 1);
+        }
         if (schedule?.status !== 'completed') {
             handleToggleComplete();
         }
@@ -311,6 +339,47 @@ const FocusMode = () => {
         setNoteText('');
         setIsAddingNote(false);
     };
+
+    const fetchBrainstorm = async () => {
+        if (!videoId) return;
+        setIsBrainstormLoading(true);
+        try {
+            const res = await api.get(`/videos/${videoId}/brainstorm`);
+            setBrainstormPlan(res.data.content);
+        } catch (err) {
+            console.error('Error fetching brainstorm:', err);
+            setBrainstormPlan('');
+        } finally {
+            setIsBrainstormLoading(false);
+        }
+    };
+
+    const handleSendChatMessage = async (message) => {
+        if (!message.trim() || isChatLoading) return;
+
+        const userMsg = { role: 'user', content: message };
+        setChatMessages(prev => [...prev, userMsg]);
+        setIsChatLoading(true);
+
+        try {
+            const res = await api.post(`/videos/${videoId}/chat`, {
+                message,
+                chatHistory: chatMessages
+            });
+            setChatMessages(prev => [...prev, { role: 'assistant', content: res.data.content }]);
+        } catch (err) {
+            console.error('Chat Error:', err);
+            setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I hit a snag. Can you try asking that again?' }]);
+        } finally {
+            setIsChatLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (showSidebar && sidebarTab === 'brainstorm' && !brainstormPlan) {
+            fetchBrainstorm();
+        }
+    }, [showSidebar, sidebarTab, videoId, brainstormPlan]);
 
     const handleEditNote = (note) => {
         setEditingNoteId(note.id);
@@ -580,6 +649,8 @@ const FocusMode = () => {
     }, [currentTime, video]);
 
     useEffect(() => {
+        setBrainstormPlan('');
+        setChatMessages([]);
         fetchVideoData();
     }, [videoId]);
 
@@ -664,6 +735,13 @@ const FocusMode = () => {
 
                     if (delta > 0 && delta < 5.0) {
                         const currentIdx = activeChapterIndex;
+                        
+                        // Auto-mark previous chapter as done when moving to next
+                        if (lastActiveChapterRef.current !== -1 && currentIdx > lastActiveChapterRef.current) {
+                            markChapterDone(lastActiveChapterRef.current);
+                        }
+                        lastActiveChapterRef.current = currentIdx;
+
                         if (currentIdx !== -1) {
                             watchedTimeRef.current[currentIdx] = (watchedTimeRef.current[currentIdx] || 0) + delta;
                         } else {
@@ -839,6 +917,14 @@ const FocusMode = () => {
         };
     }, [ambientSound]);
 
+    // Sync Accent Color with Global Theme
+    useEffect(() => {
+        const currentTheme = themes.find(t => t.id === theme);
+        if (currentTheme) {
+            setAccentColor(currentTheme.color);
+        }
+    }, [theme, themes]);
+
     // Apply Accent Color & Glass Blur
     useEffect(() => {
         document.documentElement.style.setProperty('--primary', accentColor);
@@ -970,7 +1056,7 @@ const FocusMode = () => {
                     />
                 )}
 
-                {isLocked && (
+                {isLocked && isEnabled('feat_lock_mode') && (
                     <button 
                         onClick={() => setIsLocked(false)}
                         style={{
@@ -1089,6 +1175,13 @@ const FocusMode = () => {
                             setIsPlaying(false);
                         }
                     }}
+                    brainstormPlan={brainstormPlan}
+                    isBrainstormLoading={isBrainstormLoading}
+                    onRegenerateBrainstorm={fetchBrainstorm}
+                    suggestedQuestions={suggestedQuestions}
+                    chatMessages={chatMessages}
+                    isChatLoading={isChatLoading}
+                    onSendMessage={handleSendChatMessage}
                 />
             </div>
             )}

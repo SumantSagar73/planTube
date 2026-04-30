@@ -34,6 +34,10 @@ const sharedVideoSchema = new mongoose.Schema({
     lastSyncedAt: {
         type: Date,
         default: Date.now
+    },
+    brainstormPlan: {
+        type: String,
+        default: null
     }
 }, { timestamps: true });
 

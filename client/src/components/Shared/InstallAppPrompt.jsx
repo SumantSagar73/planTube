@@ -19,7 +19,8 @@ const InstallAppPrompt = () => {
   const [isIos, setIsIos] = useState(isIosDevice());
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
+    // Only register service worker in production to avoid development caching
+    if (import.meta.env.PROD && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch((err) => {
         console.warn('Service worker registration failed:', err);
       });

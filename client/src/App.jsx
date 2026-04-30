@@ -26,6 +26,8 @@ import Feedback from './pages/Feedback';
 
 import LoadingScreen from './components/Shared/LoadingScreen';
 import ShadowBanner from './components/Admin/ShadowBanner';
+import MaintenanceScreen from './components/Shared/MaintenanceScreen';
+import useFeatureFlags from './hooks/useFeatureFlags';
 
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
@@ -43,8 +45,25 @@ const AdminRoute = ({ children }) => {
 
 const AppRoutes = () => {
     const { user, loading } = useAuth();
+    const { isEnabled } = useFeatureFlags();
 
     if (loading) return <LoadingScreen />;
+
+    const isMaintenance = isEnabled('maintenance_mode');
+
+    // Block non-admins during maintenance
+    if (isMaintenance && (!user || user.role !== 'admin')) {
+        return (
+            <Router>
+                <div className="app-container">
+                    <Routes>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="*" element={<MaintenanceScreen />} />
+                    </Routes>
+                </div>
+            </Router>
+        );
+    }
 
     return (
         <Router>
@@ -176,11 +195,15 @@ const AppRoutes = () => {
     );
 };
 
+import { SettingsProvider } from './context/SettingsContext';
+
 function App() {
     return (
-        <AuthProvider>
-            <AppRoutes />
-        </AuthProvider>
+        <SettingsProvider>
+            <AuthProvider>
+                <AppRoutes />
+            </AuthProvider>
+        </SettingsProvider>
     );
 }
 

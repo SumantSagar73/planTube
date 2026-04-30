@@ -3,8 +3,9 @@ import {
     ChevronLeft, ChevronRight, Play, CheckCircle,
     Eye, EyeOff, Map, AlignLeft, List as ListIcon,
     Maximize, ExternalLink, Monitor, FileText, Zap, MoreHorizontal,
-    Lock, Unlock
+    Lock, Unlock, Type, BrainCircuit, Lightbulb
 } from 'lucide-react';
+import useFeatureFlags from '../../hooks/useFeatureFlags';
 
 const FocusControls = ({
     showControls,
@@ -45,6 +46,7 @@ const FocusControls = ({
     isLocked,
     setIsLocked
 }) => {
+    const { isEnabled } = useFeatureFlags();
     const [hoverTime, setHoverTime] = useState(null);
     const [hoverPos, setHoverPos] = useState(0);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -228,7 +230,7 @@ const FocusControls = ({
                 {/* Center Group: Navigation */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.75rem' : '1rem', opacity: isLoading ? 0.6 : 1, pointerEvents: isLoading ? 'none' : 'auto' }}>
                     <button onClick={handlePrevVideo} disabled={currentIndex <= 0} className="icon-btn-deck" style={{ opacity: currentIndex <= 0 ? 0.3 : 1, cursor: currentIndex <= 0 ? 'default' : 'pointer' }}>
-                        <ChevronLeft size={isMobile ? 20 : 24} />
+                        <ChevronLeft size={isMobile ? 20 : 24} style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
                     </button>
 
                     <button
@@ -300,14 +302,16 @@ const FocusControls = ({
                             <Maximize size={18} />
                         </button>
 
-                        <button
-                            onClick={() => setIsLocked(!isLocked)}
-                            className={`icon-btn-deck ${isLocked ? 'active' : ''}`}
-                            title={isLocked ? "Unlock Screen" : "Lock Screen Controls"}
-                            style={{ background: isLocked ? 'var(--primary)' : 'transparent', color: isLocked ? 'white' : 'inherit' }}
-                        >
-                            {isLocked ? <Lock size={18} /> : <Unlock size={18} />}
-                        </button>
+                        {isEnabled('feat_lock_mode') && (
+                            <button
+                                onClick={() => setIsLocked(!isLocked)}
+                                className={`icon-btn-deck ${isLocked ? 'active' : ''}`}
+                                title={isLocked ? "Unlock Screen" : "Lock Screen Controls"}
+                                style={{ background: isLocked ? 'var(--primary)' : 'transparent', color: isLocked ? 'white' : 'inherit' }}
+                            >
+                                {isLocked ? <Lock size={18} /> : <Unlock size={18} />}
+                            </button>
+                        )}
 
                         <button
                             onClick={handleToggleComplete}
@@ -336,13 +340,24 @@ const FocusControls = ({
                         >
                             <Map size={18} />
                         </button>
-                        <button
-                            onClick={() => setSidebarTab('notes')}
-                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'notes' ? 'active' : ''}`}
-                            title="Notes"
-                        >
-                            <FileText size={18} />
-                        </button>
+                        {isEnabled('feat_notes') && (
+                            <button
+                                onClick={() => setSidebarTab('notes')}
+                                className={`icon-btn-deck ${showSidebar && sidebarTab === 'notes' ? 'active' : ''}`}
+                                title="Notes"
+                            >
+                                <FileText size={18} />
+                            </button>
+                        )}
+                        {isEnabled('feat_ai_brainstorm') && (
+                            <button
+                                onClick={() => setSidebarTab('brainstorm')}
+                                className={`icon-btn-deck ${showSidebar && sidebarTab === 'brainstorm' ? 'active' : ''}`}
+                                title="Brainstorm"
+                            >
+                                <BrainCircuit size={18} />
+                            </button>
+                        )}
                         <button
                             onClick={() => setSidebarTab('resources')}
                             className={`icon-btn-deck ${showSidebar && sidebarTab === 'resources' ? 'active' : ''}`}
@@ -382,14 +397,16 @@ const FocusControls = ({
                             <Maximize size={18} />
                         </button>
 
-                        <button
-                            onClick={() => setIsLocked(!isLocked)}
-                            className={`icon-btn-deck ${isLocked ? 'active' : ''}`}
-                            title={isLocked ? "Unlock Screen" : "Lock Screen Controls"}
-                            style={{ background: isLocked ? 'var(--primary)' : 'transparent', color: isLocked ? 'white' : 'inherit' }}
-                        >
-                            {isLocked ? <Lock size={18} /> : <Unlock size={18} />}
-                        </button>
+                        {isEnabled('feat_lock_mode') && (
+                            <button
+                                onClick={() => setIsLocked(!isLocked)}
+                                className={`icon-btn-deck ${isLocked ? 'active' : ''}`}
+                                title={isLocked ? "Unlock Screen" : "Lock Screen Controls"}
+                                style={{ background: isLocked ? 'var(--primary)' : 'transparent', color: isLocked ? 'white' : 'inherit' }}
+                            >
+                                {isLocked ? <Lock size={18} /> : <Unlock size={18} />}
+                            </button>
+                        )}
 
                         <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 0.2rem' }}></div>
 
@@ -413,15 +430,28 @@ const FocusControls = ({
                         >
                             <Map size={18} />
                         </button>
-                        <button
-                            onClick={() => !isLocked && setSidebarTab('notes')}
-                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'notes' ? 'active' : ''}`}
-                            disabled={isLocked}
-                            title={isLocked ? "Controls Locked" : "Notes"}
-                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
-                        >
-                            <FileText size={18} />
-                        </button>
+                        {isEnabled('feat_notes') && (
+                            <button
+                                onClick={() => !isLocked && setSidebarTab('notes')}
+                                className={`icon-btn-deck ${showSidebar && sidebarTab === 'notes' ? 'active' : ''}`}
+                                disabled={isLocked}
+                                title={isLocked ? "Controls Locked" : "Notes"}
+                                style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
+                            >
+                                <FileText size={18} />
+                            </button>
+                        )}
+                        {isEnabled('feat_ai_brainstorm') && (
+                            <button
+                                onClick={() => !isLocked && setSidebarTab('brainstorm')}
+                                className={`icon-btn-deck ${showSidebar && sidebarTab === 'brainstorm' ? 'active' : ''}`}
+                                disabled={isLocked}
+                                title={isLocked ? "Controls Locked" : "Brainstorm"}
+                                style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
+                            >
+                                <BrainCircuit size={18} />
+                            </button>
+                        )}
 
                         <button
                             onClick={() => !isLocked && handleToggleComplete()}
@@ -433,6 +463,7 @@ const FocusControls = ({
                             <CheckCircle size={16} fill={isCompleted ? "white" : "none"} />
                             <span>{isCompleted ? 'Done' : 'Mark'}</span>
                         </button>
+
 
                         <div ref={moreMenuRef} style={{ position: 'relative' }}>
                             <button

@@ -12,42 +12,33 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  if (url.pathname.startsWith('/api/')) {
+  // Skip caching for API calls and non-GET requests
+  if (url.pathname.startsWith('/api/') || request.method !== 'GET') {
     return;
   }
 
-  if (request.method !== 'GET') {
-    return;
-  }
-
-  if (request.mode === 'navigate') {
-    event.respondWith((async () => {
-      try {
-        const response = await fetch(request);
-        const cache = await caches.open(CACHE_NAME);
-        cache.put('/index.html', response.clone());
+  // Network-First Strategy: Try network, fallback to cache
+  event.respondWith(
+    fetch(request)
+      .then(async (response) => {
+        // Successful response: Update cache and return
+        if (response && response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(request, response.clone());
+        }
         return response;
-      } catch (err) {
-        const cached = await caches.match('/index.html');
-        return cached || Response.error();
-      }
-    })());
-    return;
-  }
+      })
+      .catch(async () => {
+        // Network failed (offline): Serve from cache if available
+        const cached = await caches.match(request);
+        if (cached) return cached;
 
-  event.respondWith((async () => {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-
-    try {
-      const response = await fetch(request);
-      if (response && response.ok) {
-        const cache = await caches.open(CACHE_NAME);
-        cache.put(request, response.clone());
-      }
-      return response;
-    } catch (err) {
-      return cached || Response.error();
-    }
-  })());
+        // Special case for navigation: Return index.html from cache
+        if (request.mode === 'navigate') {
+          return caches.match('/index.html');
+        }
+        
+        return Response.error();
+      })
+  );
 });
