@@ -4,8 +4,8 @@ const AICHIXIA_ENDPOINT = 'https://www.aichixia.xyz/api/v1';
 const AICHIXIA_API_KEY = process.env.AICHIXIA_API_KEY;
 
 // Primary and backup models
-const PRIMARY_MODEL = 'gemini-flash-3';
-const BACKUP_MODEL = 'gpt-5';
+const PRIMARY_MODEL = 'gemini-3-flash';
+const BACKUP_MODEL = 'gpt-5-mini';
 
 /**
  * Makes an AI API call with automatic fallback from primary to backup model

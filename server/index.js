@@ -82,6 +82,34 @@ app.use('/api/feedback', require('./routes/feedback'));
 // Public achievements catalog
 app.use('/api/achievements', require('./routes/achievements'));
 
+// Image Proxy — fetches external images server-side to bypass CORS on image hosts like ibb.co, Google Drive, etc.
+const https = require('https');
+const http = require('http');
+
+const fetchWithRedirects = (url, res, depth = 0) => {
+    if (depth > 5) return res.status(500).json({ error: 'Too many redirects' });
+    try {
+        const parsed = new URL(url);
+        const client = parsed.protocol === 'https:' ? https : http;
+        client.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (imgRes) => {
+            if ([301, 302, 303, 307, 308].includes(imgRes.statusCode) && imgRes.headers.location) {
+                return fetchWithRedirects(imgRes.headers.location, res, depth + 1);
+            }
+            res.set('Content-Type', imgRes.headers['content-type'] || 'image/jpeg');
+            res.set('Cache-Control', 'public, max-age=86400');
+            imgRes.pipe(res);
+        }).on('error', () => res.status(500).json({ error: 'Failed to fetch image' }));
+    } catch {
+        res.status(400).json({ error: 'Invalid URL' });
+    }
+};
+
+app.get('/api/proxy-image', (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: 'url query param required' });
+    fetchWithRedirects(url, res);
+});
+
 
 const server = require('http').createServer(app);
 const io = require('socket.io')(server, {

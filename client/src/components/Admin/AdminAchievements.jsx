@@ -68,23 +68,44 @@ const AdminAchievements = ({ notify }) => {
     };
 
     // --- Image Loading and Cropping Logic ---
+    const getProxiedUrl = (url) => {
+        const apiBase = (import.meta.env.VITE_API_URL || '/api').replace(/\/api$/, '');
+        return `${apiBase}/api/proxy-image?url=${encodeURIComponent(url)}`;
+    };
+
+    // Converts Google Drive share links to direct download URLs
+    const normalizeImageUrl = (url) => {
+        // Pattern: https://drive.google.com/file/d/FILE_ID/view?...
+        const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (driveMatch) {
+            return `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
+        }
+        // Pattern: https://drive.google.com/open?id=FILE_ID
+        const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+        if (openMatch) {
+            return `https://drive.google.com/uc?export=download&id=${openMatch[1]}`;
+        }
+        return url;
+    };
+
     const handleLoadImage = () => {
         if (!imageUrlInput) return;
+        const directUrl = normalizeImageUrl(imageUrlInput);
+        if (directUrl !== imageUrlInput) {
+            notify('Google Drive link detected — converting to direct URL automatically ✅');
+        }
         const img = new Image();
-        img.crossOrigin = "anonymous";
+        img.crossOrigin = 'anonymous';
         img.onload = () => {
             setImageObj(img);
-            // Default crop to a square in the center
             const size = Math.min(img.width, img.height);
-            setCropRect({
-                x: (img.width - size) / 2,
-                y: (img.height - size) / 2,
-                size: size
-            });
-            drawCanvas(img, { x: (img.width - size) / 2, y: (img.height - size) / 2, size });
+            const rect = { x: (img.width - size) / 2, y: (img.height - size) / 2, size };
+            setCropRect(rect);
+            drawCanvas(img, rect);
         };
-        img.onerror = () => notify('Failed to load image from URL. It may have CORS protections.', 'error');
-        img.src = imageUrlInput;
+        img.onerror = () => notify('Failed to load image. Check the URL is publicly accessible.', 'error');
+        // Route through our backend proxy to bypass CORS on hosts like ibb.co / Google Drive
+        img.src = getProxiedUrl(directUrl);
     };
 
     const drawCanvas = (img, rect) => {
@@ -339,10 +360,12 @@ const AdminAchievements = ({ notify }) => {
                                     </div>
                                     
                                     <div style={{ width: '80px', height: '80px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', fontSize: '3rem', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-                                        {item.iconType === 'image' && item.icon.startsWith('http') ? (
-                                            <img src={item.icon} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : item.iconType === 'image' && item.icon.startsWith('data:image') ? (
-                                            <img src={item.icon} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        {item.iconType === 'image' ? (
+                                            <img
+                                                src={item.icon.startsWith('data:') ? item.icon : getProxiedUrl(item.icon)}
+                                                alt={item.name}
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                            />
                                         ) : (
                                             item.icon || '🏆'
                                         )}
