@@ -28,6 +28,15 @@ const AdSense = ({
                 console.warn('AdSense push error (usually harmless):', e);
             }
         }
+
+        return () => {
+            // Cleanup to prevent "Failed to execute 'removeChild' on 'Node'" errors
+            // when React unmounts but AdSense has modified the DOM structure.
+            const containers = document.querySelectorAll('.adsense-container');
+            containers.forEach(container => {
+                container.innerHTML = '';
+            });
+        };
     }, []);
 
     // If no adSlot is provided, we don't render anything 

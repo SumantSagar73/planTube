@@ -36,9 +36,17 @@ const LibraryItem = ({
                         <div>
                             <Link to={linkTarget} style={{ textDecoration: 'none', color: 'inherit' }}>
                                 <h4 style={{ fontSize: '0.95rem', fontWeight: '800', marginBottom: '0.2rem' }}>{item.title}</h4>
-                                <div style={{ display: 'flex', gap: '0.6rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '700' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '700' }}>
                                     <span style={{ color: isVideo ? '#f59e0b' : 'var(--primary)' }}>{item.type === 'imported' ? 'PLAYLIST' : item.type.toUpperCase()}</span>
                                     <span>{item.videoCount || 1} VIDEOS</span>
+                                    {typeof item.progress === 'number' && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <div style={{ width: '60px', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                                                <div style={{ width: `${item.progress}%`, height: '100%', background: item.progress === 100 ? '#22c55e' : 'var(--primary)' }} />
+                                            </div>
+                                            <span style={{ color: item.progress === 100 ? '#22c55e' : 'var(--text-muted)' }}>{item.progress}%</span>
+                                        </div>
+                                    )}
                                 </div>
                             </Link>
                         </div>
@@ -104,6 +112,11 @@ const LibraryItem = ({
                             {item.type === 'imported' ? 'playlist' : item.type}
                         </span>
                     </div>
+                    {typeof item.progress === 'number' && (
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: 'rgba(255,255,255,0.1)' }}>
+                            <div style={{ width: `${item.progress}%`, height: '100%', background: item.progress === 100 ? '#22c55e' : 'var(--primary)', transition: 'width 0.5s ease' }} />
+                        </div>
+                    )}
                 </div>
                 <div style={{ padding: '1rem' }}>
                     <h3 style={{
@@ -114,11 +127,18 @@ const LibraryItem = ({
                     }}>
                         {item.title}
                     </h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)' }}>
-                        <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: isVideo ? '#f59e0b' : 'var(--primary)' }} />
-                        <span style={{ fontSize: '0.7rem', fontWeight: '700' }}>
-                            {item.videoCount || 1} {isVideo ? 'Video' : 'Videos'}
-                        </span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--text-muted)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: isVideo ? '#f59e0b' : 'var(--primary)' }} />
+                            <span style={{ fontSize: '0.7rem', fontWeight: '700' }}>
+                                {item.videoCount || 1} {isVideo ? 'Video' : 'Videos'}
+                            </span>
+                        </div>
+                        {typeof item.progress === 'number' && (
+                            <span style={{ fontSize: '0.75rem', fontWeight: '800', color: item.progress === 100 ? '#22c55e' : 'var(--primary)' }}>
+                                {item.progress}%
+                            </span>
+                        )}
                     </div>
                 </div>
             </Link>

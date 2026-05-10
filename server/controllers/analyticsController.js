@@ -11,49 +11,7 @@ const getLocalDateString = (date = new Date()) => {
     return `${year}-${month}-${day}`;
 };
 
-const checkAndAwardBadges = async (user, activityData) => {
-    const badges = user.badges || [];
-    const newBadges = [];
-
-    const hasBadge = (name) => badges.some(b => b.name === name);
-
-    // 1. Focus Master (2h single session = 7200 seconds)
-    if (activityData.seconds >= 7200 && !hasBadge('Focus Master')) {
-        newBadges.push({
-            name: 'Focus Master',
-            icon: '🧠',
-            description: 'Completed a single 2-hour focus session.',
-            unlockedAt: new Date()
-        });
-    }
-
-    // 2. Early Bird (Study before 8 AM)
-    const hour = new Date().getHours();
-    if (hour < 8 && !hasBadge('Early Bird')) {
-        newBadges.push({
-            name: 'Early Bird',
-            icon: '🌅',
-            description: 'Started a focus session before 8 AM.',
-            unlockedAt: new Date()
-        });
-    }
-
-    // 3. Streak King (7 Day Streak) - We'll check this against user.bestStreak
-    if (user.bestStreak >= 7 && !hasBadge('Streak King')) {
-        newBadges.push({
-            name: 'Streak King',
-            icon: '🔥',
-            description: 'Maintained a focus streak for 7 consecutive days.',
-            unlockedAt: new Date()
-        });
-    }
-
-    if (newBadges.length > 0) {
-        user.badges = [...badges, ...newBadges];
-        return newBadges;
-    }
-    return [];
-};
+const AchievementService = require('../services/achievementService');
 
 exports.updateActivity = async (req, res) => {
     const { seconds, date } = req.body;
@@ -72,35 +30,34 @@ exports.updateActivity = async (req, res) => {
             await activity.save();
         }
 
-        // Update XP at 10 XP per minute, preserving progress from short pulse updates.
-        const xpGained = Math.round((numericSeconds / 6) * 100) / 100;
         const user = await User.findById(userId);
         if (user) {
+            // Update XP at 10 XP per minute (standardized)
+            const xpGained = (numericSeconds / 60) * 10;
             user.xp = Math.round((Number(user.xp || 0) + xpGained) * 100) / 100;
-            // Level formula: Level = floor(sqrt(xp) / 5) + 1
-            const newLevel = Math.floor(Math.sqrt(user.xp) / 5) + 1;
-            user.level = newLevel;
             
-            // Check for badges
-            const newBadges = await checkAndAwardBadges(user, { seconds: activity.seconds });
+            // Update total focus time
+            user.totalFocusMinutes = (user.totalFocusMinutes || 0) + (numericSeconds / 60);
+
+            // Level formula: Level = floor(sqrt(xp / 100)) + 1
+            const newLevel = Math.floor(Math.sqrt(user.xp / 100)) + 1;
+            user.level = newLevel;
             
             await user.save();
 
-            if (newBadges.length > 0) {
-                for (const badge of newBadges) {
-                    await notificationController.createAchievementNotifications({
-                        req,
-                        sourceUser: user,
-                        badge,
-                        link: '/profile'
-                    });
-                }
-            }
+            // Check for achievements automatically
+            await AchievementService.checkAchievements(user._id, 'xp');
+            await AchievementService.checkAchievements(user._id, 'focus_minutes');
+            
+            // Special checks for 'Legacy' style badges (time-based)
+            const hour = new Date().getHours();
+            if (hour < 8) await AchievementService.checkAchievements(user._id, 'legacy', { value: 1 }); // Early Bird
+            if (numericSeconds >= 7200) await AchievementService.checkAchievements(user._id, 'legacy', { value: 1 }); // Focus Master
         }
 
         res.json(activity);
     } catch (err) {
-        console.error(err);
+        console.error('updateActivity error:', err);
         res.status(500).json({ msg: 'Server error' });
     }
 };
@@ -141,22 +98,11 @@ exports.getLibraryStats = async (req, res) => {
 
         let user = await User.findById(req.user.id);
         
-        // Auto-award starter badges for existing users
-        let updated = false;
-        if (!user.badges) user.badges = [];
-        const hasBadge = (name) => user.badges.some(b => b.name === name);
-        
-        if (!hasBadge('First Step')) {
-            user.badges.push({ name: 'First Step', icon: '🌱', description: 'Created your PlanTube profile and started your journey.', unlockedAt: new Date() });
-            updated = true;
-        }
-        if (!hasBadge('Pioneer')) {
-            user.badges.push({ name: 'Pioneer', icon: '🚀', description: 'Early adopter of the PlanTube Social Hub.', unlockedAt: new Date() });
-            updated = true;
-        }
-        
-        if (updated) {
-            await user.save();
+        // Auto-award starter achievements if not present
+        if (user && user.achievements.length === 0) {
+            await AchievementService.checkAchievements(user._id, 'legacy', { value: 1 });
+            // Re-fetch user to get updated achievements
+            user = await User.findById(req.user.id);
         }
 
         res.json({
@@ -167,7 +113,7 @@ exports.getLibraryStats = async (req, res) => {
             level: user?.level || 1,
             badges: user?.badges || [],
             achievements: user?.achievements || [],
-            nextLevelXp: Math.pow((user?.level || 1) * 5, 2),
+            nextLevelXp: 100 * Math.pow(user?.level || 1, 2),
             motto: user?.motto || 'Keep focusing, keep growing.',
             themeColor: user?.themeColor || '#6366f1',
             bestStreak: user?.bestStreak || 0,

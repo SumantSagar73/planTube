@@ -64,7 +64,23 @@ const DEFAULT_ACHIEVEMENTS = [
   { key: 'session_50', name: 'Session Veteran', description: 'Complete 50 sessions', icon: '🏅', criteria: { type: 'sessions_completed', value: 50 }, xpReward: 150 },
   { key: 'session_100', name: 'Century Club', description: 'Complete 100 sessions', icon: '🎰', criteria: { type: 'sessions_completed', value: 100 }, xpReward: 400 },
   { key: 'session_500', name: 'Marathoner', description: 'Complete 500 sessions', icon: '🏃', criteria: { type: 'sessions_completed', value: 500 }, xpReward: 2000 },
-  { key: 'session_1000', name: 'Legendary', description: 'Complete 1,000 sessions', icon: '🦄', criteria: { type: 'sessions_completed', value: 1000 }, xpReward: 5000 }
+  { key: 'session_1000', name: 'Legendary', description: 'Complete 1,000 sessions', icon: '🦄', criteria: { type: 'sessions_completed', value: 1000 }, xpReward: 5000 },
+
+  // AI & Smart Features
+  { key: 'ai_first_summary', name: 'AI Explorer', description: 'Generate your first AI video summary', icon: '🤖', criteria: { type: 'ai_summary', value: 1 }, xpReward: 20 },
+  { key: 'ai_chat_10', name: 'Curious Mind', description: 'Ask the AI 10 questions', icon: '💬', criteria: { type: 'ai_chat', value: 10 }, xpReward: 50 },
+  { key: 'ai_brainstorm_5', name: 'Strategist', description: 'Use AI Brainstorming 5 times', icon: '🧠', criteria: { type: 'ai_brainstorm', value: 5 }, xpReward: 100 },
+
+  // Learning Depth
+  { key: 'notes_10', name: 'Note Taker', description: 'Write 10 timestamped notes', icon: '📝', criteria: { type: 'notes_taken', value: 10 }, xpReward: 30 },
+  { key: 'notes_50', name: 'Scholar', description: 'Write 50 timestamped notes', icon: '📜', criteria: { type: 'notes_taken', value: 50 }, xpReward: 150 },
+  { key: 'focus_long_60', name: 'Deep Dive', description: 'Complete a video longer than 60 minutes', icon: '🌊', criteria: { type: 'long_video', value: 60 }, xpReward: 100 },
+
+  // Personalization
+  { key: 'theme_change', name: 'Interior Designer', description: 'Change your profile theme color', icon: '🎨', criteria: { type: 'theme_customization', value: 1 }, xpReward: 10 },
+
+  // Mastery
+  { key: 'mastery_100', name: 'Perfect Score', description: 'Complete 100% of a playlist', icon: '💯', criteria: { type: 'playlist_completion', value: 100 }, xpReward: 500 }
 ];
 
 exports.seedDefaultAchievements = async (req, res) => {

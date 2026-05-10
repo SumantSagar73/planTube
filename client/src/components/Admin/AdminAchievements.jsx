@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
-import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, Smile, Trophy, Filter } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, Smile, Trophy, Filter, RefreshCw } from 'lucide-react';
 import LoadingScreen from '../Shared/LoadingScreen';
 
 const AdminAchievements = ({ notify }) => {
@@ -12,8 +12,17 @@ const AdminAchievements = ({ notify }) => {
     // Form state
     const [formData, setFormData] = useState({
         key: '', name: '', description: '', category: 'Uncategorized', 
-        iconType: 'emoji', icon: '', xpReward: 0, isActive: true
+        iconType: 'emoji', icon: '', xpReward: 0, isActive: true,
+        criteria: { type: 'xp', value: 0 }
     });
+
+    // --- Render Logic ---
+    const criteriaTypes = [
+        'xp', 'focus_minutes', 'streak_days', 'playlists_created', 'playlists_followed',
+        'feedbacks_submitted', 'groups_created', 'followers', 'friends_added',
+        'sessions_completed', 'ai_summary', 'ai_chat', 'ai_brainstorm', 'notes_taken',
+        'theme_customization', 'playlist_completion', 'legacy'
+    ];
 
     // Image Cropper State
     const [imageUrlInput, setImageUrlInput] = useState('');
@@ -75,6 +84,7 @@ const AdminAchievements = ({ notify }) => {
 
     // Converts Google Drive share links to direct download URLs
     const normalizeImageUrl = (url) => {
+        if (!url || typeof url !== 'string') return '';
         // Pattern: https://drive.google.com/file/d/FILE_ID/view?...
         const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
         if (driveMatch) {
@@ -193,105 +203,265 @@ const AdminAchievements = ({ notify }) => {
 
     if (editingItem) {
         return (
-            <div className="glass" style={{ padding: '2rem', borderRadius: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                    <h2>{editingItem._id ? 'Edit Achievement' : 'Create New Achievement'}</h2>
-                    <button className="icon-btn-deck" onClick={() => setEditingItem(null)}><X size={20}/></button>
+            <div className="glass" style={{ padding: '2.5rem', borderRadius: '32px', border: '1px solid rgba(255,255,255,0.1)', maxWidth: '1000px', margin: '0 auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+                    <div>
+                        <h2 style={{ fontSize: '1.8rem', fontWeight: '950', letterSpacing: '-1px' }}>
+                            {editingItem._id ? 'Edit Achievement' : 'Create New Achievement'}
+                        </h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Define how users earn trophies and what they look like.</p>
+                    </div>
+                    <button className="icon-btn-deck" onClick={() => setEditingItem(null)} style={{ background: 'rgba(255,255,255,0.05)' }}><X size={20}/></button>
                 </div>
 
-                <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 300px' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Unique Key (e.g. streak_100)</label>
-                            <input required type="text" className="input-field" value={formData.key} onChange={e => setFormData({...formData, key: e.target.value})} disabled={!!editingItem._id} />
+                <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    
+                    {/* Section 1: Basic Information */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '2.5rem', borderRadius: '28px', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                            <div style={{ width: '40px', height: '40px', background: 'rgba(99, 102, 241, 0.15)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Trophy size={20} color="#818cf8" />
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: '900', letterSpacing: '-0.5px' }}>General Information</h3>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Essential identification and reward settings.</p>
+                            </div>
                         </div>
-                        <div style={{ flex: '1 1 300px' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Display Name</label>
-                            <input required type="text" className="input-field" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 300px' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Category</label>
-                            <input required type="text" className="input-field" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} placeholder="e.g. XP Milestones, Social..." />
-                        </div>
-                        <div style={{ flex: '1 1 150px' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>XP Reward</label>
-                            <input type="number" className="input-field" value={formData.xpReward} onChange={e => setFormData({...formData, xpReward: parseInt(e.target.value)})} />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Description (Purpose and how to earn)</label>
-                        <textarea className="input-field" rows="3" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
-                    </div>
-
-                    {/* Icon Section */}
-                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Badge Icon Configuration</h3>
                         
-                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                            <button type="button" onClick={() => setFormData({...formData, iconType: 'emoji'})} className={`btn-secondary ${formData.iconType === 'emoji' ? 'active' : ''}`} style={{ borderColor: formData.iconType === 'emoji' ? 'var(--primary)' : '' }}>
-                                <Smile size={18} /> Use Emoji
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+                            <div className="input-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    Unique Identifier Key
+                                </label>
+                                <input 
+                                    required type="text" className="styled-input" 
+                                    placeholder="e.g. streak_100"
+                                    value={formData.key} 
+                                    onChange={e => setFormData({...formData, key: e.target.value})} 
+                                    disabled={!!editingItem._id} 
+                                    style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                />
+                                <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', marginTop: '0.5rem' }}>This ID connects the trophy to the backend code.</p>
+                            </div>
+                            <div className="input-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    Public Display Name
+                                </label>
+                                <input 
+                                    required type="text" className="styled-input" 
+                                    placeholder="Enter trophy name..."
+                                    value={formData.name} 
+                                    onChange={e => setFormData({...formData, name: e.target.value})} 
+                                    style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 180px', gap: '2rem', marginTop: '2rem' }}>
+                            <div className="input-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    Category / Group
+                                </label>
+                                <input 
+                                    required type="text" className="styled-input" 
+                                    value={formData.category} 
+                                    onChange={e => setFormData({...formData, category: e.target.value})} 
+                                    placeholder="e.g. Learning, Social..." 
+                                    style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                />
+                            </div>
+                            <div className="input-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    XP Bounty Reward
+                                </label>
+                                <div style={{ position: 'relative' }}>
+                                    <input 
+                                        type="number" className="styled-input" 
+                                        value={formData.xpReward} 
+                                        onChange={e => setFormData({...formData, xpReward: parseInt(e.target.value)})} 
+                                        style={{ width: '100%', paddingLeft: '3.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                    />
+                                    <span style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#818cf8', fontSize: '0.75rem' }}>XP</span>
+                                </div>
+                            </div>
+                            <div className="input-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    Status
+                                </label>
+                                <button 
+                                    type="button"
+                                    onClick={() => setFormData({...formData, isActive: !formData.isActive})}
+                                    style={{ 
+                                        width: '100%', height: '50px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', 
+                                        background: formData.isActive ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                        color: formData.isActive ? '#4ade80' : '#f87171',
+                                        fontWeight: '900', fontSize: '0.75rem', cursor: 'pointer', transition: '0.3s',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+                                    }}
+                                >
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: formData.isActive ? '#4ade80' : '#f87171', boxShadow: `0 0 10px ${formData.isActive ? '#4ade80' : '#f87171'}` }}></div>
+                                    {formData.isActive ? 'LIVE / ACTIVE' : 'DRAFT / HIDDEN'}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: '2rem' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Trophy Lore & Description
+                            </label>
+                            <textarea 
+                                className="styled-input" rows="3" 
+                                placeholder="Write a catchy description for this achievement..."
+                                value={formData.description} 
+                                onChange={e => setFormData({...formData, description: e.target.value})}
+                                style={{ width: '100%', resize: 'none', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', padding: '1.2rem' }}
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    {/* Section 2: Criteria Logic */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '2.5rem', borderRadius: '28px', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                            <div style={{ width: '40px', height: '40px', background: 'rgba(34, 197, 94, 0.15)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Filter size={20} color="#4ade80" />
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: '900', letterSpacing: '-0.5px' }}>Earning Rules</h3>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Define the milestone required to unlock this badge.</p>
+                            </div>
+                        </div>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem' }}>
+                            <div className="input-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    Criteria Trigger
+                                </label>
+                                <select 
+                                    className="styled-input" 
+                                    value={formData.criteria?.type || 'xp'} 
+                                    onChange={e => setFormData({...formData, criteria: { ...formData.criteria, type: e.target.value }})}
+                                    style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                >
+                                    {criteriaTypes.map(type => <option key={type} value={type} style={{ background: '#0f172a' }}>{type.replace(/_/g, ' ').toUpperCase()}</option>)}
+                                </select>
+                            </div>
+                            <div className="input-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    Required Value Target
+                                </label>
+                                <input 
+                                    type="number" className="styled-input" 
+                                    value={formData.criteria?.value || 0} 
+                                    onChange={e => setFormData({...formData, criteria: { ...formData.criteria, value: parseInt(e.target.value) }})} 
+                                    style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section 3: Visuals & Icons */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '2.5rem', borderRadius: '28px', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                            <div style={{ width: '40px', height: '40px', background: 'rgba(236, 72, 153, 0.15)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ImageIcon size={20} color="#f472b6" />
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: '900', letterSpacing: '-0.5px' }}>Visual Identity</h3>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Choose between a classic emoji or a custom high-res badge.</p>
+                            </div>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2.5rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '20px' }}>
+                            <button 
+                                type="button" 
+                                onClick={() => setFormData({...formData, iconType: 'emoji'})} 
+                                style={{ 
+                                    flex: 1, height: '50px', borderRadius: '16px', border: 'none',
+                                    background: formData.iconType === 'emoji' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: formData.iconType === 'emoji' ? 'white' : 'var(--text-muted)',
+                                    fontWeight: '800', cursor: 'pointer', transition: '0.3s',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem'
+                                }}
+                            >
+                                <Smile size={18} /> EMOJI MODE
                             </button>
-                            <button type="button" onClick={() => setFormData({...formData, iconType: 'image'})} className={`btn-secondary ${formData.iconType === 'image' ? 'active' : ''}`} style={{ borderColor: formData.iconType === 'image' ? 'var(--primary)' : '' }}>
-                                <ImageIcon size={18} /> Use Custom Image
+                            <button 
+                                type="button" 
+                                onClick={() => setFormData({...formData, iconType: 'image'})} 
+                                style={{ 
+                                    flex: 1, height: '50px', borderRadius: '16px', border: 'none',
+                                    background: formData.iconType === 'image' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: formData.iconType === 'image' ? 'white' : 'var(--text-muted)',
+                                    fontWeight: '800', cursor: 'pointer', transition: '0.3s',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem'
+                                }}
+                            >
+                                <ImageIcon size={18} /> PRO BADGE MODE
                             </button>
                         </div>
 
                         {formData.iconType === 'emoji' ? (
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Paste an Emoji</label>
-                                <input type="text" className="input-field" value={formData.icon} onChange={e => setFormData({...formData, icon: e.target.value})} style={{ fontSize: '2rem', width: '100px', textAlign: 'center' }} maxLength={5} />
+                            <div style={{ textAlign: 'center', padding: '2rem', background: 'rgba(0,0,0,0.2)', borderRadius: '20px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                                <label style={{ display: 'block', marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '700' }}>PREVIEW</label>
+                                <input 
+                                    type="text" className="input-field" 
+                                    value={formData.icon} 
+                                    onChange={e => setFormData({...formData, icon: e.target.value})} 
+                                    style={{ fontSize: '4rem', width: '120px', height: '120px', textAlign: 'center', padding: 0, borderRadius: '30px' }} 
+                                    maxLength={5} 
+                                />
+                                <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Paste any emoji above to use it as the badge icon.</p>
                             </div>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <div style={{ display: 'flex', gap: '0.75rem' }}>
                                     <input 
                                         type="url" 
                                         className="input-field" 
-                                        placeholder="Paste image URL here to load and crop..." 
+                                        placeholder="Paste image URL (Google Drive, ImgBB, etc...)" 
                                         value={imageUrlInput} 
                                         onChange={(e) => setImageUrlInput(e.target.value)} 
                                         style={{ flex: 1 }}
                                     />
-                                    <button type="button" onClick={handleLoadImage} className="btn-secondary">Load Image</button>
+                                    <button type="button" onClick={handleLoadImage} className="btn-primary" style={{ padding: '0 1.5rem' }}>Load</button>
                                 </div>
                                 
                                 {imageObj && (
-                                    <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: '2rem', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '20px' }}>
                                         <div>
-                                            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>Drag the box to crop. The cropped area will be used as the badge.</p>
+                                            <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: '800', marginBottom: '1rem', textTransform: 'uppercase' }}>Crop Adjustment</p>
                                             <canvas 
                                                 ref={canvasRef} 
                                                 onMouseDown={handleCanvasMouseDown}
                                                 onMouseMove={handleCanvasMouseMove}
                                                 onMouseUp={handleCanvasMouseUp}
                                                 onMouseLeave={handleCanvasMouseUp}
-                                                style={{ cursor: isDragging ? 'grabbing' : 'grab', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                                                style={{ cursor: isDragging ? 'grabbing' : 'grab', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', width: '100%', height: 'auto', maxWidth: '400px' }}
                                             />
-                                            <div style={{ marginTop: '1rem' }}>
-                                                <button type="button" onClick={applyCrop} className="btn-primary" style={{ width: '100%' }}>Crop & Apply</button>
-                                            </div>
+                                            <button type="button" onClick={applyCrop} className="btn-primary" style={{ marginTop: '1.5rem', width: '100%', padding: '1rem' }}>Apply Crop</button>
                                         </div>
-                                        {formData.icon && formData.icon.startsWith('data:image') && (
-                                            <div style={{ textAlign: 'center' }}>
-                                                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>Final Badge Preview</p>
-                                                <div style={{ width: '150px', height: '150px', borderRadius: '24px', overflow: 'hidden', border: '2px solid var(--primary)', boxShadow: '0 0 20px rgba(99,102,241,0.3)' }}>
+                                        
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                            <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: '800', marginBottom: '1rem', textTransform: 'uppercase' }}>Final Preview</p>
+                                            {formData.icon && formData.icon.startsWith('data:image') ? (
+                                                <div style={{ width: '150px', height: '150px', borderRadius: '30px', overflow: 'hidden', border: '3px solid var(--primary)', boxShadow: '0 0 30px rgba(99,102,241,0.3)', background: 'rgba(255,255,255,0.05)' }}>
                                                     <img src={formData.icon} alt="cropped" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 </div>
-                                            </div>
-                                        )}
+                                            ) : (
+                                                <div style={{ width: '150px', height: '150px', borderRadius: '30px', border: '2px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>No Image</div>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                        <button type="button" className="btn-secondary" onClick={() => setEditingItem(null)}>Cancel</button>
-                        <button type="submit" className="btn-primary"><Save size={18}/> Save Achievement</button>
+                    <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'flex-end', marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '2.5rem' }}>
+                        <button type="button" className="btn-secondary" onClick={() => setEditingItem(null)} style={{ padding: '1rem 2rem' }}>Discard Changes</button>
+                        <button type="submit" className="btn-primary" style={{ padding: '1rem 3rem', background: 'linear-gradient(135deg, #6366f1, #ec4899)', border: 'none', fontWeight: '900' }}>
+                            <Save size={20} /> {editingItem._id ? 'Update Trophy' : 'Launch Achievement'}
+                        </button>
                     </div>
                 </form>
             </div>
@@ -316,8 +486,28 @@ const AdminAchievements = ({ notify }) => {
                             {categories.map(cat => <option key={cat} value={cat} style={{ background: '#0f172a' }}>{cat}</option>)}
                         </select>
                     </div>
+                    <button className="btn-secondary" onClick={async () => {
+                        if (!window.confirm('This will seed the default achievement catalog. Continue?')) return;
+                        try {
+                            setLoading(true);
+                            await api.post('/admin/achievements/seed');
+                            notify('Achievements seeded successfully');
+                            fetchAchievements();
+                        } catch (err) {
+                            notify('Error seeding achievements', 'error');
+                        } finally {
+                            setLoading(false);
+                        }
+                    }}>
+                        <RefreshCw size={18} /> Seed Default
+                    </button>
                     <button className="btn-primary" onClick={() => {
-                        setFormData({ key: '', name: '', description: '', category: filterCategory !== 'All' ? filterCategory : 'Uncategorized', iconType: 'emoji', icon: '', xpReward: 0, isActive: true });
+                        setFormData({ 
+                            key: '', name: '', description: '', 
+                            category: filterCategory !== 'All' ? filterCategory : 'Uncategorized', 
+                            iconType: 'emoji', icon: '', xpReward: 0, isActive: true,
+                            criteria: { type: 'xp', value: 0 }
+                        });
                         setImageUrlInput('');
                         setImageObj(null);
                         setEditingItem({});
@@ -346,7 +536,8 @@ const AdminAchievements = ({ notify }) => {
                                             setFormData({
                                                 key: item.key, name: item.name, description: item.description, 
                                                 category: item.category || 'Uncategorized', iconType: item.iconType || 'emoji', 
-                                                icon: item.icon, xpReward: item.xpReward, isActive: item.isActive
+                                                icon: item.icon, xpReward: item.xpReward, isActive: item.isActive,
+                                                criteria: item.criteria || { type: 'xp', value: 0 }
                                             });
                                             setImageObj(null);
                                             setImageUrlInput('');

@@ -4,7 +4,7 @@ import {
     CheckCircle, Map, AlignLeft, List as ListIcon,
     ChevronRight, Play, Users, Copy, Check, Settings,
     FileText, Type, Bold, Italic, ListOrdered, List, Code, Image, Trash2, Zap,
-    Tag, X, ExternalLink, RefreshCw, Pencil, Lightbulb, Sparkles, BrainCircuit
+    Tag, X, ExternalLink, RefreshCw, Pencil, Lightbulb, Sparkles, BrainCircuit, Download
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -73,6 +73,10 @@ const FocusSidebar = ({
     const [copyDone, setCopyDone] = useState(false);
     const [isEditingChapters, setIsEditingChapters] = useState(false);
     const [editableChapters, setEditableChapters] = useState([]);
+    
+    // Word count calculation for notes
+    const currentWordCount = noteText ? noteText.trim().split(/\s+/).filter(Boolean).length : 0;
+    const isOverLimit = currentWordCount > 1000;
 
     useEffect(() => {
         if (chatEndRef.current) {
@@ -87,6 +91,183 @@ const FocusSidebar = ({
     // Custom Resources state
     const [isAddingResource, setIsAddingResource] = useState(false);
     const [newResource, setNewResource] = useState({ label: '', url: '' });
+
+    const handleDownloadNotes = () => {
+        if (!notes || notes.length === 0) return;
+        
+        let content = `# Notes for: ${video?.title || 'Video'}\n`;
+        content += `Source: https://www.youtube.com/watch?v=${video?.youtubeVideoId || video?.videoId}\n`;
+        content += `Exported on: ${new Date().toLocaleString()}\n\n`;
+        content += `---\n\n`;
+        
+        notes.forEach(note => {
+            content += `### [${formatTime(note.time)}]\n${note.text}\n\n`;
+        });
+        
+        const blob = new Blob([content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${(video?.title || 'video').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_notes.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleDownloadAllNotes = () => {
+        let content = `# All My Video Notes (planTube)\n`;
+        content += `Exported on: ${new Date().toLocaleString()}\n\n`;
+        content += `This file contains notes consolidated from all videos you've watched.\n\n`;
+        
+        let found = false;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('notes_')) {
+                found = true;
+                const videoNotes = JSON.parse(localStorage.getItem(key));
+                if (videoNotes.length === 0) continue;
+                
+                const vidId = key.replace('notes_', '');
+                content += `## Video ID: ${vidId}\n`;
+                videoNotes.forEach(note => {
+                    content += `### [${formatTime(note.time)}]\n${note.text}\n\n`;
+                });
+                content += `\n---\n\n`;
+            }
+        }
+        
+        if (!found) {
+            alert("No notes found to export.");
+            return;
+        }
+        
+        const blob = new Blob([content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `plantube_all_notes_${new Date().toISOString().split('T')[0]}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleExportPDF = () => {
+        if (!notes || notes.length === 0) return;
+
+        // Create a temporary container for PDF content
+        const element = document.createElement('div');
+        element.style.padding = '40px';
+        element.style.color = '#333';
+        element.style.fontFamily = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+        element.style.lineHeight = '1.6';
+
+        // Basic Markdown to HTML converter for Brainstorm section
+        const mdToHtml = (md) => {
+            if (!md) return '';
+            return md
+                .replace(/^### (.*$)/gim, '<h3 style="color:' + accentColor + '; margin-top: 20px; font-size: 16px; font-weight: 800;">$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 style="color:' + accentColor + '; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-top: 28px; font-size: 18px; font-weight: 900;">$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1 style="color:' + accentColor + '; font-size: 22px; font-weight: 900;">$1</h1>')
+                .replace(/^\* (.*$)/gim, '<li style="margin-bottom: 6px; font-size: 13px;">$1</li>')
+                .replace(/^\- (.*$)/gim, '<li style="margin-bottom: 6px; font-size: 13px;">$1</li>')
+                .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+                .replace(/\*(.*)\*/gim, '<em>$1</em>')
+                .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" style="color:' + accentColor + '; text-decoration: none;">$1</a>')
+                .replace(/\n\n/g, '<p style="margin-bottom: 10px;"></p>')
+                .replace(/\n/g, '<br/>');
+        };
+
+        let htmlContent = `
+            <div style="border-bottom: 3px solid ${accentColor}; padding-bottom: 20px; margin-bottom: 30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h1 style="margin: 0; color: ${accentColor}; font-size: 28px; font-weight: 900; letter-spacing: -1px;">planTube</h1>
+                    <div style="text-align: right; font-size: 10px; color: #999;">PERSONAL LEARNING REPORT</div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <p style="margin: 0; font-size: 20px; font-weight: 800; color: #000; line-height: 1.2;">${video?.title || 'Video Notes'}</p>
+                    <p style="margin: 8px 0 0 0; font-size: 11px; color: #666;"><strong>Channel:</strong> ${video?.author || 'Unknown Author'}</p>
+                    <p style="margin: 4px 0 0 0; font-size: 11px; color: #666;"><strong>Link:</strong> https://www.youtube.com/watch?v=${video?.youtubeVideoId || video?.videoId}</p>
+                    <p style="margin: 4px 0 0 0; font-size: 11px; color: #666;"><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+                </div>
+            </div>
+            <div style="margin-bottom: 40px;">
+                <h2 style="font-size: 16px; color: #000; background: #f4f4f5; padding: 8px 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Video Overview</h2>
+                <div style="font-size: 13px; color: #555; background: #fff; border-left: 4px solid ${accentColor}; padding: 15px 20px; border-radius: 0 12px 12px 0; line-height: 1.6; margin-bottom: 30px;">
+                    ${video?.description ? video.description.slice(0, 500) + (video.description.length > 500 ? '...' : '') : 'No description available for this video.'}
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 40px;">
+                <h2 style="font-size: 16px; color: #000; background: #f4f4f5; padding: 8px 15px; border-radius: 8px; margin-bottom: 25px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">My Timestamped Notes</h2>
+                <div style="display: flex; flex-direction: column; gap: 25px;">
+        `;
+
+        notes.forEach(note => {
+            htmlContent += `
+                <div style="margin-bottom: 24px; page-break-inside: avoid;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                        <span style="background: ${accentColor}; color: white; padding: 3px 12px; border-radius: 6px; font-size: 12px; font-weight: 900; font-family: monospace;">
+                            ${formatTime(note.time)}
+                        </span>
+                        <span style="height: 1px; flex: 1; background: #eee;"></span>
+                    </div>
+                    <div style="font-size: 14px; color: #333; white-space: pre-wrap; padding: 0 5px; line-height: 1.7;">
+                        ${note.text}
+                    </div>
+                </div>
+            `;
+        });
+
+        htmlContent += `</div></div>`;
+
+        // Include AI Brainstorm if it exists
+        if (brainstormPlan && brainstormPlan.trim()) {
+            htmlContent += `
+                <div style="margin-top: 40px; page-break-before: always; border-top: 2px solid ${accentColor}10; padding-top: 30px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 25px;">
+                        <div style="background: ${accentColor}; color: white; padding: 10px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5a2.5 2.5 0 0 0-4.96-.46 2.5 2.5 0 0 0-1.98 3 2.5 2.5 0 0 0 .94 4.96 2.5 2.5 0 0 0 4.01 1.5M12 4.5a2.5 2.5 0 0 1 4.96-.46 2.5 2.5 0 0 1 1.98 3 2.5 2.5 0 0 1-.94 4.96 2.5 2.5 0 0 1-4.01 1.5M12 4.5V21m0-16.5L9 7m3-2.5 3 2.5M12 21l-3-2.5m3 2.5 3-2.5"/></svg>
+                        </div>
+                        <h2 style="font-size: 22px; color: #000; margin: 0; font-weight: 950; letter-spacing: -0.5px;">AI Brainstorming & Summary</h2>
+                    </div>
+                    <div style="font-size: 14px; color: #333; background: #fff; padding: 0; border-radius: 0; line-height: 1.8;">
+                        ${mdToHtml(brainstormPlan)}
+                    </div>
+                </div>
+            `;
+        }
+
+        element.innerHTML = htmlContent;
+
+        const opt = {
+            margin:       15,
+            filename:     `${(video?.title || 'video').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_report.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        // Load html2pdf and generate
+        const generate = () => {
+            window.html2pdf().from(element).set(opt).save().then(() => {
+                if (btn) {
+                    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> <span style="font-size: 0.75rem; font-weight: 800;">Export PDF</span>`;
+                    btn.disabled = false;
+                }
+            });
+        };
+
+        if (window.html2pdf) {
+            generate();
+        } else {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+            script.onload = generate;
+            document.head.appendChild(script);
+        }
+    };
 
     const textareaRef = useRef(null);
 
@@ -698,6 +879,34 @@ const FocusSidebar = ({
                                 </div>
                             </div>
                         )}
+
+                        {/* Data Portability Section */}
+                        <div className="glass" style={{ padding: '1.25rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <h4 style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Download size={14} /> Data Portability
+                            </h4>
+                            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+                                Export all your timestamped notes across all videos into a single Markdown file for your second brain.
+                            </p>
+                            <button 
+                                onClick={handleDownloadAllNotes}
+                                className="btn-primary"
+                                style={{ 
+                                    width: '100%', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center', 
+                                    gap: '0.6rem',
+                                    padding: '0.75rem',
+                                    borderRadius: '10px',
+                                    fontWeight: '700',
+                                    fontSize: '0.85rem'
+                                }}
+                            >
+                                <Download size={16} />
+                                Export All Video Notes
+                            </button>
+                        </div>
                     </div>
                 ) : (sidebarTab === 'brainstorm' && isEnabled('feat_ai_brainstorm')) ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -921,6 +1130,40 @@ const FocusSidebar = ({
                     </div>
                 ) : (sidebarTab === 'notes' && isEnabled('feat_notes')) ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{ padding: '0.5rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '10px' }}>
+                                    <FileText size={20} style={{ color: 'var(--primary)' }} />
+                                </div>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0, color: 'white' }}>My Notes</h3>
+                            </div>
+                            
+                                <button 
+                                    id="export-pdf-btn"
+                                    onClick={handleExportPDF}
+                                    disabled={notes.length === 0}
+                                    className="icon-btn-deck"
+                                    title={notes.length === 0 ? "No notes to export" : "Download PDF Report"}
+                                    style={{ 
+                                        padding: '0.5rem 0.8rem', 
+                                        background: notes.length === 0 ? 'rgba(255,255,255,0.05)' : 'var(--primary)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '10px',
+                                        color: 'white',
+                                        cursor: notes.length === 0 ? 'default' : 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        transition: 'all 0.2s',
+                                        opacity: notes.length === 0 ? 0.5 : 1,
+                                        boxShadow: notes.length === 0 ? 'none' : '0 4px 15px rgba(99,102,241,0.3)'
+                                    }}
+                                >
+                                    <FileText size={18} />
+                                    <span style={{ fontSize: '0.75rem', fontWeight: '800' }}>Export PDF</span>
+                                </button>
+                        </div>
+
                         {!isAddingNote ? (
             <button
                 onClick={() => { if (!isLocked) { setIsAddingNote(true); onPauseVideo?.(); } }}
@@ -967,6 +1210,20 @@ const FocusSidebar = ({
                                         fontSize: '0.9rem', outline: 'none', resize: 'vertical'
                                     }}
                                 />
+                                {noteText.trim() && (
+                                    <div style={{ 
+                                        padding: '0.5rem 1rem', 
+                                        textAlign: 'right', 
+                                        fontSize: '0.75rem', 
+                                        color: isOverLimit ? '#ef4444' : 'rgba(255,255,255,0.4)',
+                                        fontWeight: '700',
+                                        background: 'rgba(0,0,0,0.1)',
+                                        borderTop: '1px solid rgba(255,255,255,0.05)'
+                                    }}>
+                                        {currentWordCount} / 1000 words
+                                        {isOverLimit && ' (Limit exceeded)'}
+                                    </div>
+                                )}
                                 <div style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', background: 'rgba(0,0,0,0.2)' }}>
                                     <button
                                         onClick={onCancelNote || (() => { setIsAddingNote(false); setNoteText(''); })}
@@ -976,18 +1233,19 @@ const FocusSidebar = ({
                                     </button>
                                     <button
                                         onClick={() => {
-                                            if (noteText.trim()) {
+                                            if (noteText.trim() && !isOverLimit) {
                                                 onSaveNote(noteText);
                                                 setNoteText('');
                                                 setIsAddingNote(false);
                                             }
                                         }}
-                                        disabled={!noteText.trim()}
+                                        disabled={!noteText.trim() || isOverLimit}
                                         style={{
-                                            background: noteText.trim() ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                            background: (noteText.trim() && !isOverLimit) ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
                                             color: 'white', border: 'none', padding: '0.4rem 1rem',
-                                            borderRadius: '8px', cursor: noteText.trim() ? 'pointer' : 'default',
-                                            fontSize: '0.85rem', fontWeight: '700'
+                                            borderRadius: '8px', cursor: (noteText.trim() && !isOverLimit) ? 'pointer' : 'default',
+                                            fontSize: '0.85rem', fontWeight: '700',
+                                            opacity: (noteText.trim() && !isOverLimit) ? 1 : 0.5
                                         }}
                                     >
                                         {editingNoteId ? 'Save changes' : 'Save note'}

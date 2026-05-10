@@ -67,9 +67,17 @@ const ActiveLibrary = ({ playlists, handleTogglePin }) => (
                                         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '0.6rem' }}>
                                             <Play size={28} fill="white" color="white" />
                                         </div>
-                                    ) : item.progress && (
-                                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: 'rgba(255,255,255,0.2)' }}>
-                                            <div style={{ height: '100%', background: 'var(--primary)', width: `${Math.min(100, Math.round((item.progress.completed / item.progress.total) * 100))}%` }}></div>
+                                    ) : null}
+                                    
+                                    {/* Progress Bar (Bottom) */}
+                                    {typeof item.progress === 'number' && (
+                                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '5px', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)' }}>
+                                            <div style={{ 
+                                                height: '100%', 
+                                                background: item.progress === 100 ? '#22c55e' : 'var(--primary)', 
+                                                width: `${Math.min(100, item.progress)}%`,
+                                                transition: 'width 1s ease-out'
+                                            }}></div>
                                         </div>
                                     )}
                                 </div>
@@ -77,12 +85,16 @@ const ActiveLibrary = ({ playlists, handleTogglePin }) => (
                                     <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '0.4rem', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                                         {item.title || item.playlistTitle}
                                     </h3>
-                                    {item.type === 'playlist' && item.progress && (
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '600' }}>
-                                            {item.progress.completed} / {item.progress.total} Videos Complete
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                            {item.type === 'playlist' ? `${item.completedCount || 0} / ${item.videoCount} Done` : (item.status === 'completed' ? 'Completed' : 'In Progress')}
                                         </p>
-                                    )}
-                                    {item.type !== 'playlist' && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '600' }}>Single Video</p>}
+                                        {typeof item.progress === 'number' && (
+                                            <span style={{ fontSize: '0.82rem', fontWeight: '900', color: item.progress === 100 ? '#22c55e' : 'var(--primary)' }}>
+                                                {item.progress}%
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </Link>
                         </div>

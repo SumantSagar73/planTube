@@ -4,7 +4,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
     ChevronLeft, BarChart, CheckCircle, Plus, XCircle,
-    Filter, ArrowUpDown, ListChecks, PlayCircle, RefreshCw
+    Filter, ArrowUpDown, ListChecks, PlayCircle, RefreshCw, ExternalLink
 } from 'lucide-react';
 import { cache } from '../utils/cache';
 import LoadingScreen from '../components/Shared/LoadingScreen';
@@ -15,6 +15,7 @@ import AgendaPanel from '../components/Playlist/AgendaPanel';
 import { AlignLeft, GitGraph, Users } from 'lucide-react';
 import socket from '../services/socket';
 import { formatDate } from '../utils/dateTime';
+import useIsMobile from '../hooks/useIsMobile';
 
 const getTodayLocal = () => {
     const d = new Date();
@@ -41,6 +42,7 @@ const PlaylistDetails = () => {
     const [viewMode, setViewMode] = useState('list');
     const [presenceCount, setPresenceCount] = useState(0);
     const [scrolled, setScrolled] = useState(false);
+    const isMobile = useIsMobile(900);
 
     useEffect(() => { fetchPlaylistData(); }, [id]);
 
@@ -232,64 +234,125 @@ const PlaylistDetails = () => {
     );
 
     return (
-        <div className="playlist-details-page" style={{ height: 'calc(100vh - 5rem)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="playlist-details-page" style={{ height: isMobile ? 'auto' : 'calc(100vh - 5rem)', display: 'flex', flexDirection: 'column', overflow: isMobile ? 'visible' : 'hidden' }}>
 
             {/* Collapsible Hero Header */}
-            <div className="playlist-hero" style={{ position: 'relative', height: scrolled ? '72px' : '260px', transition: 'height 0.4s cubic-bezier(0.23, 1, 0.32, 1)', flexShrink: 0, overflow: 'hidden' }}>
+            <div className="playlist-hero" style={{ 
+                position: 'relative', 
+                height: scrolled ? '72px' : (isMobile ? 'auto' : '260px'), 
+                padding: (isMobile && !scrolled) ? '2rem 1.5rem' : '0',
+                transition: 'height 0.4s cubic-bezier(0.23, 1, 0.32, 1)', 
+                flexShrink: 0, 
+                overflow: 'hidden',
+                minHeight: (isMobile && !scrolled) ? '320px' : 'auto'
+            }}>
                 <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${playlist?.thumbnail})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(40px) brightness(0.4)', transform: 'scale(1.1)' }} />
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(15,15,20,0.9), transparent)' }} />
 
                 {/* Compact header (scrolled) */}
-                <div className="playlist-hero-compact" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 2rem', gap: '1.5rem', opacity: scrolled ? 1 : 0, transition: 'opacity 0.25s ease', pointerEvents: scrolled ? 'auto' : 'none' }}>
-                    <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', flexShrink: 0 }}>
-                        <ChevronLeft size={16} /> Dashboard
+                <div className="playlist-hero-compact" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: isMobile ? '0 1rem' : '0 2rem', gap: isMobile ? '0.75rem' : '1.5rem', opacity: scrolled ? 1 : 0, transition: 'opacity 0.25s ease', pointerEvents: scrolled ? 'auto' : 'none' }}>
+                    <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '0.4rem 0.6rem', borderRadius: '8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', flexShrink: 0 }}>
+                        <ChevronLeft size={14} /> {isMobile ? '' : 'Dashboard'}
                     </button>
-                    <h2 style={{ fontSize: '1rem', fontWeight: '800', color: 'white', background: 'linear-gradient(to right, white, var(--primary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <h2 style={{ fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: '800', color: 'white', background: 'linear-gradient(to right, white, var(--primary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', maxWidth: isMobile ? '120px' : '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {playlist?.playlistTitle}
                     </h2>
                     <div style={{ flex: 1 }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span style={{ fontWeight: '700', color: 'var(--primary)', fontSize: '0.9rem' }}>{Math.round(progress?.percent || 0)}%</span>
-                        <div style={{ width: '120px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {!isMobile && <span style={{ fontWeight: '700', color: 'var(--primary)', fontSize: '0.8rem' }}>{Math.round(progress?.percent || 0)}%</span>}
+                        <div style={{ width: isMobile ? '60px' : '120px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
                             <div style={{ width: `${progress?.percent || 0}%`, height: '100%', background: 'var(--primary)', borderRadius: '2px' }} />
                         </div>
-                    </div>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
-                        <img src={playlist?.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                 </div>
 
                 {/* Full hero (not scrolled) */}
-                <div className="playlist-hero-full" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 3rem', gap: '2.5rem', opacity: scrolled ? 0 : 1, transition: 'opacity 0.2s ease', pointerEvents: scrolled ? 'none' : 'auto' }}>
-                    <img src={playlist?.thumbnail} alt="" style={{ width: '280px', aspectRatio: '16/9', borderRadius: '16px', objectFit: 'cover', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }} />
-                    <div style={{ flex: 1 }}>
+                <div className="playlist-hero-full" style={{ 
+                    position: isMobile ? 'relative' : 'absolute', 
+                    inset: 0, 
+                    display: 'flex', 
+                    flexDirection: isMobile ? 'column' : 'row',
+                    alignItems: isMobile ? 'flex-start' : 'center', 
+                    padding: isMobile ? '1.5rem' : '0 3rem', 
+                    gap: isMobile ? '1.5rem' : '2.5rem', 
+                    opacity: scrolled ? 0 : 1, 
+                    transition: 'opacity 0.2s ease', 
+                    pointerEvents: scrolled ? 'none' : 'auto' 
+                }}>
+                    <img src={playlist?.thumbnail} alt="" style={{ 
+                        width: isMobile ? '100%' : '280px', 
+                        aspectRatio: '16/9', 
+                        borderRadius: isMobile ? '12px' : '16px', 
+                        objectFit: 'cover', 
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.5)' 
+                    }} />
+                    <div style={{ flex: 1, width: '100%' }}>
                         <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.5rem', cursor: 'pointer' }}>
                             <ChevronLeft size={16} /> Dashboard
                         </button>
-                        <h1 style={{ fontSize: '2.2rem', fontWeight: '800', marginBottom: '1rem', lineHeight: '1.2' }}>{playlist?.playlistTitle}</h1>
-                        <div className="playlist-hero-stats" style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.7)' }}>
-                                <PlayCircle size={20} style={{ color: 'var(--primary)' }} /> <span>{videos.length} Lectures</span>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1.5rem', marginBottom: '1.2rem' }}>
+                            <h1 style={{ 
+                                fontSize: isMobile ? '1.6rem' : '2.2rem', 
+                                fontWeight: '800', 
+                                margin: 0, 
+                                lineHeight: '1.2',
+                                flex: 1,
+                                minWidth: 0,
+                                color: 'var(--text-main)'
+                            }}>
+                                {playlist?.playlistTitle}
+                            </h1>
+                            {playlist?.playlistId && (
+                                <a 
+                                    href={`https://www.youtube.com/playlist?list=${playlist.playlistId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover-scale"
+                                    style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '0.6rem', 
+                                        background: 'rgba(255,255,255,0.08)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        padding: isMobile ? '0.5rem 1rem' : '0.6rem 1.2rem',
+                                        borderRadius: '12px',
+                                        color: 'white',
+                                        textDecoration: 'none',
+                                        fontSize: '0.9rem',
+                                        fontWeight: '700',
+                                        transition: 'all 0.3s',
+                                        flexShrink: 0,
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    <div style={{ background: '#ef4444', padding: '0.2rem', borderRadius: '4px', display: 'flex' }}>
+                                        <PlayCircle size={14} fill="white" />
+                                    </div>
+                                    {isMobile ? 'YouTube' : 'Watch on YouTube'}
+                                    <ExternalLink size={14} style={{ opacity: 0.5 }} />
+                                </a>
+                            )}
+                        </div>
+                        <div className="playlist-hero-stats" style={{ display: 'flex', gap: isMobile ? '1rem' : '2rem', marginBottom: isMobile ? '1.2rem' : '1.5rem', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '0.5rem', color: 'rgba(255,255,255,0.7)', fontSize: isMobile ? '0.85rem' : '0.9rem' }}>
+                                <PlayCircle size={isMobile ? 18 : 20} style={{ color: 'var(--primary)' }} /> <span>{videos.length} Lectures</span>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.7)' }}>
-                                <ListChecks size={20} style={{ color: 'var(--accent)' }} /> <span>{progress?.completed} / {progress?.total} Completed</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '0.5rem', color: 'rgba(255,255,255,0.7)', fontSize: isMobile ? '0.85rem' : '0.9rem' }}>
+                                <ListChecks size={isMobile ? 18 : 20} style={{ color: 'var(--accent)' }} /> <span>{progress?.completed} / {progress?.total} Completed</span>
                             </div>
                             {presenceCount > 0 && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.7)' }}>
-                                    <div style={{ position: 'relative' }}>
-                                        <Users size={20} style={{ color: '#22c55e' }} />
-                                        <div style={{ position: 'absolute', top: 0, right: 0, width: '6px', height: '6px', background: '#22c55e', borderRadius: '50%', border: '1px solid black' }} />
-                                    </div>
-                                    <span>{presenceCount} studying now</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '0.5rem', color: 'rgba(255,255,255,0.7)', fontSize: isMobile ? '0.85rem' : '0.9rem' }}>
+                                    <Users size={isMobile ? 18 : 20} style={{ color: '#22c55e' }} />
+                                    <span>{presenceCount} online</span>
                                 </div>
                             )}
                         </div>
-                        <div style={{ maxWidth: '400px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem', fontSize: '0.9rem', color: 'rgba(255,255,255,0.9)' }}>
-                                <span style={{ fontWeight: '600' }}>Overall Mastery</span>
+                        <div style={{ maxWidth: isMobile ? '100%' : '400px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: isMobile ? '0.5rem' : '0.6rem', fontSize: isMobile ? '0.85rem' : '0.9rem', color: 'rgba(255,255,255,0.9)' }}>
+                                <span style={{ fontWeight: '600' }}>Mastery Progress</span>
                                 <span style={{ fontWeight: '700', color: 'var(--primary)' }}>{Math.round(progress?.percent || 0)}%</span>
                             </div>
-                            <div className="progress-container" style={{ height: '8px', background: 'rgba(255,255,255,0.1)' }}>
+                            <div className="progress-container" style={{ height: isMobile ? '6px' : '8px', background: 'rgba(255,255,255,0.1)' }}>
                                 <div className="progress-bar" style={{ width: `${progress?.percent || 0}%`, height: '100%' }} />
                             </div>
                         </div>
@@ -298,25 +361,37 @@ const PlaylistDetails = () => {
             </div>
 
             {/* Filter Bar */}
-            <div className="playlist-toolbar" style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 2rem', background: 'rgba(10,10,12,0.97)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)', gap: '1rem', zIndex: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+            <div className="playlist-toolbar" style={{ 
+                flexShrink: 0, 
+                display: 'flex', 
+                flexDirection: isMobile ? 'column' : 'row',
+                justifyContent: 'space-between', 
+                alignItems: isMobile ? 'stretch' : 'center', 
+                padding: isMobile ? '0.75rem 1rem' : '0.6rem 2rem', 
+                background: 'rgba(10,10,12,0.97)', 
+                backdropFilter: 'blur(20px)', 
+                borderBottom: '1px solid rgba(255,255,255,0.07)', 
+                gap: '1rem', 
+                zIndex: 10 
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: isMobile ? '100%' : 'auto' }}>
+                    <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.25rem', borderRadius: '10px', border: '1px solid var(--glass-border)', flex: isMobile ? 1 : 'none' }}>
                         {['all', 'pending', 'completed'].map(f => (
-                            <button key={f} onClick={() => setFilter(f)} style={{ padding: '0.4rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', background: filter === f ? 'var(--primary)' : 'transparent', color: filter === f ? 'white' : 'var(--text-muted)', border: 'none', cursor: 'pointer', transition: 'all 0.2s' }}>
+                            <button key={f} onClick={() => setFilter(f)} style={{ flex: isMobile ? 1 : 'none', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '600', background: filter === f ? 'var(--primary)' : 'transparent', color: filter === f ? 'white' : 'var(--text-muted)', border: 'none', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
                                 {f.charAt(0).toUpperCase() + f.slice(1)}
                             </button>
                         ))}
                     </div>
-                    <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                    <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.25rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
                         <button onClick={() => setViewMode('list')} title="List View" style={{ padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', background: viewMode === 'list' ? 'rgba(255,255,255,0.05)' : 'transparent', color: viewMode === 'list' ? 'var(--primary)' : 'var(--text-muted)', border: 'none', display: 'flex' }}>
-                            <AlignLeft size={18} />
+                            <AlignLeft size={16} />
                         </button>
                         <button onClick={() => setViewMode('tree')} title="Skill Tree" style={{ padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', background: viewMode === 'tree' ? 'rgba(255,255,255,0.05)' : 'transparent', color: viewMode === 'tree' ? 'var(--primary)' : 'var(--text-muted)', border: 'none', display: 'flex' }}>
-                            <GitGraph size={18} />
+                            <GitGraph size={16} />
                         </button>
                     </div>
                 </div>
-                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="input-glass" style={{ width: '160px', padding: '0.5rem', fontSize: '0.85rem' }}>
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="input-glass" style={{ width: isMobile ? '100%' : '160px', padding: '0.5rem', fontSize: '0.8rem' }}>
                     <option value="position">Playlist Order</option>
                     <option value="date">By Schedule</option>
                     <option value="duration">Longest First</option>
@@ -324,26 +399,32 @@ const PlaylistDetails = () => {
             </div>
 
             {/* Content Row */}
-            <div className="playlist-main-grid" style={{ flex: 1, display: 'grid', gridTemplateColumns: user ? 'minmax(0, 1fr) 360px' : '1fr', gap: '0', overflow: 'hidden' }}>
+            <div className="playlist-main-grid" style={{ 
+                flex: 1, 
+                display: 'grid', 
+                gridTemplateColumns: (user && !isMobile) ? 'minmax(0, 1fr) 360px' : '1fr', 
+                gap: '0', 
+                overflow: isMobile ? 'visible' : 'hidden' 
+            }}>
 
                 {/* Scrollable Video List */}
-                <div className="playlist-content" onScroll={e => setScrolled(e.currentTarget.scrollTop > 80)} style={{ overflowY: 'auto', padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="playlist-content" onScroll={e => setScrolled(e.currentTarget.scrollTop > 80)} style={{ overflowY: isMobile ? 'visible' : 'auto', padding: isMobile ? '1rem' : '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
                     {/* Guest Banner */}
                     {!user && (
-                        <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)', padding: '1.2rem', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(10px)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-                                <div style={{ fontSize: '1.8rem' }}>👋</div>
+                        <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(10px)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div style={{ fontSize: '1.5rem' }}>👋</div>
                                 <div>
-                                    <p style={{ fontWeight: '800', fontSize: '1.1rem', marginBottom: '0.2rem', color: 'white' }}>Welcome to Guest Mode!</p>
-                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>Your progress is saved locally. <Link to="/signup" style={{ color: 'var(--primary)', fontWeight: '800', textDecoration: 'none', borderBottom: '1px solid var(--primary)' }}>Create an account</Link> to sync across devices.</p>
+                                    <p style={{ fontWeight: '800', fontSize: '1rem', marginBottom: '0.1rem', color: 'white' }}>Guest Mode</p>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '500' }}>Progress is saved locally. <Link to="/signup" style={{ color: 'var(--primary)', fontWeight: '800', textDecoration: 'none' }}>Join</Link> to sync.</p>
                                 </div>
                             </div>
                         </div>
                     )}
 
                     {viewMode === 'list' ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {filteredVideos.map(video => (
                                 <VideoCard
                                     key={video._id}
@@ -366,7 +447,12 @@ const PlaylistDetails = () => {
 
                 {/* Sidebar: Planner & Agenda */}
                 {user && (
-                    <aside className="playlist-sidebar" style={{ overflowY: 'auto', borderLeft: '1px solid rgba(255,255,255,0.05)', padding: '1.5rem' }}>
+                    <aside className="playlist-sidebar" style={{ 
+                        overflowY: isMobile ? 'visible' : 'auto', 
+                        borderLeft: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)', 
+                        borderTop: isMobile ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                        padding: isMobile ? '1.5rem 1rem 4rem' : '1.5rem' 
+                    }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             <CalendarPanel
                                 viewDate={viewDate}

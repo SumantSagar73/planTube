@@ -315,6 +315,9 @@ const FocusMode = () => {
     };
 
     const handleSaveNote = (text) => {
+        const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+        if (wordCount > 1000) return;
+
         if (editingNoteId) {
             const updatedNotes = notes.map(n => 
                 n.id === editingNoteId ? { ...n, text, updatedAt: new Date().toISOString() } : n

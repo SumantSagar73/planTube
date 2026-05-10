@@ -269,16 +269,19 @@ exports.getAnalytics = async (req, res) => {
 };
 
 
+const AchievementService = require('../services/achievementService');
+
 exports.updateStatus = async (req, res) => {
     const { status, scheduledDate, scheduledTime } = req.body;
     try {
-        let schedule = await Schedule.findById(req.params.id);
+        let schedule = await Schedule.findById(req.params.id).populate('videoId');
         if (!schedule) return res.status(404).json({ msg: 'Schedule not found' });
 
         if (schedule.userId.toString() !== req.user.id) {
             return res.status(401).json({ msg: 'User not authorized' });
         }
 
+        const oldStatus = schedule.status;
         if (status) schedule.status = status;
         if (scheduledDate !== undefined) schedule.scheduledDate = scheduledDate;
         if (scheduledTime !== undefined) schedule.scheduledTime = scheduledTime;
@@ -286,9 +289,51 @@ exports.updateStatus = async (req, res) => {
         if (req.body.lastWatchedSecond !== undefined) schedule.lastWatchedSecond = req.body.lastWatchedSecond;
 
         await schedule.save();
+
+        // Automatic Achievement / XP Tracking
+        if (status === 'completed' && oldStatus !== 'completed') {
+            const User = require('../models/User');
+            const user = await User.findById(req.user.id);
+            if (user) {
+                // 1. Award base XP for video completion
+                const baseXP = 20; // 20 XP per video
+                user.xp += baseXP;
+
+                // 2. Add focus time (minutes)
+                const durationMinutes = schedule.videoId ? parseDurationToMinutes(schedule.videoId.duration) : 10;
+                user.totalFocusMinutes = (user.totalFocusMinutes || 0) + Math.round(durationMinutes);
+
+                // 3. Update Streaks
+                const todayStr = new Date().toISOString().split('T')[0];
+                const lastFocusStr = user.lastFocusDate ? user.lastFocusDate.toISOString().split('T')[0] : null;
+
+                if (lastFocusStr !== todayStr) {
+                    if (lastFocusStr === new Date(Date.now() - 86400000).toISOString().split('T')[0]) {
+                        // Consecutive day
+                        user.currentStreak = (user.currentStreak || 0) + 1;
+                    } else {
+                        // Streak broken or first time
+                        user.currentStreak = 1;
+                    }
+                    user.lastFocusDate = new Date();
+                    if (user.currentStreak > (user.bestStreak || 0)) {
+                        user.bestStreak = user.currentStreak;
+                    }
+                }
+
+                await user.save();
+
+                // 4. Check achievements
+                await AchievementService.checkAchievements(user._id, 'xp');
+                await AchievementService.checkAchievements(user._id, 'focus_minutes');
+                await AchievementService.checkAchievements(user._id, 'streak_days');
+                await AchievementService.checkAchievements(user._id, 'sessions_completed', { value: await Schedule.countDocuments({ userId: user._id, status: 'completed' }) });
+            }
+        }
+
         res.json(schedule);
     } catch (err) {
-        console.error(err.message);
+        console.error('updateStatus error:', err);
         res.status(500).send('Server error');
     }
 };

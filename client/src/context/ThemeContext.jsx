@@ -43,8 +43,18 @@ export const ThemeProvider = ({ children }) => {
     });
 
     useEffect(() => {
+        // Apply theme to document
         document.documentElement.setAttribute('data-theme', theme);
+        
+        // Save to localStorage
         localStorage.setItem('plantube-theme', theme);
+        
+        // Update meta theme-color for mobile browsers if available
+        const metaTheme = document.querySelector('meta[name="theme-color"]');
+        const activeTheme = themes.find(t => t.id === theme) || themes[0];
+        if (metaTheme) {
+            metaTheme.setAttribute('content', activeTheme.color);
+        }
     }, [theme]);
 
     const toggleTheme = (newTheme) => {

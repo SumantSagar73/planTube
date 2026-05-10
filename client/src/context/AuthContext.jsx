@@ -13,8 +13,14 @@ export const AuthProvider = ({ children }) => {
     const { theme, toggleTheme, resolveThemeFromColor } = useTheme();
 
     const syncThemeWithUser = (userData) => {
-        const matchedTheme = resolveThemeFromColor(userData?.themeColor);
-        if (matchedTheme && matchedTheme !== theme) {
+        if (!userData?.themeColor) return;
+        
+        const matchedTheme = resolveThemeFromColor(userData.themeColor);
+        const currentSavedTheme = localStorage.getItem('plantube-theme');
+        
+        // Only override if we don't have a locally saved theme 
+        // OR if the backend theme is significantly different and we just logged in
+        if (matchedTheme && matchedTheme !== theme && !currentSavedTheme) {
             toggleTheme(matchedTheme);
         }
     };

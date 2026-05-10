@@ -26,6 +26,14 @@ const ContinueWatching = ({ firstPendingTask, resumeSchedule, resumeSchedules = 
         navigate(`/focus/${activeVideo?._id}${queryString}`);
     };
 
+    const parseToSec = (d) => {
+        if (!d) return 0;
+        const p = d.split(':').map(Number);
+        if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
+        if (p.length === 2) return p[0] * 60 + p[1];
+        return 0;
+    };
+
     return (
         <section className="dashboard-continue-card" data-section="schedule">
             <div className="glass dashboard-card-shell" style={{ padding: '2rem', borderRadius: '28px', border: '1px solid var(--primary)', position: 'relative', overflow: 'hidden' }}>
@@ -44,44 +52,56 @@ const ContinueWatching = ({ firstPendingTask, resumeSchedule, resumeSchedules = 
                         const playlistId = activeVideo?.playlistId?._id || activeVideo?.playlistId;
                         const resumeSeconds = item?.lastWatchedSecond || 0;
                         const title = activeVideo?.title || activeVideo?.sharedVideoId?.title || 'Unknown Video';
-                        const duration = activeVideo?.duration || activeVideo?.sharedVideoId?.duration || '00:00';
+                        const durationStr = activeVideo?.duration || activeVideo?.sharedVideoId?.duration || '0:00';
                         const thumbnail = activeVideo?.thumbnail || activeVideo?.sharedVideoId?.thumbnail;
                         const hasResumePoint = resumeSeconds > 0;
+                        
+                        const totalSec = parseToSec(durationStr);
+                        const progressPercent = totalSec > 0 ? Math.round((resumeSeconds / totalSec) * 100) : 0;
 
                         return (
-                            <div key={activeVideo?._id || index} style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.9rem', borderRadius: '18px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div key={activeVideo?._id || index} style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', padding: '1rem', borderRadius: '20px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', position: 'relative', overflow: 'hidden' }}>
                                 {thumbnail ? (
-                                    <div style={{ width: '112px', aspectRatio: '16/9', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
+                                    <div style={{ width: '130px', aspectRatio: '16/9', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0, position: 'relative' }}>
                                         <img src={thumbnail} alt="Thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        {hasResumePoint && (
+                                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: 'rgba(255,255,255,0.2)' }}>
+                                                <div style={{ width: `${progressPercent}%`, height: '100%', background: 'var(--primary)' }} />
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
-                                    <div style={{ width: '112px', aspectRatio: '16/9', borderRadius: '14px', background: 'rgba(255,255,255,0.04)', flexShrink: 0 }} />
+                                    <div style={{ width: '130px', aspectRatio: '16/9', borderRadius: '14px', background: 'rgba(255,255,255,0.04)', flexShrink: 0 }} />
                                 )}
 
                                 <div style={{ minWidth: 0, flex: 1 }}>
-                                    <p style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: '800', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                        {index === 0 ? 'Resume Latest Session' : 'Next Up'}
-                                    </p>
-                                    <h3 style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.6rem', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {title}
-                                    </h3>
-                                    <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '0.9rem', flexWrap: 'wrap' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                            <Clock size={14} /> {duration}
-                                        </span>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                        <p style={{ color: index === 0 ? 'var(--primary)' : 'var(--text-muted)', fontSize: '0.7rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1.2px', margin: 0 }}>
+                                            {index === 0 ? 'Resume Latest' : 'Recently Viewed'}
+                                        </p>
                                         {hasResumePoint && (
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                                at {Math.floor(resumeSeconds / 60)}:{String(resumeSeconds % 60).padStart(2, '0')}
+                                            <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                {progressPercent}% Complete
                                             </span>
                                         )}
                                     </div>
-                                    <button
-                                        onClick={() => handleResume(item)}
-                                        className={index === 0 ? 'btn-primary' : 'btn-secondary'}
-                                        style={{ display: 'inline-flex', padding: '0.65rem 1rem', fontSize: '0.92rem' }}
-                                    >
-                                        <Play size={16} fill="currentColor" /> {index === 0 ? 'Resume Session' : 'Open'}
-                                    </button>
+                                    <h3 style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '0.6rem', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {title}
+                                    </h3>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', gap: '0.8rem' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: '600' }}>
+                                                <Clock size={14} /> {durationStr}
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={() => handleResume(item)}
+                                            className={index === 0 ? 'btn-primary' : 'btn-secondary'}
+                                            style={{ display: 'inline-flex', padding: '0.5rem 0.9rem', fontSize: '0.85rem', borderRadius: '10px' }}
+                                        >
+                                            <Play size={14} fill="currentColor" /> {index === 0 ? 'Resume' : 'View'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         );

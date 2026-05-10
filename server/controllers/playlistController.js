@@ -8,6 +8,7 @@ const axios = require('axios');
 const { parseDuration, formatDuration, parseChapters } = require('../utils/videoUtils');
 
 const { fetchSingleVideoData, fetchPlaylistData } = require('../utils/youtubeUtils');
+const AchievementService = require('../services/achievementService');
 
 exports.importPlaylist = async (req, res) => {
     const { playlistUrl } = req.body;
@@ -82,6 +83,10 @@ exports.importPlaylist = async (req, res) => {
                     playlistId: playlist._id
                 });
                 await userPlaylist.save();
+
+                // Achievement Check: Playlists Created
+                const count = await UserPlaylist.countDocuments({ userId: req.user.id });
+                await AchievementService.checkAchievements(req.user.id, 'playlists_created', { value: count });
             }
 
             const videos = await Video.find({ playlistId: playlist._id })
@@ -150,6 +155,10 @@ exports.importPlaylist = async (req, res) => {
                     playlistId: playlist._id
                 });
                 await userPlaylist.save();
+
+                // Achievement Check: Playlists Created
+                const count = await UserPlaylist.countDocuments({ userId: req.user.id });
+                await AchievementService.checkAchievements(req.user.id, 'playlists_created', { value: count });
             }
 
             const video = await Video.findOne({ playlistId: playlist._id })
@@ -491,11 +500,52 @@ exports.getLibraryStats = async (req, res) => {
         const customCountMap = {};
         customVideoCounts.forEach(c => customCountMap[c._id.toString()] = c.count);
 
+        // 4.5. Get Completion Stats from Schedules
+        // We need to count completed videos for each playlist
+        const allUserSchedules = await Schedule.find({ userId }).select('videoId status lastWatchedSecond');
+        
+        // Map videoDocId to status for imported videos
+        const videoStatusMap = {};
+        allUserSchedules.forEach(s => {
+            videoStatusMap[s.videoId.toString()] = {
+                status: s.status,
+                lastWatchedSecond: s.lastWatchedSecond
+            };
+        });
+
+        // For each playlist, calculate completed count
+        const playlistProgressMap = {};
+        
+        // We need all videos for all playlists to calculate true percentage
+        const allPlaylistVideos = await Video.find({ playlistId: { $in: playlistIds } }).select('_id playlistId');
+        
+        allPlaylistVideos.forEach(v => {
+            const pId = v.playlistId.toString();
+            if (!playlistProgressMap[pId]) playlistProgressMap[pId] = { completed: 0, total: 0 };
+            playlistProgressMap[pId].total++;
+            if (videoStatusMap[v._id.toString()]?.status === 'completed') {
+                playlistProgressMap[pId].completed++;
+            }
+        });
+
         // 5. Merge and Format
         const unifiedLibrary = [
             ...userPlaylists.filter(up => up.playlistId).map(up => {
                 const p = up.playlistId;
                 const isStandalone = p.playlistId.startsWith('VIDEO_');
+                const pIdStr = p._id.toString();
+                const progressData = playlistProgressMap[pIdStr] || { completed: 0, total: isStandalone ? 1 : (importedCountMap[pIdStr] || 0) };
+                
+                // For standalone videos, we check the specific video status
+                let videoProgress = 0;
+                let status = 'pending';
+                if (isStandalone) {
+                    const vDocId = videoDocIdMap[pIdStr]?.toString();
+                    const s = videoStatusMap[vDocId];
+                    status = s?.status || 'pending';
+                    // We don't have total duration here easily, so just status for now
+                }
+
                 return {
                     _id: isStandalone ? p.playlistId.replace('VIDEO_', '') : p._id,
                     dbId: p._id,
@@ -507,7 +557,10 @@ exports.getLibraryStats = async (req, res) => {
                     videoCount: isStandalone ? 1 : (importedCountMap[p._id.toString()] || 0),
                     createdAt: up.createdAt,
                     originalId: p._id,
-                    goal: up.goal
+                    goal: up.goal,
+                    progress: isStandalone ? (status === 'completed' ? 100 : 0) : Math.round((progressData.completed / (progressData.total || 1)) * 100),
+                    completedCount: progressData.completed,
+                    status: isStandalone ? status : (progressData.completed === progressData.total && progressData.total > 0 ? 'completed' : 'pending')
                 };
             }),
             ...customPlaylists.map(p => ({
@@ -518,7 +571,9 @@ exports.getLibraryStats = async (req, res) => {
                 isPinned: false,
                 videoCount: customCountMap[p._id.toString()] || 0,
                 createdAt: p.createdAt,
-                originalId: p._id
+                originalId: p._id,
+                progress: 0, // Custom playlists progress calculation skipped for brevity/complexity
+                status: 'pending'
             }))
         ];
 

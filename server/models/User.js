@@ -41,6 +41,17 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  currentStreak: {
+    type: Number,
+    default: 0
+  },
+  lastFocusDate: {
+    type: Date
+  },
+  totalFocusMinutes: {
+    type: Number,
+    default: 0
+  },
   isPublic: {
     type: Boolean,
     default: false
@@ -57,6 +68,13 @@ const userSchema = new mongoose.Schema({
     name: String,
     icon: String,
     description: String,
+    earnedAt: { type: Date, default: Date.now }
+  }],
+  achievements: [{
+    key: { type: String, required: true },
+    name: String,
+    icon: String,
+    description: String,
     unlockedAt: { type: Date, default: Date.now }
   }],
   wipeRequested: {
@@ -70,8 +88,6 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-
-
   preferences: {
     dailyStudyTime: {
       start: { type: String, default: '18:00' },
@@ -80,28 +96,7 @@ const userSchema = new mongoose.Schema({
     videosPerDay: { type: Number, default: 3 },
     maxWatchTimePerDay: { type: Number, default: 120 }, // minutes
     timezone: { type: String, default: '' }
-  },
-  xp: {
-    type: Number,
-    default: 0
-  },
-  level: {
-    type: Number,
-    default: 1
-  },
-  badges: [{
-    name: String,
-    icon: String,
-    description: String,
-    earnedAt: { type: Date, default: Date.now }
-  }],
-  achievements: [{
-    key: String,
-    name: String,
-    icon: String,
-    description: String,
-    unlockedAt: { type: Date, default: Date.now }
-  }]
+  }
 }, { timestamps: true });
 
 
