@@ -4,7 +4,8 @@ const { importPlaylist, getUserPlaylists, deletePlaylist,
     syncPlaylist,
     getLibraryStats,
     getPlaylistById,
-    getPlaylistVideos
+    getPlaylistVideos,
+    autoSyncPlaylist
 } = require('../controllers/playlistController');
 const {
     createPlaylist, getMyPlaylists, getPublicPlaylist,
@@ -40,5 +41,8 @@ router.delete('/:id', auth, require('../controllers/playlistController').deleteP
 router.put('/:id', auth, require('../controllers/playlistController').updatePlaylist);
 router.get('/:id', optionalAuth, getPlaylistById);
 router.get('/:id/videos', optionalAuth, getPlaylistVideos);
+
+// Auto-sync — fetch latest YouTube data and add new videos
+router.post('/:id/sync', auth, autoSyncPlaylist);
 
 module.exports = router;

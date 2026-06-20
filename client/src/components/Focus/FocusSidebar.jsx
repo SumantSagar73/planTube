@@ -9,6 +9,108 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import AdSense from '../Shared/AdSense';
+import api from '../../services/api';
+import WatchPartyPanel from './WatchPartyPanel';
+
+// ─── Flashcard Panel ──────────────────────────────────────────────────────────
+const FlashcardPanel = ({ videoId, notes }) => {
+    const [cards, setCards] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [generating, setGenerating] = useState(false);
+    const [idx, setIdx] = useState(0);
+    const [flipped, setFlipped] = useState(false);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        loadCards();
+    }, [videoId]);
+
+    const loadCards = async () => {
+        setLoading(true);
+        try {
+            const res = await api.get(`/videos/${videoId}/flashcards`);
+            setCards(res.data?.flashcards || []);
+        } catch { setCards([]); }
+        finally { setLoading(false); }
+    };
+
+    const generate = async () => {
+        setGenerating(true); setError('');
+        try {
+            const notesText = (notes || []).map(n => n.text).join('\n');
+            const res = await api.post(`/videos/${videoId}/generate-flashcards`, { notesText });
+            setCards(res.data?.flashcards || []);
+            setIdx(0); setFlipped(false);
+        } catch (e) {
+            setError(e.response?.data?.msg || 'Failed to generate flashcards.');
+        }
+        finally { setGenerating(false); }
+    };
+
+    if (loading) return <div style={{ textAlign: 'center', padding: '2rem', color: 'rgba(255,255,255,0.3)' }}>Loading...</div>;
+
+    if (cards.length === 0) return (
+        <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+            <BrainCircuit size={40} color="rgba(255,255,255,0.1)" style={{ marginBottom: '1rem', margin: '0 auto 1rem' }} />
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+                No flashcards yet. Generate them from your notes or the video description.
+            </p>
+            {error && <p style={{ color: '#f87171', fontSize: '0.78rem', marginBottom: '0.75rem' }}>{error}</p>}
+            <button onClick={generate} disabled={generating} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}>
+                <Sparkles size={14} /> {generating ? 'Generating...' : 'Generate with AI'}
+            </button>
+        </div>
+    );
+
+    const card = cards[idx];
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Card */}
+            <div
+                onClick={() => setFlipped(f => !f)}
+                style={{
+                    minHeight: '160px', borderRadius: '16px', cursor: 'pointer',
+                    background: flipped ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${flipped ? 'rgba(99,102,241,0.35)' : 'rgba(255,255,255,0.08)'}`,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    padding: '1.5rem', textAlign: 'center',
+                    transition: 'background 0.25s, border 0.25s'
+                }}
+            >
+                <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {flipped ? 'Answer' : 'Question'} · tap to flip
+                </div>
+                <p style={{ fontSize: '0.92rem', fontWeight: 600, color: 'white', lineHeight: 1.5, margin: 0 }}>
+                    {flipped ? card.answer : card.question}
+                </p>
+            </div>
+
+            {/* Navigation */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <button onClick={() => { setIdx(i => Math.max(0, i - 1)); setFlipped(false); }}
+                    disabled={idx === 0}
+                    style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: 'white', borderRadius: '8px', padding: '6px 14px', cursor: idx === 0 ? 'default' : 'pointer', opacity: idx === 0 ? 0.3 : 1 }}>
+                    ←
+                </button>
+                <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.4)' }}>{idx + 1} / {cards.length}</span>
+                <button onClick={() => { setIdx(i => Math.min(cards.length - 1, i + 1)); setFlipped(false); }}
+                    disabled={idx === cards.length - 1}
+                    style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: 'white', borderRadius: '8px', padding: '6px 14px', cursor: idx === cards.length - 1 ? 'default' : 'pointer', opacity: idx === cards.length - 1 ? 0.3 : 1 }}>
+                    →
+                </button>
+            </div>
+
+            {/* Regenerate */}
+            <button onClick={generate} disabled={generating} style={{
+                background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)',
+                borderRadius: '10px', padding: '6px', cursor: 'pointer', fontSize: '0.72rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px'
+            }}>
+                <RefreshCw size={12} /> {generating ? 'Generating...' : 'Regenerate'}
+            </button>
+        </div>
+    );
+};
 
 
 const FocusSidebar = ({
@@ -64,6 +166,12 @@ const FocusSidebar = ({
     chatMessages = [],
     isChatLoading = false,
     onSendMessage,
+    // Watch Party (embedded tab)
+    partyVideoId,
+    partyUserId,
+    partyPlayerRef,
+    partyIsPlaying,
+    partySetIsPlaying,
 }) => {
     const { isEnabled } = useFeatureFlags();
     const [chatInput, setChatInput] = useState('');
@@ -424,7 +532,7 @@ const FocusSidebar = ({
                 <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--primary)' }}>
-                            {sidebarTab === 'chapters' ? 'Video Map' : (sidebarTab === 'playlist' ? 'Playlist' : (sidebarTab === 'settings' ? 'Settings' : (sidebarTab === 'notes' ? 'My Notes' : (sidebarTab === 'resources' ? 'Resources' : (sidebarTab === 'brainstorm' ? 'AI Brainstorm' : 'About')))))}
+                            {sidebarTab === 'chapters' ? 'Video Map' : sidebarTab === 'playlist' ? 'Playlist' : sidebarTab === 'settings' ? 'Settings' : sidebarTab === 'notes' ? 'My Notes' : sidebarTab === 'resources' ? 'Resources' : sidebarTab === 'flashcards' ? 'Flashcards' : sidebarTab === 'brainstorm' ? 'AI Brainstorm' : sidebarTab === 'party' ? 'Watch Party' : 'About'}
                         </h3>
                         {compactMode && (
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
@@ -438,6 +546,8 @@ const FocusSidebar = ({
                                     <button onClick={() => setSidebarTab('brainstorm')} style={{ color: sidebarTab === 'brainstorm' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Brainstorm</button>
                                 )}
                                 <button onClick={() => setSidebarTab('resources')} style={{ color: sidebarTab === 'resources' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Resources</button>
+                                <button onClick={() => setSidebarTab('flashcards')} style={{ color: sidebarTab === 'flashcards' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Flashcards</button>
+                                {partyVideoId && <button onClick={() => setSidebarTab('party')} style={{ color: sidebarTab === 'party' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Party</button>}
                                 <button onClick={() => setSidebarTab('settings')} style={{ color: sidebarTab === 'settings' ? 'var(--primary)' : 'var(--text-muted)', background: 'none', border: 'none', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>Settings</button>
                             </div>
                         )}
@@ -1309,6 +1419,8 @@ const FocusSidebar = ({
                             )}
                         </div>
                     </div>
+                ) : sidebarTab === 'flashcards' ? (
+                    <FlashcardPanel videoId={videoId} notes={notes} formatTime={formatTime} />
                 ) : sidebarTab === 'resources' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                         {/* Section: Personal Resources (Editable) */}
@@ -1449,6 +1561,17 @@ const FocusSidebar = ({
                             ) : <p style={{ opacity: 0.5 }}>No description available.</p>}
                         </div>
                     </div>
+                )}
+                {/* Watch Party tab */}
+                {sidebarTab === 'party' && partyVideoId && (
+                    <WatchPartyPanel
+                        embedded
+                        videoId={partyVideoId}
+                        userId={partyUserId}
+                        playerRef={partyPlayerRef}
+                        isPlaying={partyIsPlaying}
+                        setIsPlaying={partySetIsPlaying}
+                    />
                 )}
                 </div>
 

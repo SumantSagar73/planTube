@@ -14,6 +14,13 @@ import AdminAuditLogs from '../components/Admin/AdminAuditLogs';
 import AdminOverviewPanel from '../components/Admin/AdminOverviewPanel';
 import AdminCommandCenter from '../components/Admin/AdminCommandCenter';
 import AdminAchievements from '../components/Admin/AdminAchievements';
+import AdminContentAnalytics from '../components/Admin/AdminContentAnalytics';
+import AdminSecurity from '../components/Admin/AdminSecurity';
+import AdminExport from '../components/Admin/AdminExport';
+import AdminReports from '../components/Admin/AdminReports';
+import AdminCohort from '../components/Admin/AdminCohort';
+import AdminABTests from '../components/Admin/AdminABTests';
+import AdminImportQueue from '../components/Admin/AdminImportQueue';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState(() => {
@@ -41,7 +48,14 @@ const AdminDashboard = () => {
         live: 'Live Presence',
         feedback: 'Feedback',
         achievements: 'Achievements',
-        audit: 'Audit'
+        audit: 'Audit Logs',
+        'content-analytics': 'Content Analytics',
+        security: 'Security',
+        export: 'Export Centre',
+        reports: 'Reports',
+        cohort: 'Cohort Retention',
+        'ab-tests': 'A/B Tests',
+        'import-queue': 'Import Queue',
     };
 
     const notify = (message, type = 'info') => {
@@ -181,6 +195,20 @@ const AdminDashboard = () => {
                 return <AdminAuditLogs />;
             case 'command':
                 return <AdminCommandCenter notify={notify} />;
+            case 'content-analytics':
+                return <AdminContentAnalytics notify={notify} />;
+            case 'security':
+                return <AdminSecurity notify={notify} />;
+            case 'export':
+                return <AdminExport notify={notify} />;
+            case 'reports':
+                return <AdminReports notify={notify} />;
+            case 'cohort':
+                return <AdminCohort notify={notify} />;
+            case 'ab-tests':
+                return <AdminABTests notify={notify} />;
+            case 'import-queue':
+                return <AdminImportQueue notify={notify} />;
             default:
                 return null;
         }

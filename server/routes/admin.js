@@ -85,4 +85,48 @@ router.post('/achievements', achievementController.createAchievement);
 router.put('/achievements/:id', achievementController.updateAchievement);
 router.delete('/achievements/:id', achievementController.deleteAchievement);
 
+// ─── Tier 1-4 routes ──────────────────────────────────────────────────────────
+
+// Bulk user actions (must be before /:id routes)
+router.post('/users/bulk', adminController.bulkUserAction);
+
+// Content analytics
+router.get('/content-analytics', adminController.getContentAnalytics);
+
+// Security monitor
+router.get('/security', adminController.getSecurityLog);
+
+// Cache flush
+router.post('/cache/flush', adminController.flushCache);
+
+// Scheduled maintenance
+router.get('/scheduled-maintenance', adminController.getScheduledMaintenance);
+router.post('/scheduled-maintenance', adminController.setScheduledMaintenance);
+
+// Cohort retention
+router.get('/cohort-retention', adminController.getCohortRetention);
+
+// Reported content
+router.get('/reports', adminController.getReports);
+router.put('/reports/:id', adminController.resolveReport);
+
+// A/B tests
+router.get('/ab-tests', adminController.getABTests);
+router.post('/ab-tests', adminController.createABTest);
+router.put('/ab-tests/:id', adminController.updateABTest);
+router.delete('/ab-tests/:id', adminController.deleteABTest);
+
+// Referrals
+router.get('/referrals', adminController.getReferrals);
+
+// Import queue
+router.get('/import-queue', adminController.getImportQueue);
+
+// Bulk export (CSV)
+router.get('/export', adminController.bulkExport);
+
+// AI model registry (for admin model picker)
+router.get('/ai-models', adminController.getAIModels);
+router.put('/ai-model', adminController.setAIModel);
+
 module.exports = router;

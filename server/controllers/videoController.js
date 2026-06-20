@@ -4,7 +4,7 @@ const axios = require('axios');
 const mongoose = require('mongoose');
 const { parseDuration, formatDuration, parseChapters } = require('../utils/videoUtils');
 const { fetchTranscriptFromYouTube } = require('../utils/youtubeTranscript');
-const { generateBrainstormNotes, chatWithVideo } = require('../utils/aiService');
+const { generateBrainstormNotes, chatWithVideo, callAI } = require('../utils/aiService');
 
 // Helper to fetch single video data from YouTube
 const fetchYouTubeData = async (videoId) => {
@@ -132,7 +132,8 @@ exports.getBrainstorm = async (req, res) => {
         res.json({ content: brainstormData });
     } catch (err) {
         console.error('Brainstorm Error:', err.message);
-        res.status(500).json({ msg: 'Failed to generate brainstorm plan.', error: err.message });
+        const isAuthErr = err.message?.includes('authentication failed') || err.message?.includes('API key');
+        res.status(isAuthErr ? 503 : 500).json({ msg: err.message || 'Failed to generate brainstorm plan.' });
     }
 };
 exports.chatWithVideo = async (req, res) => {
@@ -357,5 +358,145 @@ exports.updateVideo = async (req, res) => {
     } catch (err) {
         console.error('Update Video Metadata Error:', err.message);
         res.status(500).json({ msg: 'Failed to update video metadata' });
+    }
+};
+
+// ─── Flashcards ───────────────────────────────────────────────────────────────
+
+/**
+ * Resolves a videoId param (YouTube ID string or MongoDB ObjectId) to a SharedVideo document.
+ */
+const resolveSharedVideo = async (videoId) => {
+    if (mongoose.Types.ObjectId.isValid(videoId)) {
+        // Could be a Video junction ID or a SharedVideo ID
+        const video = await Video.findById(videoId).populate('sharedVideoId');
+        if (video && video.sharedVideoId) return video.sharedVideoId;
+        // Try as direct SharedVideo ID
+        const sv = await SharedVideo.findById(videoId);
+        if (sv) return sv;
+    }
+    // Treat as YouTube ID
+    return SharedVideo.findOne({ youtubeId: videoId });
+};
+
+/**
+ * GET /api/videos/:videoId/flashcards
+ */
+exports.getFlashcards = async (req, res) => {
+    try {
+        const sharedVideo = await resolveSharedVideo(req.params.videoId);
+        if (!sharedVideo) return res.status(404).json({ msg: 'Video not found' });
+        res.json({ flashcards: sharedVideo.flashcards || [] });
+    } catch (err) {
+        console.error('getFlashcards Error:', err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+/**
+ * POST /api/videos/:videoId/generate-flashcards
+ * Body: { notesText: String }
+ */
+exports.generateFlashcards = async (req, res) => {
+    try {
+        const { notesText } = req.body;
+
+        const sharedVideo = await resolveSharedVideo(req.params.videoId);
+        if (!sharedVideo) return res.status(404).json({ msg: 'Video not found' });
+
+        // Use notes if provided, otherwise fall back to transcript
+        let sourceText = (notesText || '').trim();
+        if (!sourceText) {
+            try {
+                const youtubeId = sharedVideo.youtubeId;
+                console.log(`[Flashcards] Fetching transcript for youtubeId=${youtubeId}`);
+                const segments = await fetchTranscriptFromYouTube(youtubeId);
+                sourceText = segments.map(s => s.text).join(' ').slice(0, 8000);
+                console.log(`[Flashcards] Transcript fetched, length=${sourceText.length}`);
+            } catch (transcriptErr) {
+                console.error(`[Flashcards] Transcript fetch failed:`, transcriptErr.message);
+                return res.status(400).json({ msg: 'No notes provided and transcript unavailable for this video.' });
+            }
+        }
+
+        if (!sourceText) {
+            return res.status(400).json({ msg: 'No content available to generate flashcards from.' });
+        }
+
+        const prompt = `Generate 5-8 flashcards from this content about "${sharedVideo.title || 'the video'}".
+Return ONLY a valid JSON array of objects with exactly two fields: "question" and "answer".
+Do not include any explanation, markdown, or extra text — just the JSON array.
+
+Content:
+${sourceText.slice(0, 8000)}`;
+
+        let aiResponseText;
+        try {
+            aiResponseText = await callAI([
+                { role: 'system', content: 'You are a flashcard generator. Always respond with a pure JSON array, no markdown, no explanation.' },
+                { role: 'user', content: prompt }
+            ], { temperature: 0.5, max_tokens: 1500 });
+        } catch (aiErr) {
+            const isAuthErr = aiErr.message?.includes('authentication failed') || aiErr.message?.includes('API key');
+            return res.status(isAuthErr ? 503 : 500).json({ msg: aiErr.message || 'AI generation failed' });
+        }
+
+        // Parse the JSON array from AI response
+        let flashcards;
+        try {
+            // Strip markdown code fences if present
+            let jsonStr = aiResponseText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+            // If the response doesn't start with '[', extract the first JSON array found
+            if (!jsonStr.startsWith('[')) {
+                const match = jsonStr.match(/\[[\s\S]*\]/);
+                if (match) jsonStr = match[0];
+            }
+            flashcards = JSON.parse(jsonStr);
+            if (!Array.isArray(flashcards)) throw new Error('Not an array');
+            // Sanitize — keep only question/answer string pairs
+            flashcards = flashcards
+                .filter(f => f && typeof f.question === 'string' && typeof f.answer === 'string')
+                .map(f => ({ question: f.question.trim(), answer: f.answer.trim() }));
+            if (flashcards.length === 0) throw new Error('No valid flashcard pairs in response');
+        } catch (parseErr) {
+            console.error('Failed to parse AI flashcard JSON:', parseErr.message, '| Raw:', aiResponseText?.slice(0, 300));
+            return res.status(500).json({ msg: 'AI returned an invalid format. Please try again.' });
+        }
+
+        sharedVideo.flashcards = flashcards;
+        await sharedVideo.save();
+
+        res.json({ flashcards });
+    } catch (err) {
+        console.error('generateFlashcards Error:', err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+/**
+ * PUT /api/videos/:videoId/flashcards
+ * Body: { flashcards: [{question, answer}] }
+ */
+exports.updateFlashcards = async (req, res) => {
+    try {
+        const { flashcards } = req.body;
+        if (!Array.isArray(flashcards)) {
+            return res.status(400).json({ msg: 'flashcards must be an array' });
+        }
+
+        const sanitized = flashcards
+            .filter(f => f && typeof f.question === 'string' && typeof f.answer === 'string')
+            .map(f => ({ question: f.question.trim(), answer: f.answer.trim() }));
+
+        const sharedVideo = await resolveSharedVideo(req.params.videoId);
+        if (!sharedVideo) return res.status(404).json({ msg: 'Video not found' });
+
+        sharedVideo.flashcards = sanitized;
+        await sharedVideo.save();
+
+        res.json({ flashcards: sharedVideo.flashcards });
+    } catch (err) {
+        console.error('updateFlashcards Error:', err.message);
+        res.status(500).json({ msg: 'Server error' });
     }
 };

@@ -23,6 +23,8 @@ import HelperBot from './components/Shared/HelperBot';
 import InstallAppPrompt from './components/Shared/InstallAppPrompt';
 import NotificationCenter from './pages/NotificationCenter';
 import Feedback from './pages/Feedback';
+import Leaderboard from './pages/Leaderboard';
+import Roadmap from './pages/Roadmap';
 
 import LoadingScreen from './components/Shared/LoadingScreen';
 import ShadowBanner from './components/Admin/ShadowBanner';
@@ -165,6 +167,18 @@ const AppRoutes = () => {
                                             }
                                         />
                                         <Route path="/shared-playlist/:id" element={<PublicPlaylist />} />
+                                        <Route
+                                            path="/leaderboard"
+                                            element={<Leaderboard />}
+                                        />
+                                        <Route
+                                            path="/roadmap"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <Roadmap />
+                                                </ProtectedRoute>
+                                            }
+                                        />
                                         
                                         <Route
                                             path="/social"

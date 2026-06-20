@@ -7,7 +7,7 @@ import {
     Zap, Music, Video, List, FileText, Upload,
     MessageSquare, Star, Shield, TrendingUp, Layers,
     Volume2, Maximize, CheckCircle, PanelRight,
-    Activity, Timer
+    Activity, Timer, Library
 } from 'lucide-react';
 
 import StreakIcon from './StreakIcon';
@@ -15,83 +15,85 @@ import StreakIcon from './StreakIcon';
 // ─── Sections config ─ each section has an optional `selector` for highlighting
 const PAGE_SECTIONS = {
     '/dashboard': {
-        title: 'Dashboard', subtitle: 'Your daily study mission control',
+        title: 'Dashboard', subtitle: 'Your personalised learning command centre',
         sections: [
-            { icon: BarChart3, color: '#6366f1', name: 'Focus Overview', where: 'Top', desc: 'Your current learning velocity and streak status at a glance.', selector: '[data-section="overview-cards"]' },
-            { icon: Clock, color: '#22c55e', name: 'Current Mission', where: 'Centre', desc: 'The next video in your schedule. Click to jump straight into Focus Mode.', selector: '[data-section="schedule"]' },
-            { icon: BookOpen, color: '#38bdf8', name: 'Active Library', where: 'Centre', desc: 'Your pinned playlists and videos for quick access.', selector: '[data-section="playlist-grid"]' },
-            { icon: History, color: '#a855f7', name: 'Daily Agenda', where: 'Right Sidebar', desc: "Today's specific learning tasks and your completion progress.", selector: '[data-section="recent-activity"]' },
-            { icon: Activity, color: '#f97316', name: 'Activity Pulse', where: 'Right Sidebar', desc: 'Visual heatmap of your study consistency over the past few weeks.', selector: '[data-section="heatmap"]' },
+            { icon: BarChart3, color: '#6366f1', name: 'Stats Overview', where: 'Top row', desc: 'Four metric cards spanning the full width — current streak, total watch time, videos completed, and weekly XP. Updated in real time as you study.', selector: '[data-section="overview-cards"]' },
+            { icon: Clock, color: '#22c55e', name: 'Continue Watching', where: 'Centre, first section', desc: 'The three most recently watched videos with a resume button. Clicking goes straight to Focus Mode at exactly where you left off.', selector: '[data-section="schedule"]' },
+            { icon: BookOpen, color: '#38bdf8', name: 'Active Library', where: 'Centre, below Continue Watching', desc: 'Playlists you have pinned or recently opened. Progress rings show completion percentage. Click any card to enter Focus Mode.', selector: '[data-section="playlist-grid"]' },
+            { icon: History, color: '#a855f7', name: 'Daily Agenda', where: 'Right column', desc: "Today's scheduled study sessions with time estimates and checkboxes. Marks sessions as done without leaving the dashboard.", selector: '[data-section="recent-activity"]' },
+            { icon: Activity, color: '#f97316', name: 'Activity Heatmap', where: 'Right column, below agenda', desc: 'A GitHub-style grid — each cell is one day, colour intensity represents minutes studied. Hover a cell to see the exact date and duration.', selector: '[data-section="heatmap"]' },
         ]
     },
     '/library': {
-        title: 'Library', subtitle: 'All your imported content',
+        title: 'Library', subtitle: 'Every playlist and video you have imported',
         sections: [
-            { icon: Layout, color: '#6366f1', name: 'Filter Bar', where: 'Top', desc: 'Switch between All Content, Playlists, Single Videos, and Custom Playlists.', selector: '[data-section="filter-bar"]' },
-            { icon: BookOpen, color: '#22c55e', name: 'Playlist Cards', where: 'Main grid', desc: 'Each card shows progress bar, video count, and schedule status. Click to open.', selector: '[data-section="playlist-grid"]' },
-            { icon: Video, color: '#38bdf8', name: 'Single Videos', where: 'Singles tab', desc: 'Individual YouTube videos imported separately — not part of a playlist.', selector: '[data-section="video-grid"]' },
+            { icon: Layout, color: '#6366f1', name: 'Search & Filter Bar', where: 'Top of page, below title', desc: 'Search box on the left filters by title in real time. The four tabs on the right — ALL, VIDEOS, PLAYLISTS, CUSTOM — narrow the grid to a specific content type.', selector: '[data-section="filter-bar"]' },
+            { icon: BookOpen, color: '#22c55e', name: 'Content Grid', where: 'Main area', desc: 'Each card shows the thumbnail, title, progress bar, and video count. Right-click or use the three-dot menu on a card to Pin, Share, Sync, or Delete.', selector: '[data-section="playlist-grid"]' },
+            { icon: Upload, color: '#f59e0b', name: 'Import New Button', where: 'Top-right corner', desc: 'Opens the Import page where you paste a YouTube URL. Use "YouTube Playlist" for standard syncing, or "Custom Course" to fully personalise the order and notes.', selector: null },
         ]
     },
     '/import': {
-        title: 'Import Content', subtitle: 'Bring YouTube content into PlanTube',
+        title: 'Import Content', subtitle: 'Turn any YouTube URL into a structured course',
         sections: [
-            { icon: Upload, color: '#6366f1', name: 'URL Input Box', where: 'Centre', desc: 'Paste any YouTube playlist or video URL and press Import.', selector: '[data-section="import-input"]' },
-            { icon: List, color: '#22c55e', name: 'Import Preview', where: 'Below input', desc: 'After pasting a URL, a preview appears before you confirm.', selector: '[data-section="import-preview"]' },
+            { icon: Upload, color: '#6366f1', name: 'URL Input', where: 'Large input field, centre of page', desc: 'Paste any YouTube playlist or video link here, then press Import. The field accepts full URLs in any format — playlist, video, or shorts links.', selector: '[data-section="import-input"]' },
+            { icon: Library, color: '#22c55e', name: 'YouTube Playlist', where: 'Left option card, below input', desc: 'Recommended for most users. Mirrors the playlist exactly as it appears on YouTube. Video order and titles stay in sync whenever you refresh.', selector: null },
+            { icon: Layout, color: '#a855f7', name: 'Custom Course', where: 'Right option card, below input', desc: 'Advanced option. Creates a private copy you can fully edit — reorder videos, add notes, attach resources, and rename chapters independently of YouTube.', selector: null },
+            { icon: List, color: '#38bdf8', name: 'Success Card', where: 'Below the options, after import', desc: 'Appears when the import completes. Shows the playlist title and a button to open it immediately in the Playlist Viewer or Focus Mode.', selector: '[data-section="import-preview"]' },
         ]
     },
     '/profile': {
-        title: 'Profile', subtitle: 'Your identity, stats, and settings',
+        title: 'Profile', subtitle: 'Your identity, learning stats, and account settings',
         sections: [
-            { icon: User, color: '#ec4899', name: 'Profile Header', where: 'Left sidebar', desc: 'Avatar, name, username, motto, and public toggle. Click Edit to modify.', selector: '[data-section="profile-header"]' },
-            { icon: BarChart3, color: '#6366f1', name: 'Dashboard Tab', where: 'Tab 1', desc: 'Weekly study chart, XP progress bar, and your Smart Insight summary.', selector: '[data-section="profile-dashboard"]' },
-            { icon: History, color: '#22c55e', name: 'History Tab', where: 'Tab 2', desc: 'Full log of completed, upcoming, and missed study sessions.', selector: '[data-section="profile-history"]' },
-            { icon: Trophy, color: '#eab308', name: 'Trophies Tab', where: 'Tab 3', desc: 'Every trophy earned and locked future ones showing how to unlock them.', selector: '[data-section="profile-trophies"]' },
-            { icon: Settings, color: '#a855f7', name: 'Settings Tab', where: 'Tab 4', desc: 'Change password, preferences, daily study time, and account deletion.', selector: '[data-section="profile-settings"]' },
+            { icon: User, color: '#ec4899', name: 'Profile Card', where: 'Left sidebar, fixed position', desc: 'Displays your avatar, display name, username, and public/private toggle. Click the Edit button to update your name, bio, or profile picture.', selector: '[data-section="profile-header"]' },
+            { icon: BarChart3, color: '#6366f1', name: 'Stats Dashboard', where: 'Tab 1 — default view', desc: 'Weekly bar chart of study minutes, cumulative XP progress ring, and an AI-generated Smart Insight that highlights your learning patterns.', selector: '[data-section="profile-dashboard"]' },
+            { icon: History, color: '#22c55e', name: 'Watch History', where: 'Tab 2', desc: 'Chronological list of every video you have watched — completed, in progress, and scheduled. Filter by status or date range.', selector: '[data-section="profile-history"]' },
+            { icon: Trophy, color: '#eab308', name: 'Achievements', where: 'Tab 3', desc: 'All unlocked trophies with the date earned. Locked trophies are shown in grey with the exact condition needed to unlock them.', selector: '[data-section="profile-trophies"]' },
+            { icon: Settings, color: '#a855f7', name: 'Account Settings', where: 'Tab 4', desc: 'Change your password, set a daily study goal (minutes), manage notification preferences, and permanently delete your account.', selector: '[data-section="profile-settings"]' },
         ]
     },
     '/groups': {
-        title: 'Study Groups', subtitle: 'Collaborate with others',
+        title: 'Study Groups', subtitle: 'Collaborative learning with shared accountability',
         sections: [
-            { icon: Users, color: '#eab308', name: 'Your Groups', where: 'Main grid', desc: "Groups you're a member of. Click any card to view member activity.", selector: '[data-section="groups-grid"]' },
-            { icon: Zap, color: '#6366f1', name: 'Create Group', where: 'Top right', desc: 'Start a new group and share the unique code to invite members.', selector: '[data-section="create-group"]' },
-            { icon: TrendingUp, color: '#22c55e', name: 'Leaderboard', where: 'Inside group', desc: 'Real-time ranking of all members by study minutes.', selector: '[data-section="leaderboard"]' },
+            { icon: Users, color: '#eab308', name: 'Your Groups', where: 'Main grid', desc: "Cards for each group you belong to. Each card shows the group name, member count, and your rank. Click to open the group dashboard and see everyone's activity.", selector: '[data-section="groups-grid"]' },
+            { icon: Zap, color: '#6366f1', name: 'Create Group', where: 'Top-right button', desc: 'Creates a new group and generates a unique 6-character invite code. Share the code with anyone you want to study alongside.', selector: '[data-section="create-group"]' },
+            { icon: TrendingUp, color: '#22c55e', name: 'Leaderboard', where: 'Inside a group — right panel', desc: 'Live ranking of all members sorted by total study minutes this week. Resets every Monday at midnight.', selector: '[data-section="leaderboard"]' },
         ]
     },
     '/social': {
-        title: 'Social Hub', subtitle: 'Connect with the community',
+        title: 'Social Hub', subtitle: 'Discover what the community is learning',
         sections: [
-            { icon: TrendingUp, color: '#38bdf8', name: 'Activity Feed', where: 'Centre', desc: 'Public study activity from all users — see what people are learning.', selector: '[data-section="activity-feed"]' },
-            { icon: User, color: '#ec4899', name: 'User Discovery', where: 'Right panel', desc: 'Find other learners and view their public profiles.', selector: '[data-section="user-discovery"]' },
-            { icon: BookOpen, color: '#a855f7', name: 'Shared Playlists', where: 'Shared tab', desc: 'Playlists made public by the community. Import them to your library.', selector: '[data-section="shared-playlists"]' },
+            { icon: TrendingUp, color: '#38bdf8', name: 'Activity Feed', where: 'Main centre column', desc: 'Real-time stream of public activity — completions, new imports, and streak milestones from all users who have made their profile public.', selector: '[data-section="activity-feed"]' },
+            { icon: User, color: '#ec4899', name: 'People to Follow', where: 'Right panel', desc: 'Suggested learners with similar interests. Click a card to view their public profile, see what they are studying, and compare streaks.', selector: '[data-section="user-discovery"]' },
+            { icon: BookOpen, color: '#a855f7', name: 'Shared Playlists', where: '"Shared" tab at the top', desc: 'Community-shared playlists. Click Import to add any of them directly to your Library as a YouTube Playlist or Custom Course.', selector: '[data-section="shared-playlists"]' },
         ]
     },
     '/my-playlists': {
-        title: 'Custom Playlists', subtitle: 'Curate your own study sequences',
+        title: 'Custom Playlists', subtitle: 'Hand-curated study sequences you control',
         sections: [
-            { icon: Star, color: '#a855f7', name: 'Custom Playlists', where: 'Main grid', desc: 'Study lists you built manually from your library videos.', selector: '[data-section="custom-grid"]' },
-            { icon: Zap, color: '#6366f1', name: 'Create New', where: 'Top right', desc: 'Create a blank playlist and start adding videos from any import.', selector: '[data-section="create-custom"]' },
+            { icon: Star, color: '#a855f7', name: 'Your Playlists', where: 'Main grid', desc: 'Every custom playlist you have created. Cards show the cover image, title, and number of videos. Drag cards to reorder them.', selector: '[data-section="custom-grid"]' },
+            { icon: Zap, color: '#6366f1', name: 'Create Playlist', where: 'Top-right button', desc: 'Opens a dialog to name and describe a new empty playlist. After creating it, use the playlist page to add videos from your Library.', selector: '[data-section="create-custom"]' },
         ]
     },
     'focus': {
-        title: 'Focus Mode', subtitle: 'Your immersive study environment',
+        title: 'Focus Mode', subtitle: 'Distraction-free, feature-rich study environment',
         sections: [
-            { icon: PanelRight, color: '#a855f7', name: 'Left Rail', where: 'Far left strip', desc: 'Pomodoro timer, ambient sounds (rain, café…), and Monk Mode toggle to dim distractions.', selector: '[data-section="focus-rail"]' },
-            { icon: Play, color: '#6366f1', name: 'Video Player', where: 'Main area', desc: 'Embedded YouTube player. Click anywhere to pause/play.', selector: '[data-section="focus-player"]' },
-            { icon: Volume2, color: '#22c55e', name: 'Controls Bar', where: 'Bottom (hover)', desc: 'Volume, speed, Prev/Next nav, and fullscreen. Appears on hover.', selector: '[data-section="focus-controls"]' },
-            { icon: CheckCircle, color: '#f59e0b', name: 'Mark Complete', where: 'Controls — right', desc: 'Marks video as done and updates your progress. Shortcut: C.', selector: '[data-section="focus-controls"]' },
-            { icon: Map, color: '#38bdf8', name: 'Chapter Map', where: 'Sidebar — Map tab', desc: 'Visual chapter timeline. Click any chapter to jump to it and check off as you go.', selector: '[data-section="focus-sidebar"]' },
-            { icon: StickyNote, color: '#ec4899', name: 'Notes', where: 'Sidebar — Notes tab', desc: 'Timestamped notes while watching. Supports bold, italic, lists, code.', selector: '[data-section="focus-sidebar"]' },
-            { icon: Zap, color: '#eab308', name: 'Resources', where: 'Sidebar — Resources tab', desc: 'Links from the video description plus custom study materials you add.', selector: '[data-section="focus-sidebar"]' },
-            { icon: List, color: '#a855f7', name: 'Playlist Panel', where: 'Sidebar — Playlist tab', desc: 'All videos in the playlist with progress indicators. Click to jump.', selector: '[data-section="focus-sidebar"]' },
+            { icon: Timer, color: '#a855f7', name: 'Pomodoro Rail', where: 'Thin strip on the far left — hover to expand', desc: 'Hover the left edge to reveal the Pomodoro timer, ambient sound picker (rain, lofi, waves, forest), and timer settings. The coloured ring shows time remaining in the current session.', selector: '[data-section="focus-rail"]' },
+            { icon: Play, color: '#6366f1', name: 'Video Player', where: 'Full-screen centre area', desc: 'The embedded YouTube player fills the entire screen. Click anywhere on the video to pause or resume. Controls auto-hide after 2 seconds of inactivity.', selector: '[data-section="focus-player"]' },
+            { icon: Volume2, color: '#22c55e', name: 'Controls Bar', where: 'Bottom of screen — appears on hover', desc: 'Hover the bottom edge to reveal: seek bar with chapter markers, playback speed, volume slider, Prev/Next video, and the Mark Complete button. Keyboard shortcuts also work (Space, J, L, F, M, C).', selector: '[data-section="focus-controls"]' },
+            { icon: Users, color: '#f59e0b', name: 'Watch Party', where: 'Controls bar — party icon (right side)', desc: 'Click the people icon in the controls bar to open the Watch Party tab in the sidebar. Create a room or join one with a code to sync playback with friends in real time.', selector: '[data-section="focus-controls"]' },
+            { icon: Map, color: '#38bdf8', name: 'Chapter Map', where: 'Sidebar — Map tab', desc: 'Visual timeline of every chapter in the video. Coloured checkboxes track completion per chapter. Click any chapter title to jump directly to that timestamp.', selector: '[data-section="focus-sidebar"]' },
+            { icon: StickyNote, color: '#ec4899', name: 'Timestamped Notes', where: 'Sidebar — Notes tab', desc: 'Write a note at any moment and it is automatically stamped with the current video time. Supports markdown (bold, italic, code blocks, bullet lists). Export all notes as a PDF or Markdown file.', selector: '[data-section="focus-sidebar"]' },
+            { icon: Zap, color: '#eab308', name: 'Resources', where: 'Sidebar — Resources tab', desc: 'Auto-extracted links from the video description, plus any custom links you add. Great for attaching related articles, documentation, or companion courses.', selector: '[data-section="focus-sidebar"]' },
+            { icon: List, color: '#a855f7', name: 'Playlist Panel', where: 'Sidebar — Playlist tab', desc: 'All videos in the current playlist with completion status indicators. Click any row to navigate to that video without leaving Focus Mode. Overall progress bar at the top.', selector: '[data-section="focus-sidebar"]' },
         ]
     },
     '/admin': {
-        title: 'Admin Command Center', subtitle: 'Platform-wide oversight',
+        title: 'Admin Command Centre', subtitle: 'Platform-wide oversight and moderation',
         sections: [
-            { icon: Activity, color: '#6366f1', name: 'Analytics Overview', where: 'Overview tab', desc: 'Real platform activity charts, top content topics, and system health.', selector: '[data-section="admin-analytics"]' },
-            { icon: Users, color: '#22c55e', name: 'User Registry', where: 'Users tab', desc: 'All users. Click # to open the Identity Drawer with full details.', selector: null },
-            { icon: BookOpen, color: '#eab308', name: 'Global Library', where: 'Playlists tab', desc: 'Every playlist in PlanTube with creator and usage counts.', selector: null },
-            { icon: Shield, color: '#ef4444', name: 'Moderation Tools', where: 'Action buttons', desc: 'Freeze ❄️ accounts, approve wipe requests 🗑️, toggle admin roles.', selector: '[data-section="admin-health"]' },
+            { icon: Activity, color: '#6366f1', name: 'Analytics', where: 'Overview tab — default view', desc: 'Live charts showing daily active users, total watch minutes, top imported playlists, and platform health indicators. Data refreshes every 60 seconds.', selector: '[data-section="admin-analytics"]' },
+            { icon: Users, color: '#22c55e', name: 'User Registry', where: 'Users tab', desc: 'Paginated table of every registered account. Click any row to open the Identity Drawer — a full panel with account history, watch stats, and moderation actions.', selector: null },
+            { icon: BookOpen, color: '#eab308', name: 'Global Library', where: 'Playlists tab', desc: 'Every playlist imported by any user, with creator name, video count, and last-updated timestamp. Use this to spot duplicate or problematic content.', selector: null },
+            { icon: Shield, color: '#ef4444', name: 'Moderation Actions', where: 'Inside the Identity Drawer or action buttons', desc: 'Freeze an account to block new watch activity, approve or reject data deletion requests, and promote users to admin. All actions are logged with a timestamp and reason.', selector: '[data-section="admin-health"]' },
         ]
     },
 };

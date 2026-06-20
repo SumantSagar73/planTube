@@ -26,9 +26,11 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin'],
+    enum: ['user', 'moderator', 'support', 'admin'],
     default: 'user'
   },
+  referralCode: { type: String, sparse: true, index: true },
+  referredBy: { type: String },
   motto: {
     type: String,
     default: 'Keep focusing, keep growing.'
@@ -96,6 +98,17 @@ const userSchema = new mongoose.Schema({
     videosPerDay: { type: Number, default: 3 },
     maxWatchTimePerDay: { type: Number, default: 120 }, // minutes
     timezone: { type: String, default: '' }
+  },
+  weeklyGoal: {
+    type: {
+      type: String,
+      enum: ['videos', 'hours'],
+      default: 'hours'
+    },
+    target: {
+      type: Number,
+      default: 5
+    }
   }
 }, { timestamps: true });
 

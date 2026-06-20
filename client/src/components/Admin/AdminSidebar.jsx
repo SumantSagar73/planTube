@@ -1,24 +1,57 @@
 import React from 'react';
-import { 
-    LayoutDashboard, Users as UsersIcon, BookOpen, 
-    Play, Shield, LogOut, ChevronLeft, ChevronRight, FileClock, MessageSquare, Activity, Terminal, Trophy
+import {
+    LayoutDashboard, Users as UsersIcon, BookOpen,
+    Play, Shield, LogOut, ChevronLeft, ChevronRight, FileClock, MessageSquare, Activity, Terminal, Trophy,
+    BarChart2, Lock, Download, Flag, TrendingUp, FlaskConical, Upload, GitMerge
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const AdminSidebar = ({ activeTab, setActiveTab, collapsed, setCollapsed, isMobile = false, mobileOpen = false, onCloseMobile }) => {
     const { logout } = useAuth();
 
-    const menuItems = [
-        { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={20} /> },
-        { id: 'command', label: 'Command Center', icon: <Terminal size={20} /> },
-        { id: 'users', label: 'Users', icon: <UsersIcon size={20} /> },
-        { id: 'live', label: 'Live Presence', icon: <Activity size={20} /> },
-        { id: 'playlists', label: 'Playlists', icon: <BookOpen size={20} /> },
-        { id: 'videos', label: 'Videos', icon: <Play size={20} /> },
-        { id: 'notifications', label: 'Notifications', icon: <Shield size={20} /> },
-        { id: 'feedback', label: 'Feedback', icon: <MessageSquare size={20} /> },
-        { id: 'achievements', label: 'Achievements', icon: <Trophy size={20} /> },
-        { id: 'audit', label: 'Audit', icon: <FileClock size={20} /> },
+    const menuGroups = [
+        {
+            label: 'Overview',
+            items: [
+                { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={20} /> },
+                { id: 'command', label: 'Command Center', icon: <Terminal size={20} /> },
+                { id: 'live', label: 'Live Presence', icon: <Activity size={20} /> },
+            ]
+        },
+        {
+            label: 'Users & Content',
+            items: [
+                { id: 'users', label: 'Users', icon: <UsersIcon size={20} /> },
+                { id: 'playlists', label: 'Playlists', icon: <BookOpen size={20} /> },
+                { id: 'videos', label: 'Videos', icon: <Play size={20} /> },
+                { id: 'import-queue', label: 'Import Queue', icon: <Upload size={20} /> },
+            ]
+        },
+        {
+            label: 'Analytics',
+            items: [
+                { id: 'content-analytics', label: 'Content Analytics', icon: <BarChart2 size={20} /> },
+                { id: 'cohort', label: 'Cohort Retention', icon: <TrendingUp size={20} /> },
+                { id: 'ab-tests', label: 'A/B Tests', icon: <FlaskConical size={20} /> },
+            ]
+        },
+        {
+            label: 'Moderation',
+            items: [
+                { id: 'reports', label: 'Reports', icon: <Flag size={20} /> },
+                { id: 'notifications', label: 'Notifications', icon: <Shield size={20} /> },
+                { id: 'feedback', label: 'Feedback', icon: <MessageSquare size={20} /> },
+            ]
+        },
+        {
+            label: 'Governance',
+            items: [
+                { id: 'security', label: 'Security', icon: <Lock size={20} /> },
+                { id: 'export', label: 'Export Centre', icon: <Download size={20} /> },
+                { id: 'achievements', label: 'Achievements', icon: <Trophy size={20} /> },
+                { id: 'audit', label: 'Audit Logs', icon: <FileClock size={20} /> },
+            ]
+        },
     ];
 
     const sidebarTop = localStorage.getItem('impersonate_user_id') ? 80 : 40;
@@ -120,41 +153,43 @@ const AdminSidebar = ({ activeTab, setActiveTab, collapsed, setCollapsed, isMobi
             </div>
 
             {/* Navigation */}
-            <nav style={{ flex: 1, padding: '1rem' }}>
-                {menuItems.map(item => (
-                    <button
-                        key={item.id}
-                        onClick={() => handleTabClick(item.id)}
-                        style={{
-                            width: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            padding: '12px',
-                            borderRadius: '12px',
-                            border: 'none',
-                            background: activeTab === item.id ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-                            color: activeTab === item.id ? '#818cf8' : '#94a3b8',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                            marginBottom: '4px',
-                            position: 'relative'
-                        }}
-                    >
-                        {activeTab === item.id && (
-                            <div style={{
-                                position: 'absolute',
-                                left: 0,
-                                top: '20%',
-                                bottom: '20%',
-                                width: '3px',
-                                background: '#6366f1',
-                                borderRadius: '0 4px 4px 0'
-                            }} />
+            <nav style={{ flex: 1, padding: '0.75rem', overflowY: 'auto' }}>
+                {menuGroups.map(group => (
+                    <div key={group.label} style={{ marginBottom: '0.25rem' }}>
+                        {(isMobile || !collapsed) && (
+                            <div style={{ padding: '0.5rem 0.75rem 0.25rem', fontSize: '0.62rem', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.2)' }}>
+                                {group.label}
+                            </div>
                         )}
-                        <span style={{ minWidth: '20px' }}>{item.icon}</span>
-                        {(isMobile || !collapsed) && <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>{item.label}</span>}
-                    </button>
+                        {group.items.map(item => (
+                            <button
+                                key={item.id}
+                                onClick={() => handleTabClick(item.id)}
+                                style={{
+                                    width: '100%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    padding: '10px 12px',
+                                    borderRadius: '10px',
+                                    border: 'none',
+                                    background: activeTab === item.id ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
+                                    color: activeTab === item.id ? '#818cf8' : '#94a3b8',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    marginBottom: '2px',
+                                    position: 'relative',
+                                    textAlign: 'left',
+                                }}
+                            >
+                                {activeTab === item.id && (
+                                    <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: '3px', background: '#6366f1', borderRadius: '0 4px 4px 0' }} />
+                                )}
+                                <span style={{ minWidth: '20px', display: 'flex' }}>{item.icon}</span>
+                                {(isMobile || !collapsed) && <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{item.label}</span>}
+                            </button>
+                        ))}
+                    </div>
                 ))}
             </nav>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Eye, Shield, ShieldAlert, Trash2, Mail, Hash, Snowflake, Download, RefreshCw } from 'lucide-react';
+import { Search, Eye, Shield, ShieldAlert, Trash2, Mail, Hash, Snowflake, Download, RefreshCw, CheckSquare, Square, ChevronDown } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import adminService from '../../services/adminService';
 import AdminConfirmModal from './AdminConfirmModal';
@@ -13,6 +13,9 @@ const AdminUsers = ({ onViewDetails, onImpersonate, notify }) => {
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
     const [confirmState, setConfirmState] = useState(null);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [bulkAction, setBulkAction] = useState('');
+    const [bulkLoading, setBulkLoading] = useState(false);
 
     const query = getParam(searchParams, 'uq', '');
     const role = getParam(searchParams, 'urole', '');
@@ -115,6 +118,34 @@ const AdminUsers = ({ onViewDetails, onImpersonate, notify }) => {
         });
     };
 
+    const toggleSelect = (id) => setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+    });
+
+    const toggleAll = () => {
+        if (selectedIds.size === users.length) setSelectedIds(new Set());
+        else setSelectedIds(new Set(users.map(u => u._id)));
+    };
+
+    const executeBulk = async () => {
+        if (!bulkAction || selectedIds.size === 0) return;
+        if (bulkAction === 'delete' && !window.confirm(`Permanently delete ${selectedIds.size} users? This cannot be undone.`)) return;
+        setBulkLoading(true);
+        try {
+            const res = await adminService.bulkUserAction([...selectedIds], bulkAction);
+            notify?.(`${res.action || bulkAction}: ${res.affected} users updated`, 'success');
+            setSelectedIds(new Set());
+            setBulkAction('');
+            fetchUsers();
+        } catch (err) {
+            notify?.(err?.response?.data?.msg || 'Bulk action failed', 'error');
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
     const promptWipeApprove = (user) => {
         setConfirmState({
             title: `Approve wipe for ${user.name}`,
@@ -197,31 +228,64 @@ const AdminUsers = ({ onViewDetails, onImpersonate, notify }) => {
                 </select>
             </div>
 
+            {selectedIds.size > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderRadius: 14, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#a5b4fc' }}>{selectedIds.size} selected</span>
+                    <select
+                        className="styled-input"
+                        style={{ width: 'auto', minWidth: 180, padding: '0.35rem 0.75rem' }}
+                        value={bulkAction}
+                        onChange={e => setBulkAction(e.target.value)}
+                    >
+                        <option value="">Choose bulk action…</option>
+                        <option value="freeze">Freeze accounts</option>
+                        <option value="unfreeze">Unfreeze accounts</option>
+                        <option value="set_moderator">Set role: Moderator</option>
+                        <option value="set_support">Set role: Support</option>
+                        <option value="set_user">Set role: User</option>
+                        <option value="delete">Delete permanently</option>
+                    </select>
+                    <button className="btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.82rem' }} disabled={!bulkAction || bulkLoading} onClick={executeBulk}>
+                        {bulkLoading ? 'Working…' : 'Apply'}
+                    </button>
+                    <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem' }} onClick={() => setSelectedIds(new Set())}>Clear</button>
+                </div>
+            )}
+
             <div className="glass-card" style={{ padding: 0, borderRadius: '20px', overflow: 'hidden' }}>
                 <div className="admin-table-wrap">
                     <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ textAlign: 'left', background: 'rgba(255,255,255,0.03)' }}>
+                                <th style={{ padding: '1rem', width: 40 }}>
+                                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }} onClick={toggleAll}>
+                                        {selectedIds.size === users.length && users.length > 0 ? <CheckSquare size={16} color="#6366f1" /> : <Square size={16} />}
+                                    </button>
+                                </th>
                                 <th style={{ padding: '1rem' }}>Identity</th>
                                 <th style={{ padding: '1rem' }}>Activity</th>
+                                <th style={{ padding: '1rem' }}>Role</th>
                                 <th style={{ padding: '1rem' }}>Joined</th>
                                 <th style={{ padding: '1rem', textAlign: 'right' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {users.map((u) => (
-                                <tr key={u._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            {users.map((u) => {
+                                const isSelected = selectedIds.has(u._id);
+                                const roleColor = { admin: '#6366f1', moderator: '#a855f7', support: '#38bdf8', user: 'rgba(255,255,255,0.3)' }[u.role] || 'rgba(255,255,255,0.3)';
+                                return (
+                                <tr key={u._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: isSelected ? 'rgba(99,102,241,0.05)' : undefined }}>
+                                    <td style={{ padding: '1rem' }}>
+                                        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: isSelected ? '#6366f1' : 'var(--text-muted)', display: 'flex' }} onClick={() => toggleSelect(u._id)}>
+                                            {isSelected ? <CheckSquare size={16} color="#6366f1" /> : <Square size={16} />}
+                                        </button>
+                                    </td>
                                     <td style={{ padding: '1rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                                             <div style={{
-                                                width: 38,
-                                                height: 38,
-                                                borderRadius: 10,
+                                                width: 38, height: 38, borderRadius: 10,
                                                 background: u.role === 'admin' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.08)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontWeight: 800
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800
                                             }}>{u.name?.charAt(0) || '?'}</div>
                                             <div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -237,6 +301,11 @@ const AdminUsers = ({ onViewDetails, onImpersonate, notify }) => {
                                     </td>
                                     <td style={{ padding: '1rem', fontSize: '0.84rem' }}>
                                         {u.playlistCount || 0} playlists / {u.groupCount || 0} groups
+                                    </td>
+                                    <td style={{ padding: '1rem' }}>
+                                        <span style={{ padding: '2px 8px', borderRadius: 6, background: `${roleColor}22`, color: roleColor, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                                            {u.role}
+                                        </span>
                                     </td>
                                     <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
                                         {formatDate(u.createdAt)}
@@ -256,10 +325,11 @@ const AdminUsers = ({ onViewDetails, onImpersonate, notify }) => {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                             {!loading && users.length === 0 && (
                                 <tr>
-                                    <td colSpan={4} style={{ padding: '1rem', color: 'var(--text-muted)' }}>No users match the current filters.</td>
+                                    <td colSpan={6} style={{ padding: '1rem', color: 'var(--text-muted)' }}>No users match the current filters.</td>
                                 </tr>
                             )}
                         </tbody>

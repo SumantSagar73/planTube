@@ -42,7 +42,24 @@ const PlaylistDetails = () => {
     const [viewMode, setViewMode] = useState('list');
     const [presenceCount, setPresenceCount] = useState(0);
     const [scrolled, setScrolled] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncMsg, setSyncMsg] = useState('');
     const isMobile = useIsMobile(900);
+
+    const handleAutoSync = async () => {
+        if (!user || syncing) return;
+        setSyncing(true); setSyncMsg('');
+        try {
+            const res = await api.post(`/playlists/${id}/sync`);
+            setSyncMsg(res.data.msg + (res.data.added ? ` +${res.data.added} new videos.` : ''));
+            if (res.data.added > 0) fetchPlaylistData();
+        } catch {
+            setSyncMsg('Sync failed.');
+        } finally {
+            setSyncing(false);
+            setTimeout(() => setSyncMsg(''), 4000);
+        }
+    };
 
     useEffect(() => { fetchPlaylistData(); }, [id]);
 
@@ -302,16 +319,35 @@ const PlaylistDetails = () => {
                             }}>
                                 {playlist?.playlistTitle}
                             </h1>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                            {user && playlist?.playlistId && !playlist.playlistId.startsWith('VIDEO_') && (
+                                <button
+                                    onClick={handleAutoSync}
+                                    disabled={syncing}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                        background: syncMsg ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)',
+                                        border: `1px solid ${syncMsg ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                                        padding: isMobile ? '0.5rem 0.8rem' : '0.6rem 1.1rem',
+                                        borderRadius: '12px', color: syncMsg ? '#4ade80' : 'white',
+                                        fontSize: '0.82rem', fontWeight: '700', cursor: 'pointer',
+                                        flexShrink: 0, whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    <RefreshCw size={14} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+                                    {syncMsg || (syncing ? 'Syncing...' : 'Sync')}
+                                </button>
+                            )}
                             {playlist?.playlistId && (
-                                <a 
+                                <a
                                     href={`https://www.youtube.com/playlist?list=${playlist.playlistId}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="hover-scale"
-                                    style={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        gap: '0.6rem', 
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.6rem',
                                         background: 'rgba(255,255,255,0.08)',
                                         border: '1px solid rgba(255,255,255,0.1)',
                                         padding: isMobile ? '0.5rem 1rem' : '0.6rem 1.2rem',
@@ -332,6 +368,7 @@ const PlaylistDetails = () => {
                                     <ExternalLink size={14} style={{ opacity: 0.5 }} />
                                 </a>
                             )}
+                            </div>
                         </div>
                         <div className="playlist-hero-stats" style={{ display: 'flex', gap: isMobile ? '1rem' : '2rem', marginBottom: isMobile ? '1.2rem' : '1.5rem', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '0.5rem', color: 'rgba(255,255,255,0.7)', fontSize: isMobile ? '0.85rem' : '0.9rem' }}>

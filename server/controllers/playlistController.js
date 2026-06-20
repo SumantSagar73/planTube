@@ -169,7 +169,7 @@ exports.importPlaylist = async (req, res) => {
         res.status(400).json({ msg: 'Could not identify a YouTube Playlist or Video' });
     } catch (err) {
         console.error('Import Error:', err.message);
-        res.status(500).json({ msg: 'Import Error: ' + err.message });
+        res.status(500).json({ msg: 'Failed to import playlist. Please check the URL and try again.' });
     }
 };
 
@@ -670,6 +670,118 @@ exports.updatePlaylist = async (req, res) => {
         res.json(playlist);
     } catch (err) {
         console.error('Update Playlist Error:', err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+// ─── Auto-Sync Playlist ───────────────────────────────────────────────────────
+
+/**
+ * POST /api/playlists/:id/sync
+ * Fetches the latest YouTube playlist data and adds any new videos not already in DB.
+ */
+exports.autoSyncPlaylist = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!require('mongoose').Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ msg: 'Invalid playlist ID' });
+        }
+
+        // Confirm the user owns this playlist
+        const userPlaylist = await UserPlaylist.findOne({ playlistId: id, userId: req.user.id });
+        if (!userPlaylist) {
+            return res.status(404).json({ msg: 'Playlist not found in your library' });
+        }
+
+        const playlist = await Playlist.findById(id);
+        if (!playlist) return res.status(404).json({ msg: 'Playlist not found' });
+
+        if (playlist.playlistId.startsWith('VIDEO_')) {
+            return res.status(400).json({ msg: 'Auto-sync is not available for standalone videos' });
+        }
+
+        // Fetch latest data from YouTube
+        const latestData = await fetchPlaylistData(playlist.playlistId);
+
+        // Get existing Video records for this playlist
+        const existingVideos = await Video.find({ playlistId: playlist._id })
+            .populate('sharedVideoId', 'youtubeId title');
+
+        const existingYouTubeIds = new Set(
+            existingVideos
+                .map(v => v.sharedVideoId?.youtubeId || v.videoId)
+                .filter(Boolean)
+        );
+
+        // Find new videos
+        const newVideoData = latestData.videos.filter(v => !existingYouTubeIds.has(v.videoId));
+
+        const addedTitles = [];
+
+        for (const vData of newVideoData) {
+            // Find or create SharedVideo
+            let sharedVideo = await SharedVideo.findOne({ youtubeId: vData.videoId });
+            if (!sharedVideo) {
+                sharedVideo = await SharedVideo.create({
+                    youtubeId: vData.videoId,
+                    title: vData.title,
+                    thumbnail: vData.thumbnail,
+                    duration: vData.duration,
+                    description: vData.description,
+                    chapters: vData.chapters || [],
+                    lastSyncedAt: new Date()
+                });
+            }
+
+            // Create the Video junction record
+            await Video.create({
+                playlistId: playlist._id,
+                sharedVideoId: sharedVideo._id,
+                videoId: vData.videoId,       // legacy field
+                title: vData.title,           // legacy field
+                thumbnail: vData.thumbnail,   // legacy field
+                duration: vData.duration,     // legacy field
+                description: vData.description,
+                chapters: vData.chapters || [],
+                position: vData.position
+            });
+
+            addedTitles.push(vData.title);
+        }
+
+        // Update playlist metadata
+        playlist.playlistTitle = latestData.playlistTitle;
+        playlist.thumbnail = latestData.thumbnail;
+        await playlist.save();
+
+        // Notify the user if new videos were added
+        if (newVideoData.length > 0) {
+            try {
+                const Notification = require('../models/Notification');
+                await Notification.create({
+                    recipientId: req.user.id,
+                    type: 'playlist_sync',
+                    category: 'system',
+                    priority: 'normal',
+                    title: 'Playlist Updated',
+                    message: `${newVideoData.length} new video${newVideoData.length > 1 ? 's' : ''} added to "${playlist.playlistTitle}"`,
+                    link: `/playlist/${playlist._id}`,
+                    metadata: { playlistId: playlist._id, addedCount: newVideoData.length }
+                });
+            } catch (notifErr) {
+                // Non-fatal — just log
+                console.error('Notification creation failed:', notifErr.message);
+            }
+        }
+
+        res.json({
+            added: newVideoData.length,
+            total: latestData.videos.length,
+            newVideos: addedTitles
+        });
+    } catch (err) {
+        console.error('autoSyncPlaylist Error:', err.message);
         res.status(500).json({ msg: 'Server error' });
     }
 };

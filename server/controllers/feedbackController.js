@@ -1,5 +1,7 @@
 const Feedback = require('../models/Feedback');
 
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const getAdminId = (req) => req.user?.originalAdminId || req.user?.id || req.user?._id || null;
 
 const categoryWeights = {
@@ -121,10 +123,11 @@ exports.getAdminFeedback = async (req, res) => {
         if (status) filter.status = status;
         if (category) filter.category = category;
         if (q) {
+            const safeQ = escapeRegex(q.trim().slice(0, 200));
             filter.$or = [
-                { subject: { $regex: q, $options: 'i' } },
-                { message: { $regex: q, $options: 'i' } },
-                { pagePath: { $regex: q, $options: 'i' } }
+                { subject: { $regex: safeQ, $options: 'i' } },
+                { message: { $regex: safeQ, $options: 'i' } },
+                { pagePath: { $regex: safeQ, $options: 'i' } }
             ];
         }
 

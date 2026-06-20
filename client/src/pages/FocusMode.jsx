@@ -57,7 +57,6 @@ const FocusMode = () => {
     const [presenceCount, setPresenceCount] = useState(0);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [isFullscreen, setIsFullscreen] = useState(false);
-    const [miniPlayer, setMiniPlayer] = useState(false);
     const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
     const [isAddingNote, setIsAddingNote] = useState(false);
     const [noteText, setNoteText] = useState('');
@@ -77,16 +76,27 @@ const FocusMode = () => {
     const [ambientSound, setAmbientSound] = useState('none');
     const [glassBlur, setGlassBlur] = useState(20);
     const [accentColor, setAccentColor] = useState(initialThemeColor); 
-    const [pomodoro, setPomodoro] = useState({
-        isActive: false,
-        secondsLeft: 25 * 60,
-        mode: 'focus'
+    const [pomodoroSettings, setPomodoroSettings] = useState(() => {
+        try {
+            const s = localStorage.getItem('pomodoro_settings');
+            return s ? JSON.parse(s) : { focusMins: 25, shortBreakMins: 5, longBreakMins: 15 };
+        } catch { return { focusMins: 25, shortBreakMins: 5, longBreakMins: 15 }; }
     });
+    const [pomodoro, setPomodoro] = useState(() => {
+        try {
+            const s = localStorage.getItem('pomodoro_settings');
+            const cfg = s ? JSON.parse(s) : { focusMins: 25 };
+            return { isActive: false, secondsLeft: (cfg.focusMins || 25) * 60, mode: 'focus' };
+        } catch { return { isActive: false, secondsLeft: 25 * 60, mode: 'focus' }; }
+    });
+    const [pomodoroSessions, setPomodoroSessions] = useState(0);
+    const [pomodoroToast, setPomodoroToast] = useState(null);
 
     const [notes, setNotes] = useState(() => {
         const saved = localStorage.getItem(`notes_${videoId}`);
         return saved ? JSON.parse(saved) : [];
     });
+
 
     const playerRef = useRef(null);
     const containerRef = useRef(null);
@@ -579,17 +589,6 @@ const FocusMode = () => {
         }
     };
 
-    const toggleNativePiP = () => {
-        try {
-            if (playerRef.current) {
-                const iframe = playerRef.current.getIframe();
-                if (iframe && iframe.requestPictureInPicture) {
-                    iframe.requestPictureInPicture().catch(() => {});
-                }
-            }
-        } catch (e) {}
-    };
-
     const cycleSpeedUp = () => {
         if (!playerRef.current) return;
         const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -628,7 +627,7 @@ const FocusMode = () => {
         }
     };
 
-    const playerOptions = React.useMemo(() => ({
+    const playerOptions = {
         height: '100%',
         width: '100%',
         playerVars: {
@@ -639,9 +638,9 @@ const FocusMode = () => {
             iv_load_policy: 3,
             enablejsapi: 1,
             playsinline: 1,
-            origin: window.location.origin
+            origin: window.location.origin,
         },
-    }), []);
+    };
 
     const activeChapterIndex = React.useMemo(() => {
         if (!video?.chapters) return -1;
@@ -832,9 +831,8 @@ const FocusMode = () => {
             if (key === 'm') { toggleMute(); e.preventDefault(); }
             if (key === 'c') { handleToggleComplete(); e.preventDefault(); }
             if (key === 's') { setShowSidebar(prev => !prev); e.preventDefault(); }
-            if (key === 'p' && !e.shiftKey) { setMiniPlayer(prev => !prev); e.preventDefault(); }
             if (key === '/' || key === '?') { setShowShortcutsHelp(prev => !prev); e.preventDefault(); }
-            if (key === 'escape') { setShowShortcutsHelp(false); setMiniPlayer(false); }
+            if (key === 'escape') { setShowShortcutsHelp(false); }
             if (isSpace || key === 'k') { togglePlay(); e.preventDefault(); }
             if (key === 'j') { handleSeek(Math.max(0, currentTime - 10)); e.preventDefault(); }
             if (key === 'l') { handleSeek(Math.min(duration, currentTime + 10)); e.preventDefault(); }
@@ -852,7 +850,6 @@ const FocusMode = () => {
     }, [
         currentTime,
         duration,
-        miniPlayer,
         showShortcutsHelp,
         togglePlay,
         handleToggleComplete,
@@ -861,32 +858,69 @@ const FocusMode = () => {
         handleToggleFullscreen
     ]);
 
+    // Request notification permission on first load
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }, []);
+
+    // Auto-dismiss toast
+    useEffect(() => {
+        if (!pomodoroToast) return;
+        const t = setTimeout(() => setPomodoroToast(null), 4000);
+        return () => clearTimeout(t);
+    }, [pomodoroToast]);
+
+    // Persist pomodoro settings to localStorage
+    useEffect(() => {
+        localStorage.setItem('pomodoro_settings', JSON.stringify(pomodoroSettings));
+    }, [pomodoroSettings]);
+
+    const showPomodoroNotif = (title, body) => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(title, { body, icon: '/favicon.ico', silent: false });
+        }
+    };
+
     // Pomodoro Timer Effect
     useEffect(() => {
         let interval = null;
         if (pomodoro.isActive && pomodoro.secondsLeft > 0) {
             interval = setInterval(() => {
-                setPomodoro(prev => ({
-                    ...prev,
-                    secondsLeft: prev.secondsLeft - 1
-                }));
+                setPomodoro(prev => ({ ...prev, secondsLeft: prev.secondsLeft - 1 }));
             }, 1000);
         } else if (pomodoro.secondsLeft === 0) {
             clearInterval(interval);
-            // Play a subtle sound?
-            const audio = new Audio('https://www.soundjay.com/buttons/sounds/btn-01.mp3');
-            audio.play().catch(() => {});
-            
-            // Switch modes
-            const nextMode = pomodoro.mode === 'focus' ? 'shortBreak' : 'focus';
-            const nextSeconds = nextMode === 'focus' ? 25 * 60 : 5 * 60;
-            setPomodoro(prev => ({
-                ...prev,
-                isActive: false,
-                mode: nextMode,
-                secondsLeft: nextSeconds
-            }));
-            alert(`${pomodoro.mode === 'focus' ? 'Deep Work' : 'Break'} session finished!`);
+
+            if (pomodoro.mode === 'focus') {
+                // Pause video at end of focus session
+                if (playerRef.current) {
+                    try { playerRef.current.pauseVideo(); } catch {}
+                }
+                // Log the completed session to analytics
+                api.post('/analytics/pulse', { seconds: (pomodoroSettings.focusMins || 25) * 60 }).catch(() => {});
+
+                const newCount = pomodoroSessions + 1;
+                setPomodoroSessions(newCount);
+
+                // Every 4 sessions → long break
+                const nextMode = newCount % 4 === 0 ? 'longBreak' : 'shortBreak';
+                const nextSecs = nextMode === 'longBreak'
+                    ? (pomodoroSettings.longBreakMins || 15) * 60
+                    : (pomodoroSettings.shortBreakMins || 5) * 60;
+
+                showPomodoroNotif('Focus session complete! 🎉',
+                    `Session ${newCount} done. Time for a ${nextMode === 'longBreak' ? 'long' : 'short'} break.`);
+                setPomodoroToast({ msg: `Session ${newCount} complete! Starting ${nextMode === 'longBreak' ? 'long' : 'short'} break.`, color: '#10b981' });
+                setPomodoro({ isActive: true, mode: nextMode, secondsLeft: nextSecs });
+
+            } else {
+                // Break ended — reset to focus, wait for user to start
+                showPomodoroNotif('Break over! 💪', 'Ready for your next focus session?');
+                setPomodoroToast({ msg: 'Break over! Click play to start next session.', color: '#6366f1' });
+                setPomodoro({ isActive: false, mode: 'focus', secondsLeft: (pomodoroSettings.focusMins || 25) * 60 });
+            }
         }
         return () => clearInterval(interval);
     }, [pomodoro.isActive, pomodoro.secondsLeft]);
@@ -991,11 +1025,12 @@ const FocusMode = () => {
             onMouseLeave={() => isPlaying && setIsHovering(false)}
         >
             {!isMobile && <div data-section="focus-rail">
-                <FocusLeftRail 
-                    isMonkMode={isMonkMode}
-                    setIsMonkMode={setIsMonkMode}
+                <FocusLeftRail
                     pomodoro={pomodoro}
                     setPomodoro={setPomodoro}
+                    pomodoroSessions={pomodoroSessions}
+                    pomodoroSettings={pomodoroSettings}
+                    setPomodoroSettings={setPomodoroSettings}
                     ambientSound={ambientSound}
                     setAmbientSound={setAmbientSound}
                     glassBlur={glassBlur}
@@ -1003,18 +1038,29 @@ const FocusMode = () => {
                 />
             </div>}
 
-            {/* Monk Mode Vignette */}
-            {isMonkMode && (
+            {/* Pomodoro Toast */}
+            {pomodoroToast && (
                 <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    pointerEvents: 'none',
-                    zIndex: 5,
-                    boxShadow: 'inset 0 0 150px rgba(0,0,0,0.8)',
-                    opacity: isPlaying ? 0.6 : 0,
-                    transition: 'opacity 1s'
-                }} />
+                    position: 'fixed', bottom: '5rem', left: '50%', transform: 'translateX(-50%)',
+                    background: pomodoroToast.color, color: 'white', padding: '0.7rem 1.5rem',
+                    borderRadius: '50px', zIndex: 99999, fontWeight: 700, fontSize: '0.85rem',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)', whiteSpace: 'nowrap',
+                    animation: 'fadeInUp 0.3s ease'
+                }}>
+                    {pomodoroToast.msg}
+                </div>
             )}
+
+            {/* Monk Mode Vignette — always visible when active, dims when controls show */}
+            <div style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                zIndex: 5,
+                boxShadow: 'inset 0 0 160px rgba(0,0,0,0.85)',
+                opacity: isMonkMode ? (uiHidden ? 0.85 : 0.5) : 0,
+                transition: 'opacity 0.6s ease',
+            }} />
 
             {/* Left Side: Video Content Area */}
             <div style={{ 
@@ -1029,19 +1075,12 @@ const FocusMode = () => {
                     <FocusPlayerSlot
                         mainSlotRef={mainSlotRef}
                         video={video}
-                        isMobile={isMobile}
                         playerOptions={playerOptions}
                         handlePlayerStateChange={handlePlayerStateChange}
                         handlePlayerReady={handlePlayerReady}
                         handleVideoEnd={handleVideoEnd}
                         isPlaying={isPlaying}
                         videoLoading={videoLoading}
-                        initialLoading={initialLoading}
-                        togglePlay={togglePlay}
-                        miniPlayer={miniPlayer}
-                        onExpandMiniPlayer={() => setMiniPlayer(false)}
-                        onCloseMiniPlayer={() => setMiniPlayer(false)}
-                        toggleNativePiP={toggleNativePiP}
                     />
                 </div>
 
@@ -1114,8 +1153,6 @@ const FocusMode = () => {
                             isFullscreen={isFullscreen}
                             handleToggleFullscreen={handleToggleFullscreen}
                             isLoading={videoLoading || !playerRef.current}
-                            miniPlayer={miniPlayer}
-                            setMiniPlayer={setMiniPlayer}
                             isLocked={isLocked}
                             setIsLocked={setIsLocked}
                         />
@@ -1185,9 +1222,16 @@ const FocusMode = () => {
                     chatMessages={chatMessages}
                     isChatLoading={isChatLoading}
                     onSendMessage={handleSendChatMessage}
+                    partyVideoId={user ? videoId : null}
+                    partyUserId={user?._id || user?.id}
+                    partyPlayerRef={playerRef}
+                    partyIsPlaying={isPlaying}
+                    partySetIsPlaying={setIsPlaying}
                 />
             </div>
             )}
+
+{/* Watch Party is now in the sidebar 'party' tab */}
 
             <style>{`
                 .spinner {

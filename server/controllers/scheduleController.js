@@ -107,10 +107,11 @@ exports.getCompletedSchedules = async (req, res) => {
 
 exports.getResumeSchedule = async (req, res) => {
     try {
-        const resumeWithProgress = await Schedule.find({
+        // 1. In-progress: any status, has a watch position, sorted by most recently watched
+        const inProgress = await Schedule.find({
             userId: req.user.id,
-            status: 'pending',
-            lastWatchedSecond: { $gt: 0 }
+            lastWatchedSecond: { $gt: 0 },
+            status: { $in: ['pending', 'completed'] }
         })
             .populate({
                 path: 'videoId',
@@ -119,32 +120,29 @@ exports.getResumeSchedule = async (req, res) => {
             .sort('-updatedAt')
             .limit(3);
 
-        let resumeSchedule = resumeWithProgress;
+        let resumeSchedule = inProgress.filter((item) => item && item.videoId);
 
+        // 2. Pad with recently-touched pending videos if we still have fewer than 3
         if (resumeSchedule.length < 3) {
-            const extraPending = await Schedule.find({
+            const seen = new Set(resumeSchedule.map((i) => String(i._id)));
+            const extra = await Schedule.find({
                 userId: req.user.id,
-                status: 'pending'
+                status: 'pending',
+                _id: { $nin: [...seen] }
             })
                 .populate({
                     path: 'videoId',
                     populate: [{ path: 'playlistId' }, { path: 'sharedVideoId' }]
                 })
                 .sort('-updatedAt')
-                .limit(3);
+                .limit(3 - resumeSchedule.length);
 
-            const seenIds = new Set(resumeSchedule.map((item) => String(item._id)));
-            extraPending.forEach((item) => {
-                if (resumeSchedule.length >= 3) return;
-                if (!seenIds.has(String(item._id))) {
-                    resumeSchedule.push(item);
-                    seenIds.add(String(item._id));
-                }
+            extra.forEach((item) => {
+                if (item && item.videoId) resumeSchedule.push(item);
             });
         }
 
-        const filtered = resumeSchedule.filter((item) => item && item.videoId);
-        res.json(filtered.length > 0 ? filtered : null);
+        res.json(resumeSchedule.length > 0 ? resumeSchedule : null);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
@@ -680,6 +678,102 @@ exports.previewGoal = async (req, res) => {
     } catch (err) {
         console.error('Preview goal error:', err.message);
         res.status(500).json({ msg: 'Preview failed: ' + err.message });
+    }
+};
+
+// ─── Spaced Repetition ────────────────────────────────────────────────────────
+
+/**
+ * GET /api/schedules/due-for-review
+ * Returns up to 20 completed schedules whose nextReviewDate <= now, sorted by nextReviewDate asc.
+ */
+exports.getDueForReview = async (req, res) => {
+    try {
+        const now = new Date();
+
+        const schedules = await Schedule.find({
+            userId: req.user.id,
+            status: 'completed',
+            nextReviewDate: { $lte: now, $ne: null }
+        })
+            .sort({ nextReviewDate: 1 })
+            .limit(20)
+            .populate({
+                path: 'videoId',
+                populate: {
+                    path: 'sharedVideoId',
+                    select: 'title thumbnail youtubeId'
+                }
+            });
+
+        res.json(schedules);
+    } catch (err) {
+        console.error('getDueForReview Error:', err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+/**
+ * POST /api/schedules/:id/review
+ * Body: { quality: 1-5 }
+ * Runs the SM-2 algorithm and updates the schedule.
+ */
+exports.reviewSchedule = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { quality } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ msg: 'Invalid schedule ID' });
+        }
+
+        const parsedQuality = Number(quality);
+        if (!Number.isFinite(parsedQuality) || parsedQuality < 1 || parsedQuality > 5) {
+            return res.status(400).json({ msg: 'quality must be a number between 1 and 5' });
+        }
+
+        const schedule = await Schedule.findById(id);
+        if (!schedule) return res.status(404).json({ msg: 'Schedule not found' });
+
+        if (String(schedule.userId) !== String(req.user.id)) {
+            return res.status(403).json({ msg: 'Not authorized' });
+        }
+
+        // SM-2 algorithm
+        let interval = schedule.reviewInterval || 1;
+        let easeFactor = schedule.reviewEaseFactor || 2.5;
+        let repetitions = schedule.reviewRepetitions || 0;
+
+        if (parsedQuality >= 3) {
+            if (repetitions === 0) {
+                interval = 1;
+            } else if (repetitions === 1) {
+                interval = 6;
+            } else {
+                interval = Math.round(interval * easeFactor);
+            }
+            easeFactor = easeFactor + (0.1 - (5 - parsedQuality) * (0.08 + (5 - parsedQuality) * 0.02));
+            if (easeFactor < 1.3) easeFactor = 1.3;
+            repetitions += 1;
+        } else {
+            repetitions = 0;
+            interval = 1;
+        }
+
+        const nextReviewDate = new Date();
+        nextReviewDate.setDate(nextReviewDate.getDate() + interval);
+
+        schedule.reviewInterval = interval;
+        schedule.reviewEaseFactor = parseFloat(easeFactor.toFixed(4));
+        schedule.reviewRepetitions = repetitions;
+        schedule.nextReviewDate = nextReviewDate;
+
+        await schedule.save();
+
+        res.json(schedule);
+    } catch (err) {
+        console.error('reviewSchedule Error:', err.message);
+        res.status(500).json({ msg: 'Server error' });
     }
 };
 

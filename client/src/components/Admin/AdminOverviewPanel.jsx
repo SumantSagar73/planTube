@@ -1,7 +1,20 @@
-import React from 'react';
-import { Activity, TrendingUp, RefreshCw, ShieldCheck, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Activity, TrendingUp, RefreshCw, ShieldCheck, AlertTriangle, Calendar } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { formatDateTime } from '../../utils/dateTime';
+import adminService from '../../services/adminService';
+
+const RANGE_OPTIONS = [
+    { key: '7d',  label: '7D'   },
+    { key: '14d', label: '14D'  },
+    { key: '30d', label: '30D'  },
+    { key: '3m',  label: '3M'   },
+    { key: '6m',  label: '6M'   },
+    { key: '1y',  label: '1Y'   },
+    { key: 'custom', label: 'Custom' },
+];
+
+const RANGE_LABELS = { '7d': '7 days', '14d': '14 days', '30d': '30 days', '3m': '3 months', '6m': '6 months', '1y': '1 year' };
 
 const StatCard = ({ icon, label, value, trend, suffix }) => (
     <div className="glass-card" style={{
@@ -27,6 +40,45 @@ const StatCard = ({ icon, label, value, trend, suffix }) => (
 );
 
 const AdminOverviewPanel = ({ stats, health, chartData, fetchOverview, autoRefresh, setAutoRefresh, statCards }) => {
+    const [chartRange, setChartRange]     = useState('7d');
+    const [customFrom, setCustomFrom]     = useState('');
+    const [customTo, setCustomTo]         = useState('');
+    const [activityData, setActivityData] = useState(chartData?.weeklyActivity || []);
+    const [loadingChart, setLoadingChart] = useState(false);
+
+    const fetchActivity = useCallback(async (range, from, to) => {
+        setLoadingChart(true);
+        try {
+            const d = await adminService.getChartData(range, from, to);
+            setActivityData(d.weeklyActivity || []);
+        } catch {
+            // keep previous data on error
+        } finally {
+            setLoadingChart(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (chartRange !== 'custom') fetchActivity(chartRange);
+    }, [chartRange, fetchActivity]);
+
+    // Seed initial data from parent prop (avoids extra request on mount)
+    useEffect(() => {
+        if (chartData?.weeklyActivity?.length) setActivityData(chartData.weeklyActivity);
+    }, [chartData?.weeklyActivity]);
+
+    const handleRangeClick = (key) => {
+        setChartRange(key);
+    };
+
+    const applyCustomRange = () => {
+        if (customFrom && customTo) fetchActivity('custom', customFrom, customTo);
+    };
+
+    const chartTitle = chartRange === 'custom'
+        ? (customFrom && customTo ? `Activity (${customFrom} → ${customTo})` : 'Activity (custom range)')
+        : `Activity (${RANGE_LABELS[chartRange] || chartRange})`;
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
@@ -60,12 +112,71 @@ const AdminOverviewPanel = ({ stats, health, chartData, fetchOverview, autoRefre
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }} className="admin-overview-grid">
                 <div data-section="admin-analytics" className="glass-card" style={{ padding: '1rem', borderRadius: '20px' }}>
-                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.8rem' }}>
-                        <Activity size={18} color="#60a5fa" /> Activity (7 days)
-                    </h3>
-                    <div style={{ width: '100%', height: 300 }}>
+                    {/* Chart header + filter pills */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.8rem' }}>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                            <Activity size={18} color="#60a5fa" />
+                            {loadingChart ? <span style={{ opacity: 0.6 }}>{chartTitle}</span> : chartTitle}
+                        </h3>
+                        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                            {RANGE_OPTIONS.map(({ key, label }) => (
+                                <button
+                                    key={key}
+                                    onClick={() => handleRangeClick(key)}
+                                    style={{
+                                        padding: '3px 10px',
+                                        borderRadius: '20px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 600,
+                                        border: chartRange === key ? '1px solid #60a5fa' : '1px solid rgba(255,255,255,0.15)',
+                                        background: chartRange === key ? 'rgba(96,165,250,0.18)' : 'transparent',
+                                        color: chartRange === key ? '#60a5fa' : 'var(--text-muted)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                    }}
+                                >
+                                    {key === 'custom' && <Calendar size={11} />}
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Custom date inputs */}
+                    {chartRange === 'custom' && (
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.8rem', flexWrap: 'wrap' }}>
+                            <input
+                                type="date"
+                                value={customFrom}
+                                onChange={e => setCustomFrom(e.target.value)}
+                                className="styled-input"
+                                style={{ padding: '4px 8px', fontSize: '0.8rem', borderRadius: '8px', width: '140px' }}
+                            />
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>→</span>
+                            <input
+                                type="date"
+                                value={customTo}
+                                onChange={e => setCustomTo(e.target.value)}
+                                className="styled-input"
+                                style={{ padding: '4px 8px', fontSize: '0.8rem', borderRadius: '8px', width: '140px' }}
+                            />
+                            <button
+                                className="btn-primary"
+                                style={{ padding: '4px 14px', fontSize: '0.8rem' }}
+                                onClick={applyCustomRange}
+                                disabled={!customFrom || !customTo}
+                            >
+                                Apply
+                            </button>
+                        </div>
+                    )}
+
+                    <div style={{ width: '100%', height: 300, opacity: loadingChart ? 0.5 : 1, transition: 'opacity 0.2s' }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData.weeklyActivity} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <AreaChart data={activityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorStudy" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.35} />
@@ -116,14 +227,14 @@ const AdminOverviewPanel = ({ stats, health, chartData, fetchOverview, autoRefre
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.7rem' }}>
                             <TrendingUp size={16} color="#f472b6" /> Top Topics
                         </h3>
-                        <div style={{ width: '100%', height: Math.max(120, chartData.topTopics.length * 30) }}>
+                        <div style={{ width: '100%', height: Math.max(120, (chartData?.topTopics?.length || 0) * 30) }}>
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={chartData.topTopics} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                                <BarChart data={chartData?.topTopics || []} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
                                     <XAxis type="number" hide />
                                     <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'white', fontSize: 11 }} width={90} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'rgba(10,10,12,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} formatter={(v) => [`${v} playlists`]} />
                                     <Bar dataKey="value" name="Playlists" radius={[0, 4, 4, 0]}>
-                                        {chartData.topTopics.map((_, index) => (
+                                        {(chartData?.topTopics || []).map((_, index) => (
                                             <Cell key={`topic-${index}`} fill={['#60a5fa', '#34d399', '#f472b6', '#f59e0b', '#a78bfa'][index % 5]} />
                                         ))}
                                     </Bar>

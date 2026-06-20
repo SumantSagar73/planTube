@@ -20,15 +20,26 @@ const auth = (req, res, next) => {
 
         // Admin Impersonation Path
         const User = require('../models/User');
+        const AdminAuditLog = require('../models/AdminAuditLog');
         User.findById(originalUser.id)
             .then(user => {
                 if (user && user.role === 'admin') {
-                    req.user = { 
-                        id: impersonateId, 
+                    req.user = {
+                        id: impersonateId,
                         _id: impersonateId,
                         originalAdminId: originalUser.id,
-                        isAdmin: true // Special flag for controllers to know an admin is watching
+                        isAdmin: true
                     };
+                    // Audit every impersonation attempt
+                    AdminAuditLog.create({
+                        actorAdminId: originalUser.id,
+                        action: 'impersonation_request',
+                        targetUserId: impersonateId,
+                        targetType: 'user',
+                        metadata: { path: req.path, method: req.method },
+                        ip: req.ip,
+                        userAgent: req.headers['user-agent'] || null
+                    }).catch(e => console.error('Audit log error:', e.message));
                 } else {
                     req.user = { ...originalUser, _id: originalUser.id };
                 }

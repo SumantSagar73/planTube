@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LogOut, Youtube, User, ChevronDown, Users, Library, Target, Link as LinkIcon, Plus, Shield, AlertTriangle, Menu, X, MessageSquare } from 'lucide-react';
+import { LogOut, Youtube, User, ChevronDown, Users, Library, Target, Link as LinkIcon, Plus, Shield, AlertTriangle, Menu, X, MessageSquare, Trophy, Map, Lock } from 'lucide-react';
 import AlertModal from './AlertModal';
 import ThemeSwitcher from './ThemeSwitcher';
 import NotificationBell from './NotificationBell';
@@ -17,6 +17,8 @@ const Navbar = () => {
     const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', success: false });
     const [isMobile, setIsMobile] = useState(window.innerWidth < 920);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [myRankData, setMyRankData] = useState(null);
+    const [showRankTip, setShowRankTip] = useState(false);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 920);
@@ -27,6 +29,13 @@ const Navbar = () => {
     useEffect(() => {
         setMobileMenuOpen(false);
     }, [location.pathname]);
+
+    useEffect(() => {
+        if (!user) return;
+        api.get('/leaderboard/my-rank')
+            .then(res => setMyRankData(res.data))
+            .catch(() => {});
+    }, [user]);
 
     const showAlert = (title, message, success = false) => {
         setAlertState({ isOpen: true, title, message, success });
@@ -128,6 +137,18 @@ const Navbar = () => {
                     </Link>
                 )}
 
+                <Link to="/leaderboard" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
+                    <Trophy size={18} />
+                    <span>Ranks</span>
+                </Link>
+
+                {user && (
+                    <Link to="/roadmap" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
+                        <Map size={18} />
+                        <span>Roadmap</span>
+                    </Link>
+                )}
+
                 {user && (
                     <Link to="/feedback" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
                         <MessageSquare size={18} />
@@ -137,6 +158,44 @@ const Navbar = () => {
 
                 {user ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {myRankData?.rank && (
+                            <div style={{ position: 'relative' }}
+                                onMouseEnter={() => setShowRankTip(true)}
+                                onMouseLeave={() => setShowRankTip(false)}
+                            >
+                                <Link
+                                    to="/leaderboard"
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '5px',
+                                        padding: '4px 10px', borderRadius: '20px',
+                                        background: myRankData.isPublic ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.06)',
+                                        border: `1px solid ${myRankData.isPublic ? 'rgba(245,158,11,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                                        color: myRankData.isPublic ? '#fbbf24' : 'rgba(255,255,255,0.45)',
+                                        fontSize: '0.78rem', fontWeight: 800,
+                                        textDecoration: 'none', flexShrink: 0, transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <Trophy size={13} />
+                                    #{myRankData.rank}
+                                    {!myRankData.isPublic && <Lock size={11} style={{ opacity: 0.6 }} />}
+                                </Link>
+                                {showRankTip && (
+                                    <div style={{
+                                        position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                                        background: '#0f172a', border: '1px solid rgba(255,255,255,0.12)',
+                                        borderRadius: '10px', padding: '0.55rem 0.8rem',
+                                        fontSize: '0.74rem', color: 'rgba(255,255,255,0.7)',
+                                        whiteSpace: 'nowrap', zIndex: 9999,
+                                        boxShadow: '0 8px 20px rgba(0,0,0,0.4)'
+                                    }}>
+                                        {myRankData.isPublic
+                                            ? `You're ranked #${myRankData.rank} this week`
+                                            : <>Your rank is <strong style={{ color: 'white' }}>#{myRankData.rank}</strong> — make your profile<br />public to appear on the leaderboard</>
+                                        }
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <NotificationBell />
                         <div
                             style={{ position: 'relative', paddingBottom: '1rem', marginBottom: '-1rem' }}
@@ -258,6 +317,8 @@ const Navbar = () => {
                     {!user && <Link to="/signup" className="btn-primary" style={{ textAlign: 'center' }}>Sign Up</Link>}
                     {user?.role === 'admin' && <Link to="/admin" className="btn-secondary" style={{ textAlign: 'center' }}>Admin</Link>}
                     {user && !user?.isFrozen && <Link to="/social" className="btn-secondary" style={{ textAlign: 'center' }}>Social</Link>}
+                    <Link to="/leaderboard" className="btn-secondary" style={{ textAlign: 'center' }}>Ranks</Link>
+                    {user && <Link to="/roadmap" className="btn-secondary" style={{ textAlign: 'center' }}>Roadmap</Link>}
                     {user && <Link to="/feedback" className="btn-secondary" style={{ textAlign: 'center' }}>Feedback</Link>}
                     {user && <Link to="/profile" className="btn-secondary" style={{ textAlign: 'center' }}>Profile</Link>}
                 </div>

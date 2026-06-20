@@ -38,7 +38,12 @@ const sharedVideoSchema = new mongoose.Schema({
     brainstormPlan: {
         type: String,
         default: null
-    }
+    },
+    flashcards: [{
+        question: String,
+        answer: String,
+        _id: false
+    }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('SharedVideo', sharedVideoSchema);

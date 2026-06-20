@@ -4,6 +4,30 @@ const Schedule = require('../models/Schedule');
 const Playlist = require('../models/Playlist');
 const Video = require('../models/Video');
 const Activity = require('../models/Activity');
+const UserPlaylist = require('../models/UserPlaylist');
+
+/**
+ * Returns an array of YYYY-MM-DD strings from Monday of the current ISO week up to today (inclusive).
+ */
+const getCurrentWeekDatesUpToNow = () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun
+    const diffToMonday = (dayOfWeek === 0 ? -6 : 1 - dayOfWeek);
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const dates = [];
+    const cursor = new Date(monday);
+    while (cursor <= now) {
+        const yyyy = cursor.getFullYear();
+        const mm = String(cursor.getMonth() + 1).padStart(2, '0');
+        const dd = String(cursor.getDate()).padStart(2, '0');
+        dates.push(`${yyyy}-${mm}-${dd}`);
+        cursor.setDate(cursor.getDate() + 1);
+    }
+    return { dates, monday };
+};
 
 exports.getPreferences = async (req, res) => {
     try {
@@ -98,6 +122,35 @@ exports.changePassword = async (req, res) => {
     }
 };
 
+exports.exportMyData = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const [user, userPlaylists, schedules, activities] = await Promise.all([
+            User.findById(userId).select('-password').lean(),
+            UserPlaylist.find({ userId }).populate({ path: 'playlistId', populate: { path: 'videos' } }).lean(),
+            Schedule.find({ userId }).lean(),
+            Activity.find({ userId }).lean()
+        ]);
+
+        if (!user) return res.status(404).json({ msg: 'User not found' });
+
+        const exportPayload = {
+            exportedAt: new Date().toISOString(),
+            profile: user,
+            playlists: userPlaylists,
+            schedules,
+            activities
+        };
+
+        res.setHeader('Content-Disposition', 'attachment; filename="plantube-data-export.json"');
+        res.setHeader('Content-Type', 'application/json');
+        res.json(exportPayload);
+    } catch (err) {
+        console.error('ExportMyData Error:', err);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
 exports.requestWipe = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -112,6 +165,79 @@ exports.requestWipe = async (req, res) => {
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
+    }
+};
+
+/**
+ * PUT /api/users/weekly-goal
+ * Update the user's weekly learning goal.
+ */
+exports.updateWeeklyGoal = async (req, res) => {
+    try {
+        const { type, target } = req.body;
+
+        if (!['videos', 'hours'].includes(type)) {
+            return res.status(400).json({ msg: "type must be 'videos' or 'hours'" });
+        }
+
+        const parsedTarget = Number(target);
+        if (!Number.isFinite(parsedTarget) || parsedTarget < 1 || parsedTarget > 168) {
+            return res.status(400).json({ msg: 'target must be a number between 1 and 168' });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ msg: 'User not found' });
+
+        user.weeklyGoal = { type, target: parsedTarget };
+        await user.save();
+
+        res.json({ msg: 'Weekly goal updated', weeklyGoal: user.weeklyGoal });
+    } catch (err) {
+        console.error('updateWeeklyGoal Error:', err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+/**
+ * GET /api/users/weekly-progress
+ * Returns progress toward the user's weekly goal.
+ */
+exports.getWeeklyProgress = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('weeklyGoal');
+        if (!user) return res.status(404).json({ msg: 'User not found' });
+
+        const goal = user.weeklyGoal || { type: 'hours', target: 5 };
+        const { dates, monday } = getCurrentWeekDatesUpToNow();
+
+        let current = 0;
+
+        if (goal.type === 'hours') {
+            // Sum Activity seconds for this week and convert to hours
+            const activities = await Activity.find({
+                userId: req.user.id,
+                date: { $in: dates }
+            }).select('seconds');
+
+            const totalSeconds = activities.reduce((sum, a) => sum + (a.seconds || 0), 0);
+            current = parseFloat((totalSeconds / 3600).toFixed(2));
+        } else {
+            // Count completed Schedule docs updated this week
+            const weekEnd = new Date();
+            const completed = await Schedule.countDocuments({
+                userId: req.user.id,
+                status: 'completed',
+                updatedAt: { $gte: monday, $lte: weekEnd }
+            });
+            current = completed;
+        }
+
+        const percent = Math.min(100, Math.round((current / goal.target) * 100));
+
+        res.json({ goal, current, percent });
+    } catch (err) {
+        console.error('getWeeklyProgress Error:', err.message);
+        res.status(500).json({ msg: 'Server error' });
     }
 };
 

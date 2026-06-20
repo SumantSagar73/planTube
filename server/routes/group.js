@@ -3,6 +3,15 @@ const router = express.Router();
 const { auth, optionalAuth } = require('../middleware/auth');
 const groupController = require('../controllers/groupController');
 const groupPlaylistController = require('../controllers/groupPlaylistController');
+const rateLimit = require('express-rate-limit');
+
+const joinLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { msg: 'Too many join attempts, please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
 
 // --- Specific/Sub-resource Routes First ---
 
@@ -24,7 +33,7 @@ router.post('/:id/leave', auth, groupController.leaveGroup);
 
 router.post('/', auth, groupController.createGroup);
 router.get('/', auth, groupController.getMyGroups);
-router.post('/join-code', optionalAuth, groupController.joinGroupByCode);
+router.post('/join-code', joinLimiter, optionalAuth, groupController.joinGroupByCode);
 
 router.get('/:id', optionalAuth, groupController.getGroupById);
 router.put('/:id', auth, groupController.updateGroup);

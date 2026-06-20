@@ -1401,3 +1401,70 @@
     padding: 1rem !important;
   }
 }
+
+/* ── New Feature Pages ─────────────────────────────────────────────────────── */
+
+/* Leaderboard */
+@media (max-width: 720px) {
+  /* LeaderRow: hide XP on small screens */
+  .leader-xp { display: none !important; }
+  /* My-rank card stacks */
+  .leader-rank-card { flex-direction: column !important; align-items: flex-start !important; gap: 0.5rem !important; }
+}
+
+/* Roadmap */
+@media (max-width: 720px) {
+  /* Roadmap node card: thumbnail hidden on tiny screens */
+  .roadmap-node-thumb { display: none !important; }
+  /* Controls wrap */
+  .roadmap-controls { flex-wrap: wrap !important; gap: 0.5rem !important; }
+}
+
+/* Dashboard new sidebar widgets */
+@media (max-width: 820px) {
+  /* Weekly goal ring: smaller */
+  .weekly-goal-ring { width: 72px !important; height: 72px !important; }
+}
+
+/* FocusSidebar flashcard tab */
+@media (max-width: 520px) {
+  /* Flashcard nav: hide text, just arrow buttons */
+  .flashcard-nav-label { display: none !important; }
+}
+
+/* WatchPartyPanel: full-width on tiny screens */
+@media (max-width: 400px) {
+  .watch-party-panel {
+    right: 0.5rem !important;
+    left: 0.5rem !important;
+    width: auto !important;
+  }
+}
+
+/* Navbar: hide new links text on medium screens before hamburger kicks in */
+@media (max-width: 1120px) and (min-width: 921px) {
+  nav .nav-link .nav-extra-label { display: none !important; }
+}
+
+/* Container max-width for new full-page layouts */
+@media (max-width: 720px) {
+  /* Leaderboard and Roadmap pages padding */
+  .leaderboard-page, .roadmap-page {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+/* Print layout for Study Report (applied inside generated window) */
+@media print {
+  .no-print { display: none !important; }
+}
+
+/* Focus mode: Watch Party panel z-index safety on mobile */
+@media (max-width: 768px) {
+  /* Watch party button: move below nav */
+  .watch-party-toggle {
+    top: 4.5rem !important;
+    right: 0.75rem !important;
+  }
+}

@@ -15,6 +15,10 @@ router.get('/playlist/:playlistId', auth, scheduleController.getPlaylistSchedule
 // Analytics route
 router.get('/analytics', auth, scheduleController.getAnalytics);
 
+// Spaced Repetition routes — must be defined before /:id to avoid ambiguity
+router.get('/due-for-review', auth, scheduleController.getDueForReview);
+router.post('/:id/review', auth, scheduleController.reviewSchedule);
+
 // Schedule management routes
 router.post('/', auth, scheduleController.createSchedule);
 router.put('/:id', auth, scheduleController.updateStatus);

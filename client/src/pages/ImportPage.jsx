@@ -18,8 +18,13 @@ const ImportPage = () => {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
-    const [createCustom, setCreateCustom] = useState(true);
+    const [createCustom, setCreateCustom] = useState(false);
     const navigate = useNavigate();
+
+    // New-user onboarding: show type picker only after URL is entered, unless skipped
+    const isNewUser = !localStorage.getItem('plantube_imported_once');
+    const [onboardingSkipped, setOnboardingSkipped] = useState(!isNewUser);
+    const showTypePicker = !isNewUser ? onboardingSkipped || url.length > 10 : true;
 
     const handleImport = async (e) => {
         e.preventDefault();
@@ -66,6 +71,7 @@ const ImportPage = () => {
                     title: res.data.playlist?.playlistTitle || res.data.video?.title
                 });
             }
+            localStorage.setItem('plantube_imported_once', '1');
         } catch (err) {
             console.error(err);
             setError(err.response?.data?.msg || 'Failed to import. Please check the URL and try again.');
@@ -120,12 +126,56 @@ const ImportPage = () => {
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                    {/* New-user hint: shown until a URL is pasted */}
+                    {isNewUser && !onboardingSkipped && url.length <= 10 && (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '0.75rem 1rem', borderRadius: '14px', marginBottom: '1rem',
+                            background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                <span style={{ fontSize: '1rem' }}>👆</span>
+                                <span style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.65)' }}>
+                                    Paste a YouTube URL above to get started
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setOnboardingSkipped(true)}
+                                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: '0.75rem', cursor: 'pointer', padding: '4px 8px', borderRadius: '8px' }}
+                            >
+                                Skip guide
+                            </button>
+                        </div>
+                    )}
+
+                    {showTypePicker && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                        {/* Standard / YouTube Playlist — shown first so new users default here */}
+                        <button
+                            type="button"
+                            onClick={() => setCreateCustom(false)}
+                            className={`glass ${!createCustom ? 'active-border' : ''}`}
+                            style={{
+                                padding: '1.5rem', borderRadius: '20px', textAlign: 'left', cursor: 'pointer',
+                                border: !createCustom ? '2px solid var(--primary)' : '2px solid transparent',
+                                background: !createCustom ? 'rgba(99, 102, 241, 0.05)' : 'rgba(255,255,255,0.02)'
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem', color: !createCustom ? 'var(--primary)' : 'white' }}>
+                                <Library size={20} />
+                                <span style={{ fontWeight: '700' }}>YouTube Playlist</span>
+                                <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', background: 'rgba(99,102,241,0.15)', color: 'var(--primary)', border: '1px solid rgba(99,102,241,0.3)' }}>Recommended</span>
+                            </div>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                                Sync directly with a YouTube playlist. Best for courses and series.
+                            </p>
+                        </button>
+
                         <button
                             type="button"
                             onClick={() => setCreateCustom(true)}
                             className={`glass ${createCustom ? 'active-border' : ''}`}
-                            style={{ 
+                            style={{
                                 padding: '1.5rem', borderRadius: '20px', textAlign: 'left', cursor: 'pointer',
                                 border: createCustom ? '2px solid var(--primary)' : '2px solid transparent',
                                 background: createCustom ? 'rgba(99, 102, 241, 0.05)' : 'rgba(255,255,255,0.02)'
@@ -139,26 +189,7 @@ const ImportPage = () => {
                                 Fully personalizable. Add notes, reorder videos, and mark progress.
                             </p>
                         </button>
-
-                        <button
-                            type="button"
-                            onClick={() => setCreateCustom(false)}
-                            className={`glass ${!createCustom ? 'active-border' : ''}`}
-                            style={{ 
-                                padding: '1.5rem', borderRadius: '20px', textAlign: 'left', cursor: 'pointer',
-                                border: !createCustom ? '2px solid var(--primary)' : '2px solid transparent',
-                                background: !createCustom ? 'rgba(99, 102, 241, 0.05)' : 'rgba(255,255,255,0.02)'
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem', color: !createCustom ? 'var(--primary)' : 'white' }}>
-                                <Library size={20} />
-                                <span style={{ fontWeight: '700' }}>Standard Import</span>
-                            </div>
-                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                                Sync exactly with YouTube. Best for reference playlists.
-                            </p>
-                        </button>
-                    </div>
+                    </div>}
                 </form>
 
                 {error && (

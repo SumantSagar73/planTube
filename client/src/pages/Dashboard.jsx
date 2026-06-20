@@ -12,6 +12,8 @@ import GuestBanner from '../components/Dashboard/GuestBanner';
 import ContinueWatching from '../components/Dashboard/ContinueWatching';
 import ActiveLibrary from '../components/Dashboard/ActiveLibrary';
 import DailyAgenda from '../components/Dashboard/DailyAgenda';
+import WeeklyGoalWidget from '../components/Dashboard/WeeklyGoalWidget';
+import DueForReviewWidget from '../components/Dashboard/DueForReviewWidget';
 
 import StreakIcon from '../components/Shared/StreakIcon';
 import AdSense from '../components/Shared/AdSense';
@@ -200,11 +202,15 @@ const Dashboard = () => {
                                 />
                             </div>
 
+                            {user && <WeeklyGoalWidget />}
+
+                            {user && <DueForReviewWidget />}
+
                             {user && isEnabled('feat_heatmap') && (
                                 <div className="dashboard-tracker" data-section="heatmap">
-                                    <FocusPulseHeatmap 
-                                        data={heatmapData} 
-                                        streak={analytics?.streak || 0} 
+                                    <FocusPulseHeatmap
+                                        data={heatmapData}
+                                        streak={analytics?.streak || 0}
                                     />
                                 </div>
                             )}

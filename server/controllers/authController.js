@@ -16,28 +16,28 @@ exports.register = async (req, res) => {
             user: { id: user.id }
         };
 
-        jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
+        jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '2d' }, (err, token) => {
             if (err) {
                 console.error('JWT Sign Error:', err.message);
-                return res.status(500).json({ msg: 'JWT Error: ' + err.message });
+                return res.status(500).json({ msg: 'Server error' });
             }
-            res.json({ 
-                token, 
-                user: { 
-                    id: user.id, 
-                    name: user.name, 
-                    username: user.username, 
+            res.json({
+                token,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    username: user.username,
                     email: user.email,
                     role: user.role,
                     themeColor: user.themeColor,
                     isFrozen: user.isFrozen,
                     wipeRequested: user.wipeRequested
-                } 
+                }
             });
         });
     } catch (err) {
         console.error('Register Error:', err);
-        res.status(500).json({ msg: 'Server error: ' + err.message });
+        res.status(500).json({ msg: 'Server error' });
     }
 };
 
@@ -60,28 +60,28 @@ exports.login = async (req, res) => {
             user: { id: user.id }
         };
 
-        jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
+        jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '2d' }, (err, token) => {
             if (err) {
                 console.error('JWT Sign Error:', err.message);
-                return res.status(500).json({ msg: 'JWT Error: ' + err.message });
+                return res.status(500).json({ msg: 'Server error' });
             }
-            res.json({ 
-                token, 
-                user: { 
-                    id: user.id, 
-                    name: user.name, 
-                    username: user.username, 
+            res.json({
+                token,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    username: user.username,
                     email: user.email,
                     role: user.role,
                     themeColor: user.themeColor,
                     isFrozen: user.isFrozen,
                     wipeRequested: user.wipeRequested
-                } 
+                }
             });
         });
     } catch (err) {
         console.error('Login Error:', err);
-        res.status(500).json({ msg: 'Server error: ' + err.message });
+        res.status(500).json({ msg: 'Server error' });
     }
 };
 
@@ -91,6 +91,6 @@ exports.getMe = async (req, res) => {
         res.json(user);
     } catch (err) {
         console.error('GetMe Error:', err);
-        res.status(500).json({ msg: 'Server error: ' + err.message });
+        res.status(500).json({ msg: 'Server error' });
     }
 };

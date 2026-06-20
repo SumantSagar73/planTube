@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
     ChevronLeft, ChevronRight, Play, CheckCircle,
     Eye, EyeOff, Map, AlignLeft, List as ListIcon,
-    Maximize, ExternalLink, Monitor, FileText, Zap, MoreHorizontal,
-    Lock, Unlock, Type, BrainCircuit, Lightbulb
+    Maximize, ExternalLink, FileText, Zap, MoreHorizontal,
+    Lock, Unlock, BrainCircuit, Users, Layers
 } from 'lucide-react';
 import useFeatureFlags from '../../hooks/useFeatureFlags';
 
@@ -41,8 +41,6 @@ const FocusControls = ({
     isFullscreen,
     handleToggleFullscreen,
     isLoading,
-    miniPlayer,
-    setMiniPlayer,
     isLocked,
     setIsLocked
 }) => {
@@ -272,14 +270,15 @@ const FocusControls = ({
                             <EyeOff size={18} />
                         </button>
 
+                        {/* Watch Party shortcut */}
                         <button
-                            onClick={() => !isLocked && setMiniPlayer(!miniPlayer)}
-                            className={`icon-btn-deck ${miniPlayer ? 'active' : ''}`}
+                            onClick={() => { if (!isLocked) { setSidebarTab('party'); setShowSidebar(true); } }}
+                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'party' ? 'active' : ''}`}
                             disabled={isLocked}
-                            title={isLocked ? "Controls Locked" : "Mini Player (P)"}
+                            title={isLocked ? "Controls Locked" : "Watch Party"}
                             style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         >
-                            <Monitor size={18} />
+                            <Users size={18} />
                         </button>
 
                         <button
@@ -359,6 +358,13 @@ const FocusControls = ({
                             </button>
                         )}
                         <button
+                            onClick={() => setSidebarTab('flashcards')}
+                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'flashcards' ? 'active' : ''}`}
+                            title="Flashcards"
+                        >
+                            <Layers size={18} />
+                        </button>
+                        <button
                             onClick={() => setSidebarTab('resources')}
                             className={`icon-btn-deck ${showSidebar && sidebarTab === 'resources' ? 'active' : ''}`}
                             title="Resources"
@@ -377,14 +383,15 @@ const FocusControls = ({
                     </div>
                 ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+                        {/* Watch Party */}
                         <button
-                            onClick={() => !isLocked && setMiniPlayer(!miniPlayer)}
-                            className={`icon-btn-deck ${miniPlayer ? 'active' : ''}`}
+                            onClick={() => !isLocked && (setSidebarTab('party'), setShowSidebar(true))}
+                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'party' ? 'active' : ''}`}
                             disabled={isLocked}
-                            title={isLocked ? "Controls Locked" : "Mini Player (P)"}
+                            title={isLocked ? "Controls Locked" : "Watch Party"}
                             style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                         >
-                            <Monitor size={18} />
+                            <Users size={18} />
                         </button>
 
                         <button
@@ -452,6 +459,16 @@ const FocusControls = ({
                                 <BrainCircuit size={18} />
                             </button>
                         )}
+
+                        <button
+                            onClick={() => { if (!isLocked) { setSidebarTab('flashcards'); setShowSidebar(true); } }}
+                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'flashcards' ? 'active' : ''}`}
+                            disabled={isLocked}
+                            title={isLocked ? "Controls Locked" : "Flashcards"}
+                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
+                        >
+                            <Layers size={18} />
+                        </button>
 
                         <button
                             onClick={() => !isLocked && handleToggleComplete()}

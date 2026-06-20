@@ -1,11 +1,13 @@
 const axios = require('axios');
 const { parseDuration, formatDuration, parseChapters } = require('./videoUtils');
 
+const ytAxios = axios.create({ timeout: 10000 });
+
 const fetchSingleVideoData = async (videoId) => {
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) throw new Error('YouTube API Key is missing');
 
-    const res = await axios.get(`https://www.googleapis.com/youtube/v3/videos`, {
+    const res = await ytAxios.get(`https://www.googleapis.com/youtube/v3/videos`, {
         params: {
             part: 'snippet,contentDetails',
             id: videoId,
@@ -35,7 +37,7 @@ const fetchPlaylistData = async (playlistId) => {
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) throw new Error('YouTube API Key is missing');
 
-    const playlistResponse = await axios.get(`https://www.googleapis.com/youtube/v3/playlists`, {
+    const playlistResponse = await ytAxios.get(`https://www.googleapis.com/youtube/v3/playlists`, {
         params: {
             part: 'snippet',
             id: playlistId,
@@ -55,7 +57,7 @@ const fetchPlaylistData = async (playlistId) => {
     let nextPageToken = '';
 
     do {
-        const videoResponse = await axios.get(`https://www.googleapis.com/youtube/v3/playlistItems`, {
+        const videoResponse = await ytAxios.get(`https://www.googleapis.com/youtube/v3/playlistItems`, {
             params: {
                 part: 'snippet,contentDetails',
                 playlistId: playlistId,
@@ -68,7 +70,7 @@ const fetchPlaylistData = async (playlistId) => {
         const items = videoResponse.data.items;
         const videoIds = items.map(item => item.snippet.resourceId.videoId).join(',');
 
-        const detailsResponse = await axios.get(`https://www.googleapis.com/youtube/v3/videos`, {
+        const detailsResponse = await ytAxios.get(`https://www.googleapis.com/youtube/v3/videos`, {
             params: {
                 part: 'snippet,contentDetails',
                 id: videoIds,

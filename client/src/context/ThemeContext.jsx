@@ -12,16 +12,26 @@ export const useTheme = () => {
 
 export const ThemeProvider = ({ children }) => {
     const themes = [
-        { id: 'default', name: 'Original Dark', color: '#6366f1' },
-        { id: 'indigo', name: 'Deep Indigo', color: '#3F51B5' },
-        { id: 'teal', name: 'Muted Teal', color: '#0F766E' },
-        { id: 'slate', name: 'Slate Blue', color: '#334155' },
-        { id: 'forest', name: 'Forest Green', color: '#2E7D32' },
-        { id: 'monochrome', name: 'Monochrome', color: '#1F2937' },
-        { id: 'nordic', name: 'Nordic Night', color: '#2E3440' },
-        { id: 'solarized', name: 'Solarized Light', color: '#FDF6E3' },
-        { id: 'earth', name: 'Earth Tone', color: '#795548' },
-        { id: 'youtube', name: 'YouTube Red', color: '#FF0000' }
+        // ── Dark themes ───────────────────────────────────
+        { id: 'default',     name: 'Original Dark',   color: '#6366f1', dark: true },
+        { id: 'midnight',    name: 'Midnight',         color: '#7c85ff', dark: true },
+        { id: 'cyberpunk',   name: 'Cyberpunk',        color: '#00ffcc', dark: true },
+        { id: 'rose',        name: 'Rose Dark',        color: '#f472b6', dark: true },
+        { id: 'amber',       name: 'Amber Dark',       color: '#f59e0b', dark: true },
+        { id: 'dracula',     name: 'Dracula',          color: '#bd93f9', dark: true },
+        { id: 'ocean',       name: 'Deep Ocean',       color: '#22d3ee', dark: true },
+        { id: 'cherry',      name: 'Cherry',           color: '#e11d48', dark: true },
+        { id: 'forest-dark', name: 'Forest Dark',      color: '#22c55e', dark: true },
+        { id: 'nordic',      name: 'Nordic Night',     color: '#2E3440', dark: true },
+        { id: 'youtube',     name: 'YouTube Red',      color: '#FF0000', dark: true },
+        // ── Light themes ──────────────────────────────────
+        { id: 'indigo',      name: 'Deep Indigo',      color: '#3F51B5', dark: false },
+        { id: 'teal',        name: 'Muted Teal',       color: '#0F766E', dark: false },
+        { id: 'slate',       name: 'Slate Blue',       color: '#334155', dark: false },
+        { id: 'forest',      name: 'Forest Green',     color: '#2E7D32', dark: false },
+        { id: 'monochrome',  name: 'Monochrome',       color: '#1F2937', dark: false },
+        { id: 'solarized',   name: 'Solarized Light',  color: '#FDF6E3', dark: false },
+        { id: 'earth',       name: 'Earth Tone',       color: '#795548', dark: false },
     ];
 
     const resolveThemeFromColor = (color) => {

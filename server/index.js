@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dns = require('dns');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -38,11 +39,32 @@ if (!mongoUri) {
     process.exit(1);
 }
 
-// Prefer IPv4 and known public resolvers to avoid intermittent SRV lookup issues.
+// Prefer IPv4 to avoid intermittent SRV lookup issues.
 if (typeof dns.setDefaultResultOrder === 'function') {
     dns.setDefaultResultOrder('ipv4first');
 }
-dns.setServers(['8.8.8.8', '1.1.1.1']);
+// Use reliable external DNS for SRV lookups (mongodb+srv:// needs working SRV resolution).
+// Set SKIP_DNS_OVERRIDE=true in your .env only if you're on corporate/k8s DNS that handles SRV.
+if (!process.env.SKIP_DNS_OVERRIDE) {
+    try { dns.setServers(['8.8.8.8', '1.1.1.1']); } catch {}
+}
+
+// Rate limiters
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: { msg: 'Too many requests, please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+const strictLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    message: { msg: 'Too many requests, please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
 
 // Routes
 app.get('/', (req, res) => {
@@ -50,6 +72,8 @@ app.get('/', (req, res) => {
 });
 
 // Auth Routes
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 app.use('/api/auth', require('./routes/auth'));
 
 // Playlist Routes
@@ -82,20 +106,55 @@ app.use('/api/feedback', require('./routes/feedback'));
 // Public achievements catalog
 app.use('/api/achievements', require('./routes/achievements'));
 
-// Image Proxy — fetches external images server-side to bypass CORS on image hosts like ibb.co, Google Drive, etc.
+// Leaderboard
+app.use('/api/leaderboard', require('./routes/leaderboard'));
+
+// Image Proxy — fetches external images server-side to bypass CORS on image hosts like ibb.co, YouTube, etc.
 const https = require('https');
 const http = require('http');
 
+// Allowlist of image CDN hostnames permitted for proxying
+const ALLOWED_IMAGE_HOSTS = new Set([
+    'i.ytimg.com',
+    'i9.ytimg.com',
+    'img.youtube.com',
+    'yt3.ggpht.com',
+    'yt3.googleusercontent.com',
+    'lh3.googleusercontent.com',
+    'i.ibb.co',
+    'i.imgur.com',
+]);
+
+const isAllowedImageHost = (hostname) => {
+    const h = hostname.toLowerCase();
+    if (ALLOWED_IMAGE_HOSTS.has(h)) return true;
+    for (const allowed of ALLOWED_IMAGE_HOSTS) {
+        if (h.endsWith('.' + allowed)) return true;
+    }
+    return false;
+};
+
 const fetchWithRedirects = (url, res, depth = 0) => {
-    if (depth > 5) return res.status(500).json({ error: 'Too many redirects' });
+    if (depth > 3) return res.status(400).json({ error: 'Too many redirects' });
     try {
         const parsed = new URL(url);
-        const client = parsed.protocol === 'https:' ? https : http;
-        client.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (imgRes) => {
+        if (!isAllowedImageHost(parsed.hostname)) {
+            return res.status(403).json({ error: 'Image host not allowed' });
+        }
+        // Only allow HTTPS to prevent protocol downgrade
+        if (parsed.protocol !== 'https:') {
+            return res.status(400).json({ error: 'Only HTTPS image sources are allowed' });
+        }
+        https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (imgRes) => {
             if ([301, 302, 303, 307, 308].includes(imgRes.statusCode) && imgRes.headers.location) {
                 return fetchWithRedirects(imgRes.headers.location, res, depth + 1);
             }
-            res.set('Content-Type', imgRes.headers['content-type'] || 'image/jpeg');
+            const contentType = imgRes.headers['content-type'] || '';
+            if (!contentType.startsWith('image/')) {
+                imgRes.destroy();
+                return res.status(400).json({ error: 'Remote resource is not an image' });
+            }
+            res.set('Content-Type', contentType);
             res.set('Cache-Control', 'public, max-age=86400');
             imgRes.pipe(res);
         }).on('error', () => res.status(500).json({ error: 'Failed to fetch image' }));
@@ -119,11 +178,28 @@ const io = require('socket.io')(server, {
     }
 });
 const presenceStore = require('./utils/presenceStore');
+const jwt = require('jsonwebtoken');
 
 app.set('io', io);
 
+// Verify JWT on every Socket.io handshake
+io.use((socket, next) => {
+    const token = socket.handshake.auth?.token || socket.handshake.headers?.['x-auth-token'];
+    if (!token) return next(new Error('Authentication required'));
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        socket.data.userId = decoded.user?.id;
+        next();
+    } catch {
+        next(new Error('Invalid token'));
+    }
+});
+
 // Real-time Presence with Socket.io
 const activeUsers = new Map(); // videoId -> Set of socketId/userId
+
+// Watch Party rooms: roomCode -> { hostId, videoId, isPlaying, currentTime, members: Set }
+const watchPartyRooms = new Map();
 
 io.on('connection', (socket) => {
     // console.log('\ud83d\udd17 Socket connected:', socket.id);
@@ -246,7 +322,85 @@ io.on('connection', (socket) => {
                     broadcastPresence(videoId);
                 }
             }
+            // Clean up watch party membership on disconnect
+            if (room.startsWith('wp_')) {
+                const roomCode = room.replace('wp_', '');
+                const wpRoom = watchPartyRooms.get(roomCode);
+                if (wpRoom && socket.data.userId) {
+                    wpRoom.members.delete(socket.data.userId);
+                    if (wpRoom.members.size === 0) {
+                        watchPartyRooms.delete(roomCode);
+                    } else {
+                        io.to(`wp_${roomCode}`).emit('watch_party:member_count', { count: wpRoom.members.size });
+                    }
+                }
+            }
         });
+    });
+
+    // ─── Watch Party — synchronized playback ──────────────────────────────────
+    socket.on('watch_party:create', ({ roomCode, videoId, userId }) => {
+        if (!userId || !videoId || !roomCode) return;
+        watchPartyRooms.set(roomCode, {
+            hostId: userId, videoId, isPlaying: false, currentTime: 0,
+            members: new Set([userId])
+        });
+        socket.join(`wp_${roomCode}`);
+        socket.data.watchPartyRoom = roomCode;
+        socket.emit('watch_party:joined', { roomCode, isHost: true, videoId });
+    });
+
+    socket.on('watch_party:join', ({ roomCode, userId }) => {
+        const room = watchPartyRooms.get(roomCode);
+        if (!room) return socket.emit('watch_party:error', { msg: 'Room not found' });
+        room.members.add(userId);
+        socket.join(`wp_${roomCode}`);
+        socket.data.watchPartyRoom = roomCode;
+        socket.emit('watch_party:joined', {
+            roomCode, isHost: false, videoId: room.videoId,
+            isPlaying: room.isPlaying, currentTime: room.currentTime
+        });
+        io.to(`wp_${roomCode}`).emit('watch_party:member_count', { count: room.members.size });
+    });
+
+    socket.on('watch_party:play', ({ roomCode, currentTime }) => {
+        const room = watchPartyRooms.get(roomCode);
+        if (!room || room.hostId !== socket.data.userId) return;
+        room.isPlaying = true;
+        room.currentTime = currentTime;
+        socket.to(`wp_${roomCode}`).emit('watch_party:play', { currentTime });
+    });
+
+    socket.on('watch_party:pause', ({ roomCode, currentTime }) => {
+        const room = watchPartyRooms.get(roomCode);
+        if (!room || room.hostId !== socket.data.userId) return;
+        room.isPlaying = false;
+        room.currentTime = currentTime;
+        socket.to(`wp_${roomCode}`).emit('watch_party:pause', { currentTime });
+    });
+
+    socket.on('watch_party:seek', ({ roomCode, currentTime }) => {
+        const room = watchPartyRooms.get(roomCode);
+        if (!room || room.hostId !== socket.data.userId) return;
+        room.currentTime = currentTime;
+        socket.to(`wp_${roomCode}`).emit('watch_party:seek', { currentTime });
+    });
+
+    socket.on('watch_party:react', ({ roomCode, emoji }) => {
+        const ALLOWED = ['👍', '🎉', '🔥', '💡', '😮', '❤️'];
+        if (!ALLOWED.includes(emoji)) return;
+        io.to(`wp_${roomCode}`).emit('watch_party:react', { emoji, userId: socket.data.userId });
+    });
+
+    socket.on('watch_party:leave', ({ roomCode, userId }) => {
+        const room = watchPartyRooms.get(roomCode);
+        if (room) {
+            room.members.delete(userId);
+            if (room.members.size === 0) watchPartyRooms.delete(roomCode);
+            else io.to(`wp_${roomCode}`).emit('watch_party:member_count', { count: room.members.size });
+        }
+        socket.leave(`wp_${roomCode}`);
+        delete socket.data.watchPartyRoom;
     });
 });
 

@@ -15,7 +15,8 @@ console.log('🔌 Socket.io connecting to:', SOCKET_URL);
 const socket = io(SOCKET_URL, {
     withCredentials: true,
     autoConnect: false,
-    transports: ['websocket', 'polling'] // Ensure reliability
+    transports: ['websocket', 'polling'],
+    auth: (cb) => cb({ token: localStorage.getItem('token') || '' })
 });
 
 socket.on('connect', () => {
