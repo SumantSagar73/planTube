@@ -1,0 +1,118 @@
+name: Backend Health Check
+
+on:
+  # Run automatically every 6 hours
+  schedule:
+    - cron: '0 */6 * * *'
+
+  # Run manually from the Actions tab (useful right after a Render deploy)
+  workflow_dispatch:
+    inputs:
+      url_override:
+        description: 'Override backend URL (leave blank to use RENDER_BACKEND_URL secret)'
+        required: false
+        default: ''
+
+  # Run automatically whenever server code is pushed to main
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+
+jobs:
+  health-check:
+    name: Check Render backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve backend URL
+        id: url
+        run: |
+          URL="${{ github.event.inputs.url_override }}"
+          if [ -z "$URL" ]; then
+            URL="${{ secrets.RENDER_BACKEND_URL }}"
+          fi
+          if [ -z "$URL" ]; then
+            echo "⚠️  RENDER_BACKEND_URL secret is not set."
+            echo "   Go to: GitHub repo → Settings → Secrets → Actions → New secret"
+            echo "   Name: RENDER_BACKEND_URL"
+            echo "   Value: https://your-app-name.onrender.com"
+            exit 1
+          fi
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
+      # Render free tier spins down after 15 min idle — give it time to wake up
+      - name: Wait for Render to wake (if cold start)
+        if: github.event_name == 'push'
+        run: |
+          echo "Waiting 3 minutes for Render deploy to complete..."
+          sleep 180
+
+      - name: Ping health endpoint (retry 5×)
+        id: health
+        run: |
+          BASE_URL="${{ steps.url.outputs.url }}"
+          HEALTH_URL="${BASE_URL%/}/api/admin/health"
+          echo "Checking: $HEALTH_URL"
+
+          for i in 1 2 3 4 5; do
+            HTTP_STATUS=$(curl -s -o /tmp/health_body.json -w "%{http_code}" \
+              --max-time 30 "$HEALTH_URL")
+            echo "Attempt $i — HTTP $HTTP_STATUS"
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✓ Backend is healthy"
+              cat /tmp/health_body.json
+              exit 0
+            fi
+
+            if [ $i -lt 5 ]; then
+              echo "Retrying in 30s..."
+              sleep 30
+            fi
+          done
+
+          echo "✗ Backend health check failed after 5 attempts (last status: $HTTP_STATUS)"
+          cat /tmp/health_body.json 2>/dev/null || true
+          exit 1
+
+      - name: Open GitHub issue on failure
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `[Alert] Backend health check failed — ${new Date().toISOString().split('T')[0]}`;
+            const body = [
+              '## Backend Health Check Failed',
+              '',
+              `**Time:** ${new Date().toISOString()}`,
+              `**Triggered by:** Scheduled check`,
+              '',
+              '### What to check',
+              '- [ ] Render dashboard — is the service running?',
+              '- [ ] MongoDB Atlas — is the cluster available?',
+              '- [ ] Recent server deploys — did one break something?',
+              '',
+              `**Run ID:** [#${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`,
+            ].join('\n');
+
+            // Check if an open alert issue already exists (avoid spam)
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'backend-alert',
+            });
+
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['backend-alert'],
+              });
+              console.log('Issue created');
+            } else {
+              console.log('Alert issue already open — skipping duplicate');
+            }

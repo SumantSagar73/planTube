@@ -91,7 +91,8 @@ const WatchPartyPanel = ({ videoId, userId, playerRef, isPlaying, setIsPlaying, 
 
     const joinRoom = () => {
         if (!inputCode.trim()) return;
-        socket.emit('watch_party:join', { roomCode: inputCode.trim().toUpperCase(), userId });
+        // Send videoId so the server can validate this user is on the same video
+        socket.emit('watch_party:join', { roomCode: inputCode.trim().toUpperCase(), userId, videoId });
     };
 
     const leaveRoom = () => {

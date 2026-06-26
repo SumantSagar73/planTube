@@ -1121,3 +1121,54 @@ exports.setAIModel = async (req, res) => {
         res.status(500).json({ msg: 'Server Error' });
     }
 };
+
+// ── Per-User Feature Overrides ──────────────────────────────────────────────
+
+// GET /admin/users/:id/features
+// Returns the target user's featureOverrides map as a plain object
+exports.getUserFeatureOverrides = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).select('name username featureOverrides');
+        if (!user) return res.status(404).json({ msg: 'User not found' });
+        // Convert Map to plain object for JSON serialisation
+        const overrides = {};
+        if (user.featureOverrides) {
+            user.featureOverrides.forEach((value, key) => { overrides[key] = value; });
+        }
+        res.json({ userId: user._id, name: user.name, username: user.username, overrides });
+    } catch (err) {
+        console.error('getUserFeatureOverrides:', err.message);
+        res.status(500).json({ msg: 'Server Error' });
+    }
+};
+
+// PUT /admin/users/:id/features
+// Body: { key: 'feat_ai_chat', value: true | false | null }
+//   null  → remove override (user inherits global flag)
+//   true/false → force the feature on/off for this user regardless of global setting
+exports.setUserFeatureOverride = async (req, res) => {
+    try {
+        const { key, value } = req.body;
+        if (!key) return res.status(400).json({ msg: 'key is required' });
+
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ msg: 'User not found' });
+
+        if (value === null || value === undefined) {
+            // Remove override → inherit global
+            user.featureOverrides.delete(key);
+        } else {
+            user.featureOverrides.set(key, Boolean(value));
+        }
+        await user.save();
+
+        await createAuditLog(req, 'set_user_feature_override', user._id, 'User', { key, value });
+
+        const overrides = {};
+        user.featureOverrides.forEach((v, k) => { overrides[k] = v; });
+        res.json({ userId: user._id, overrides });
+    } catch (err) {
+        console.error('setUserFeatureOverride:', err.message);
+        res.status(500).json({ msg: 'Server Error' });
+    }
+};

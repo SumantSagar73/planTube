@@ -109,6 +109,12 @@ const userSchema = new mongoose.Schema({
       type: Number,
       default: 5
     }
+  },
+  // Per-user feature overrides set by admins. null = inherit global flag, true/false = force on/off
+  featureOverrides: {
+    type: Map,
+    of: Boolean,
+    default: {}
   }
 }, { timestamps: true });
 

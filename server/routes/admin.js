@@ -47,6 +47,12 @@ router.put('/users/:id/freeze', adminController.toggleFreeze);
 // @route   POST api/admin/users/:id/approve-wipe
 router.post('/users/:id/approve-wipe', adminController.approveWipe);
 
+// @route   GET  api/admin/users/:id/features  — get per-user feature overrides
+router.get('/users/:id/features', adminController.getUserFeatureOverrides);
+
+// @route   PUT  api/admin/users/:id/features  — set/clear a per-user feature override
+router.put('/users/:id/features', adminController.setUserFeatureOverride);
+
 // @route   POST api/admin/impersonation/start
 router.post('/impersonation/start', adminController.logImpersonationStart);
 

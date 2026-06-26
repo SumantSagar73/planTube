@@ -5,7 +5,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "seed:achievements": "node scripts/seedAchievements.js"
+    "seed:achievements": "node scripts/seedAchievements.js",
+    "lint": "eslint . --ignore-pattern node_modules --max-warnings 0",
+    "syntax-check": "find . -name '*.js' ! -path './node_modules/*' | xargs node --check"
   },
   "keywords": [],
   "author": "",

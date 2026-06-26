@@ -350,9 +350,16 @@ io.on('connection', (socket) => {
         socket.emit('watch_party:joined', { roomCode, isHost: true, videoId });
     });
 
-    socket.on('watch_party:join', ({ roomCode, userId }) => {
+    socket.on('watch_party:join', ({ roomCode, userId, videoId }) => {
         const room = watchPartyRooms.get(roomCode);
-        if (!room) return socket.emit('watch_party:error', { msg: 'Room not found' });
+        if (!room) return socket.emit('watch_party:error', { msg: 'Room not found. Check the code and try again.' });
+        // Enforce that the joining user is watching the exact same video as the host
+        if (!videoId || videoId !== room.videoId) {
+            return socket.emit('watch_party:error', {
+                msg: 'Video mismatch — this party is watching a different video. Open the correct video first.',
+                requiredVideoId: room.videoId
+            });
+        }
         room.members.add(userId);
         socket.join(`wp_${roomCode}`);
         socket.data.watchPartyRoom = roomCode;
