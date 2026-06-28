@@ -144,15 +144,32 @@ const WatchPartyPanel = ({ videoId, userId, playerRef, isPlaying, setIsPlaying, 
         }
     };
 
+    const copyToClipboard = (text) => {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text);
+        }
+        // Fallback for HTTP or browsers that block clipboard API
+        const el = document.createElement('textarea');
+        el.value = text;
+        el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+        document.body.appendChild(el);
+        el.focus(); el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        return Promise.resolve();
+    };
+
     const copyCode = () => {
-        navigator.clipboard.writeText(roomCode).catch(() => {});
-        setCopied(true); setTimeout(() => setCopied(false), 2000);
+        copyToClipboard(roomCode).then(() => {
+            setCopied(true); setTimeout(() => setCopied(false), 2000);
+        });
     };
 
     const copyLink = () => {
         const url = `${window.location.origin}/focus/${videoId}?party=${roomCode}`;
-        navigator.clipboard.writeText(url).catch(() => {});
-        setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000);
+        copyToClipboard(url).then(() => {
+            setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000);
+        });
     };
 
     // ── Panel body ────────────────────────────────────────────────────────────
