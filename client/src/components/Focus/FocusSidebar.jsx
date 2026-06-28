@@ -1530,6 +1530,15 @@ const FocusSidebar = ({
                             )}
                         </div>
                     </div>
+                ) : sidebarTab === 'party' && partyVideoId ? (
+                    <WatchPartyPanel
+                        embedded
+                        videoId={partyVideoId}
+                        userId={partyUserId}
+                        playerRef={partyPlayerRef}
+                        isPlaying={partyIsPlaying}
+                        setIsPlaying={partySetIsPlaying}
+                    />
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
@@ -1562,17 +1571,6 @@ const FocusSidebar = ({
                             ) : <p style={{ opacity: 0.5 }}>No description available.</p>}
                         </div>
                     </div>
-                )}
-                {/* Watch Party tab */}
-                {sidebarTab === 'party' && partyVideoId && (
-                    <WatchPartyPanel
-                        embedded
-                        videoId={partyVideoId}
-                        userId={partyUserId}
-                        playerRef={partyPlayerRef}
-                        isPlaying={partyIsPlaying}
-                        setIsPlaying={partySetIsPlaying}
-                    />
                 )}
                 </div>
 
