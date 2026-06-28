@@ -3,7 +3,7 @@ import {
     ChevronLeft, ChevronRight, Play, CheckCircle,
     Eye, EyeOff, Map, AlignLeft, List as ListIcon,
     Maximize, ExternalLink, FileText, Zap, MoreHorizontal,
-    Lock, Unlock, BrainCircuit, Users, Layers
+    Lock, Unlock, BrainCircuit, Users, Layers, X
 } from 'lucide-react';
 import useFeatureFlags from '../../hooks/useFeatureFlags';
 
@@ -48,6 +48,7 @@ const FocusControls = ({
     const [hoverTime, setHoverTime] = useState(null);
     const [hoverPos, setHoverPos] = useState(0);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const [showMobileSheet, setShowMobileSheet] = useState(false);
     const timelineRef = useRef(null);
     const moreMenuRef = useRef(null);
 
@@ -259,128 +260,127 @@ const FocusControls = ({
 
                 {/* Right Group: Actions & Toggles */}
                 {isMobile ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flex: 'none', width: '100%', justifyContent: 'flex-start', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'thin' }}>
-                        <button
-                            onClick={() => !isLocked && setIsHovering(false)}
-                            className="icon-btn-deck"
-                            disabled={isLocked}
-                            title={isLocked ? "Controls Locked" : "Hide UI (Click to clear view)"}
-                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
-                        >
-                            <EyeOff size={18} />
-                        </button>
-
-                        {/* Watch Party shortcut */}
-                        <button
-                            onClick={() => { if (!isLocked) { setSidebarTab('party'); setShowSidebar(true); } }}
-                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'party' ? 'active' : ''}`}
-                            disabled={isLocked}
-                            title={isLocked ? "Controls Locked" : "Watch Party"}
-                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
-                        >
-                            <Users size={18} />
-                        </button>
-
-                        <button
-                            onClick={() => !isLocked && window.open(`https://www.youtube.com/watch?v=${video.youtubeVideoId || video.videoId}`, '_blank')}
-                            className="icon-btn-deck"
-                            disabled={isLocked}
-                            title={isLocked ? "Controls Locked" : "Watch on YouTube"}
-                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
-                        >
-                            <ExternalLink size={18} />
-                        </button>
-
-                        <button
-                            onClick={() => !isLocked && handleToggleFullscreen()}
-                            className={`icon-btn-deck ${isFullscreen ? 'active' : ''}`}
-                            disabled={isLocked}
-                            title={isLocked ? "Controls Locked" : (isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen")}
-                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
-                        >
-                            <Maximize size={18} />
-                        </button>
-
-                        {isEnabled('feat_lock_mode') && (
+                    <>
+                        {/* Mobile: compact 4-button strip + More sheet */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', justifyContent: 'space-between' }}>
+                            {/* Mark Complete */}
                             <button
-                                onClick={() => setIsLocked(!isLocked)}
-                                className={`icon-btn-deck ${isLocked ? 'active' : ''}`}
-                                title={isLocked ? "Unlock Screen" : "Lock Screen Controls"}
-                                style={{ background: isLocked ? 'var(--primary)' : 'transparent', color: isLocked ? 'white' : 'inherit' }}
+                                onClick={handleToggleComplete}
+                                disabled={isFrozen || isLocked}
+                                className={`deck-primary-btn ${isCompleted ? 'completed' : ''}`}
+                                style={{ flex: 1, padding: '0.4rem 0', fontSize: '0.75rem', opacity: (isFrozen || isLocked) ? 0.5 : 1, cursor: (isFrozen || isLocked) ? 'not-allowed' : 'pointer', justifyContent: 'center' }}
                             >
-                                {isLocked ? <Lock size={18} /> : <Unlock size={18} />}
+                                <CheckCircle size={15} fill={isCompleted ? 'white' : 'none'} />
+                                <span>{isCompleted ? 'Done' : 'Mark'}</span>
                             </button>
-                        )}
 
-                        <button
-                            onClick={handleToggleComplete}
-                            disabled={isFrozen}
-                            className={`deck-primary-btn ${isCompleted ? 'completed' : ''}`}
-                            title={isFrozen ? "Progress tracking disabled while account is frozen" : (isCompleted ? "Mark Undone" : "Mark Complete")}
-                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', opacity: isFrozen ? 0.5 : 1, cursor: isFrozen ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                            <CheckCircle size={16} fill={isCompleted ? "white" : "none"} />
-                            <span>{isCompleted ? 'Done' : 'Mark'}</span>
-                        </button>
+                            {/* Fullscreen */}
+                            <button
+                                onClick={() => !isLocked && handleToggleFullscreen()}
+                                className={`icon-btn-deck ${isFullscreen ? 'active' : ''}`}
+                                disabled={isLocked}
+                                style={{ opacity: isLocked ? 0.3 : 1 }}
+                                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                            >
+                                <Maximize size={18} />
+                            </button>
 
-                        {playlist && playlist.playlistId !== 'SINGLES' && !playlist.playlistId?.startsWith('VIDEO_') && (
+                            {/* Lock */}
+                            {isEnabled('feat_lock_mode') && (
+                                <button
+                                    onClick={() => setIsLocked(!isLocked)}
+                                    className={`icon-btn-deck ${isLocked ? 'active' : ''}`}
+                                    title={isLocked ? 'Unlock' : 'Lock'}
+                                    style={{ background: isLocked ? 'var(--primary)' : 'transparent', color: isLocked ? 'white' : 'inherit' }}
+                                >
+                                    {isLocked ? <Lock size={18} /> : <Unlock size={18} />}
+                                </button>
+                            )}
+
+                            {/* More — opens bottom sheet */}
                             <button
-                                onClick={() => setSidebarTab('playlist')}
-                                className={`icon-btn-deck ${showSidebar && sidebarTab === 'playlist' ? 'active' : ''}`}
-                                title="Playlist"
+                                onClick={() => !isLocked && setShowMobileSheet(true)}
+                                className="icon-btn-deck"
+                                disabled={isLocked}
+                                style={{ opacity: isLocked ? 0.3 : 1 }}
+                                title="More options"
                             >
-                                <ListIcon size={18} />
+                                <MoreHorizontal size={18} />
                             </button>
+                        </div>
+
+                        {/* Bottom sheet overlay */}
+                        {showMobileSheet && (
+                            <>
+                                {/* Backdrop */}
+                                <div
+                                    onClick={() => setShowMobileSheet(false)}
+                                    style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.55)' }}
+                                />
+                                {/* Sheet */}
+                                <div style={{
+                                    position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9001,
+                                    background: 'rgba(10,14,26,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '20px 20px 0 0', padding: '1rem 1.25rem 2rem',
+                                    backdropFilter: 'blur(24px)'
+                                }}>
+                                    {/* Drag handle */}
+                                    <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', margin: '0 auto 1rem' }} />
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'white' }}>More Options</span>
+                                        <button onClick={() => setShowMobileSheet(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+
+                                    {/* Grid of options */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
+                                        {[
+                                            { icon: <FileText size={20} />, label: 'Notes', tab: 'notes', enabled: isEnabled('feat_notes') },
+                                            { icon: <Map size={20} />, label: 'Chapters', tab: 'chapters', enabled: true },
+                                            ...(playlist && playlist.playlistId !== 'SINGLES' && !playlist.playlistId?.startsWith('VIDEO_')
+                                                ? [{ icon: <ListIcon size={20} />, label: 'Playlist', tab: 'playlist', enabled: true }]
+                                                : []),
+                                            { icon: <Users size={20} />, label: 'Party', tab: 'party', enabled: true },
+                                            { icon: <BrainCircuit size={20} />, label: 'AI', tab: 'brainstorm', enabled: isEnabled('feat_ai_brainstorm') },
+                                            { icon: <Layers size={20} />, label: 'Cards', tab: 'flashcards', enabled: true },
+                                            { icon: <Zap size={20} />, label: 'Resources', tab: 'resources', enabled: true },
+                                            { icon: <AlignLeft size={20} />, label: 'About', tab: 'description', enabled: true },
+                                        ].filter(o => o.enabled).map(opt => (
+                                            <button
+                                                key={opt.tab}
+                                                onClick={() => { setSidebarTab(opt.tab); setShowSidebar(true); setShowMobileSheet(false); }}
+                                                className={`icon-btn-deck ${showSidebar && sidebarTab === opt.tab ? 'active' : ''}`}
+                                                style={{ flexDirection: 'column', gap: '0.35rem', height: '64px', fontSize: '0.68rem', fontWeight: 600, borderRadius: '12px', padding: '0.5rem 0', background: showSidebar && sidebarTab === opt.tab ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                                            >
+                                                {opt.icon}
+                                                {opt.label}
+                                            </button>
+                                        ))}
+
+                                        {/* Utility actions */}
+                                        <button
+                                            onClick={() => { window.open(`https://www.youtube.com/watch?v=${video?.youtubeVideoId || video?.videoId}`, '_blank'); setShowMobileSheet(false); }}
+                                            className="icon-btn-deck"
+                                            style={{ flexDirection: 'column', gap: '0.35rem', height: '64px', fontSize: '0.68rem', fontWeight: 600, borderRadius: '12px', padding: '0.5rem 0', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                                        >
+                                            <ExternalLink size={20} />
+                                            YouTube
+                                        </button>
+                                        <button
+                                            onClick={() => { setIsHovering(false); setShowMobileSheet(false); }}
+                                            className="icon-btn-deck"
+                                            style={{ flexDirection: 'column', gap: '0.35rem', height: '64px', fontSize: '0.68rem', fontWeight: 600, borderRadius: '12px', padding: '0.5rem 0', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                                        >
+                                            <EyeOff size={20} />
+                                            Hide UI
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
                         )}
-                        <button
-                            onClick={() => setSidebarTab('chapters')}
-                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'chapters' ? 'active' : ''}`}
-                            title="Video Map"
-                        >
-                            <Map size={18} />
-                        </button>
-                        {isEnabled('feat_notes') && (
-                            <button
-                                onClick={() => setSidebarTab('notes')}
-                                className={`icon-btn-deck ${showSidebar && sidebarTab === 'notes' ? 'active' : ''}`}
-                                title="Notes"
-                            >
-                                <FileText size={18} />
-                            </button>
-                        )}
-                        {isEnabled('feat_ai_brainstorm') && (
-                            <button
-                                onClick={() => setSidebarTab('brainstorm')}
-                                className={`icon-btn-deck ${showSidebar && sidebarTab === 'brainstorm' ? 'active' : ''}`}
-                                title="Brainstorm"
-                            >
-                                <BrainCircuit size={18} />
-                            </button>
-                        )}
-                        <button
-                            onClick={() => setSidebarTab('flashcards')}
-                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'flashcards' ? 'active' : ''}`}
-                            title="Flashcards"
-                        >
-                            <Layers size={18} />
-                        </button>
-                        <button
-                            onClick={() => setSidebarTab('resources')}
-                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'resources' ? 'active' : ''}`}
-                            title="Resources"
-                        >
-                            <Zap size={18} />
-                        </button>
-                        <button
-                            onClick={() => !isLocked && setSidebarTab('description')}
-                            className={`icon-btn-deck ${showSidebar && sidebarTab === 'description' ? 'active' : ''}`}
-                            disabled={isLocked}
-                            title={isLocked ? "Controls Locked" : "About"}
-                            style={{ opacity: isLocked ? 0.3 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
-                        >
-                            <AlignLeft size={18} />
-                        </button>
-                    </div>
+                    </>
                 ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
                         {/* Watch Party */}

@@ -5,9 +5,17 @@ const useFocusModePlayer = (video, videoId, schedule, setSchedule, setPlaylistSc
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [volume, setVolume] = useState(100);
+    const [volume, setVolume] = useState(() => {
+        const saved = localStorage.getItem('plantube_volume');
+        return saved !== null ? parseInt(saved, 10) : 100;
+    });
     const [isMuted, setIsMuted] = useState(false);
-    const [playbackRate, setPlaybackRate] = useState(1);
+    const [playbackRate, setPlaybackRate] = useState(() => {
+        const saved = localStorage.getItem('plantube_speed');
+        const valid = [1, 1.25, 1.5, 2];
+        const parsed = parseFloat(saved);
+        return valid.includes(parsed) ? parsed : 1;
+    });
     const [isDragging, setIsDragging] = useState(false);
     const [captionTracks, setCaptionTracks] = useState([]);
     const [currentCaptionTrack, setCurrentCaptionTrack] = useState(null);
@@ -30,6 +38,7 @@ const useFocusModePlayer = (video, videoId, schedule, setSchedule, setPlaylistSc
     const handleVolumeChange = useCallback((e) => {
         const newVol = parseInt(e.target.value);
         setVolume(newVol);
+        localStorage.setItem('plantube_volume', newVol);
         if (playerRef.current) {
             playerRef.current.setVolume(newVol);
             if (newVol > 0 && isMuted) {
@@ -42,6 +51,7 @@ const useFocusModePlayer = (video, videoId, schedule, setSchedule, setPlaylistSc
     const adjustVolume = useCallback((delta) => {
         setVolume(prev => {
             const newVol = Math.max(0, Math.min(100, prev + delta));
+            localStorage.setItem('plantube_volume', newVol);
             if (playerRef.current) {
                 playerRef.current.setVolume(newVol);
                 if (newVol > 0) {
@@ -74,6 +84,7 @@ const useFocusModePlayer = (video, videoId, schedule, setSchedule, setPlaylistSc
             const nextIdx = (speeds.indexOf(prev) + 1) % speeds.length;
             const newSpeed = speeds[nextIdx];
             playerRef.current.setPlaybackRate(newSpeed);
+            localStorage.setItem('plantube_speed', newSpeed);
             return newSpeed;
         });
     }, []);
@@ -85,6 +96,7 @@ const useFocusModePlayer = (video, videoId, schedule, setSchedule, setPlaylistSc
             const nextIdx = currIdx === -1 ? 0 : Math.min(speeds.length - 1, currIdx + 1);
             const newSpeed = speeds[nextIdx];
             if (playerRef.current) playerRef.current.setPlaybackRate(newSpeed);
+            localStorage.setItem('plantube_speed', newSpeed);
             return newSpeed;
         });
     }, []);
@@ -96,6 +108,7 @@ const useFocusModePlayer = (video, videoId, schedule, setSchedule, setPlaylistSc
             const nextIdx = currIdx === -1 ? 0 : Math.max(0, currIdx - 1);
             const newSpeed = speeds[nextIdx];
             if (playerRef.current) playerRef.current.setPlaybackRate(newSpeed);
+            localStorage.setItem('plantube_speed', newSpeed);
             return newSpeed;
         });
     }, []);
@@ -169,8 +182,19 @@ const useFocusModePlayer = (video, videoId, schedule, setSchedule, setPlaylistSc
     const handlePlayerReady = useCallback((event) => {
         playerRef.current = event.target;
         setDuration(event.target.getDuration());
-        setVolume(event.target.getVolume());
-        setPlaybackRate(event.target.getPlaybackRate());
+
+        // Restore persisted volume
+        const savedVol = localStorage.getItem('plantube_volume');
+        const vol = savedVol !== null ? parseInt(savedVol, 10) : event.target.getVolume();
+        event.target.setVolume(vol);
+        setVolume(vol);
+
+        // Restore persisted playback speed
+        const savedSpeed = localStorage.getItem('plantube_speed');
+        const valid = [1, 1.25, 1.5, 2];
+        const speed = valid.includes(parseFloat(savedSpeed)) ? parseFloat(savedSpeed) : event.target.getPlaybackRate();
+        event.target.setPlaybackRate(speed);
+        setPlaybackRate(speed);
 
         const iframe = event.target.getIframe();
         if (iframe) {

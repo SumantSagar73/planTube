@@ -83,29 +83,29 @@ PlanTube is a full-stack web application that transforms passive YouTube watchin
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                        CLIENT (React + Vite)                      │
-│                                                                    │
+│                        CLIENT (React + Vite)                     │
+│                                                                  │
 │  Pages: Dashboard, FocusMode, PlaylistDetails, Profile,          │
 │         Groups, Leaderboard, Social, AdminDashboard, ...         │
-│                                                                    │
-│  Context: AuthContext  ThemeContext  SettingsContext              │
-│                                                                    │
+│                                                                  │
+│  Context: AuthContext  ThemeContext  SettingsContext             │
+│                                                                  │
 │  Hooks: useFocusModeData  useFocusModePlayer  useFocusModeSocket │
-│         useFeatureFlags   useKeyboardShortcuts  useIsMobile       │
-│                                                                    │
+│         useFeatureFlags   useKeyboardShortcuts  useIsMobile      │
+│                                                                  │
 │  Services: api.js (Axios)   socket.js (Socket.io-client)         │
 └───────────────────┬─────────────────────────────┬────────────────┘
-                    │ REST (HTTP/JSON)             │ WebSocket
+                    │ REST (HTTP/JSON)            │ WebSocket
                     ▼                             ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                    SERVER (Express 5 + Node.js)                   │
-│                                                                    │
-│  Routes → Controllers → Services → Models                         │
-│                                                                    │
+│                    SERVER (Express 5 + Node.js)                  │
+│                                                                  │
+│  Routes → Controllers → Services → Models                        │
+│                                                                  │
 │  Middleware: auth.js (JWT verify)   admin.js (role check)        │
-│                                                                    │
-│  Socket.io: presence, watch-party, notifications                  │
-│                                                                    │
+│                                                                  │
+│  Socket.io: presence, watch-party, notifications                 │
+│                                                                  │
 │  External: YouTube Data API v3   LLM API (AI features)           │
 └───────────────────┬──────────────────────────────────────────────┘
                     │ Mongoose ODM

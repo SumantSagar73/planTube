@@ -23,6 +23,8 @@ jobs:
   health-check:
     name: Check Render backend
     runs-on: ubuntu-latest
+    permissions:
+      issues: write   # needed to list and create backend-alert issues
 
     steps:
       - name: Resolve backend URL
