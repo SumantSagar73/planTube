@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { getAIHeaders } from '../../utils/aiConfig';
 import useFeatureFlags from '../../hooks/useFeatureFlags';
 import {
     CheckCircle, Map, AlignLeft, List as ListIcon,
@@ -38,7 +39,7 @@ const FlashcardPanel = ({ videoId, notes }) => {
         setGenerating(true); setError('');
         try {
             const notesText = (notes || []).map(n => n.text).join('\n');
-            const res = await api.post(`/videos/${videoId}/generate-flashcards`, { notesText });
+            const res = await api.post(`/videos/${videoId}/generate-flashcards`, { notesText }, { headers: getAIHeaders() });
             setCards(res.data?.flashcards || []);
             setIdx(0); setFlipped(false);
         } catch (e) {

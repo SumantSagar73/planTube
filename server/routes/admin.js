@@ -135,4 +135,9 @@ router.get('/export', adminController.bulkExport);
 router.get('/ai-models', adminController.getAIModels);
 router.put('/ai-model', adminController.setAIModel);
 
+// AI providers — admin-configured keys/providers
+router.get('/ai-providers', adminController.getAIProviders);
+router.put('/ai-providers', adminController.saveAIProvider);
+router.delete('/ai-providers/:id', adminController.deleteAIProvider);
+
 module.exports = router;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     ToggleLeft, ToggleRight, AlertTriangle, ShieldCheck, Zap, Calendar,
     Trash2, RefreshCw, Database, Clock, BrainCircuit, CheckCircle2,
-    User, Search, X, ChevronDown, ChevronUp, Loader
+    User, Search, X, ChevronDown, ChevronUp, Loader, Key
 } from 'lucide-react';
 import api from '../../services/api';
 import adminService from '../../services/adminService';
@@ -127,6 +127,55 @@ const AdminCommandCenter = ({ notify }) => {
             notify(`AI model set to ${modelId}`, 'success');
         } catch { notify('Failed to save AI model', 'error'); }
         finally { setSavingAIModel(false); }
+    };
+
+    // ── AI Providers ──────────────────────────────────────────────────────────
+    const [aiProviders, setAIProviders] = useState([]);
+    const [providerForm, setProviderForm] = useState({ id: '', name: '', provider: 'groq', apiKey: '', baseUrl: '', defaultModel: '', isActive: false });
+    const [providerFormOpen, setProviderFormOpen] = useState(false);
+    const [providerSaving, setProviderSaving] = useState(false);
+
+    const PROVIDER_OPTIONS = [
+        { id: 'groq',     label: 'Groq',               hint: 'gsk_...' },
+        { id: 'openai',   label: 'OpenAI',              hint: 'sk-...' },
+        { id: 'google',   label: 'Google Gemini',       hint: 'AIza...' },
+        { id: 'mistral',  label: 'Mistral',             hint: 'mis-...' },
+        { id: 'together', label: 'Together AI',         hint: 'tog-...' },
+        { id: 'aichixia', label: 'Aichixia',            hint: 'acv-...' },
+        { id: 'custom',   label: 'Custom (OpenAI-compat)', hint: 'Bearer token' },
+    ];
+
+    useEffect(() => {
+        api.get('/admin/ai-providers').then(r => setAIProviders(r.data.providers || [])).catch(() => {});
+    }, []);
+
+    const saveProvider = async () => {
+        if (!providerForm.name || !providerForm.provider || !providerForm.apiKey) {
+            return notify('Name, provider, and API key are required', 'error');
+        }
+        setProviderSaving(true);
+        try {
+            await api.put('/admin/ai-providers', providerForm);
+            const r = await api.get('/admin/ai-providers');
+            setAIProviders(r.data.providers || []);
+            setProviderFormOpen(false);
+            setProviderForm({ id: '', name: '', provider: 'groq', apiKey: '', baseUrl: '', defaultModel: '', isActive: false });
+            notify('Provider saved', 'success');
+        } catch (err) { notify(err.response?.data?.msg || 'Save failed', 'error'); }
+        finally { setProviderSaving(false); }
+    };
+
+    const deleteProvider = async (id) => {
+        try {
+            await api.delete(`/admin/ai-providers/${id}`);
+            setAIProviders(prev => prev.filter(p => p.id !== id));
+            notify('Provider deleted', 'success');
+        } catch { notify('Delete failed', 'error'); }
+    };
+
+    const editProvider = (p) => {
+        setProviderForm({ ...p, apiKey: '' }); // don't pre-fill masked key
+        setProviderFormOpen(true);
     };
 
     // ── Cache Flush ───────────────────────────────────────────────────────────
@@ -498,6 +547,94 @@ const AdminCommandCenter = ({ notify }) => {
 
                 {aiModels.length === 0 && (
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>Loading models...</p>
+                )}
+            </section>
+
+            {/* ── AI Providers ──────────────────────────────────────────────── */}
+            <section style={{ background: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '20px', padding: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Key size={18} color="#818cf8" /> AI Providers
+                    </h3>
+                    <button onClick={() => { setProviderForm({ id: '', name: '', provider: 'groq', apiKey: '', baseUrl: '', defaultModel: '', isActive: false }); setProviderFormOpen(true); }} className="btn-primary" style={{ fontSize: '0.78rem', padding: '0.4rem 0.9rem' }}>
+                        + Add Provider
+                    </button>
+                </div>
+
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '1rem' }}>
+                    Configure API keys for AI providers. The active provider is used system-wide. Users can also set their own key in Profile → AI Provider.
+                    Priority: <strong>User key</strong> → <strong>Active admin provider</strong> → <strong>AICHIXIA_API_KEY env var</strong>.
+                </p>
+
+                {aiProviders.length === 0 && !providerFormOpen && (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic' }}>No providers configured yet. Add one to override the env var key.</p>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: providerFormOpen ? '1rem' : 0 }}>
+                    {aiProviders.map(p => (
+                        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: p.isActive ? 'rgba(74,222,128,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${p.isActive ? 'rgba(74,222,128,0.25)' : 'rgba(255,255,255,0.07)'}`, borderRadius: '12px', padding: '0.75rem 1rem' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ fontWeight: '700', fontSize: '0.88rem' }}>{p.name}</span>
+                                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.06)', padding: '1px 7px', borderRadius: '10px' }}>{p.provider}</span>
+                                    {p.isActive && <span style={{ fontSize: '0.68rem', fontWeight: '800', color: '#4ade80', background: 'rgba(74,222,128,0.12)', padding: '1px 7px', borderRadius: '10px' }}>ACTIVE</span>}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'monospace' }}>{p.apiKey}</div>
+                                {p.defaultModel && <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)', marginTop: '1px' }}>model: {p.defaultModel}</div>}
+                            </div>
+                            <button onClick={() => editProvider(p)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: 'rgba(255,255,255,0.5)', padding: '4px 10px', cursor: 'pointer', fontSize: '0.75rem' }}>Edit</button>
+                            <button onClick={() => deleteProvider(p.id)} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: '#f87171', padding: '4px 10px', cursor: 'pointer', fontSize: '0.75rem' }}>Delete</button>
+                        </div>
+                    ))}
+                </div>
+
+                {providerFormOpen && (
+                    <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                        <p style={{ fontWeight: '700', fontSize: '0.9rem', margin: 0 }}>{providerForm.id ? 'Edit Provider' : 'New Provider'}</p>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                            <div>
+                                <label style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>DISPLAY NAME</label>
+                                <input value={providerForm.name} onChange={e => setProviderForm(f => ({ ...f, name: e.target.value }))} placeholder="My Groq Key" className="styled-input" style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>PROVIDER</label>
+                                <select value={providerForm.provider} onChange={e => setProviderForm(f => ({ ...f, provider: e.target.value }))} className="styled-input" style={{ width: '100%' }}>
+                                    {PROVIDER_OPTIONS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>API KEY {providerForm.id && <span style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>(leave blank to keep existing)</span>}</label>
+                            <input type="password" value={providerForm.apiKey} onChange={e => setProviderForm(f => ({ ...f, apiKey: e.target.value }))} placeholder={PROVIDER_OPTIONS.find(p => p.id === providerForm.provider)?.hint || 'API key'} className="styled-input" style={{ width: '100%', fontFamily: 'monospace' }} />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                            <div>
+                                <label style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>DEFAULT MODEL</label>
+                                <input value={providerForm.defaultModel} onChange={e => setProviderForm(f => ({ ...f, defaultModel: e.target.value }))} placeholder="e.g. llama-3.3-70b-versatile" className="styled-input" style={{ width: '100%' }} />
+                            </div>
+                            {providerForm.provider === 'custom' && (
+                                <div>
+                                    <label style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>BASE URL</label>
+                                    <input value={providerForm.baseUrl} onChange={e => setProviderForm(f => ({ ...f, baseUrl: e.target.value }))} placeholder="https://api.example.com/v1" className="styled-input" style={{ width: '100%' }} />
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input type="checkbox" id="providerActive" checked={providerForm.isActive} onChange={e => setProviderForm(f => ({ ...f, isActive: e.target.checked }))} style={{ width: '16px', height: '16px' }} />
+                            <label htmlFor="providerActive" style={{ fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}>Set as active provider (overrides AICHIXIA_API_KEY env var)</label>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.6rem' }}>
+                            <button onClick={saveProvider} className="btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.82rem' }} disabled={providerSaving}>
+                                {providerSaving ? 'Saving…' : 'Save Provider'}
+                            </button>
+                            <button onClick={() => setProviderFormOpen(false)} className="btn-secondary" style={{ justifyContent: 'center', fontSize: '0.82rem' }}>Cancel</button>
+                        </div>
+                    </div>
                 )}
             </section>
 

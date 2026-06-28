@@ -10,6 +10,7 @@ import FocusPlayerSlot from '../components/Focus/FocusPlayerSlot';
 import FocusLeftRail from '../components/Focus/FocusLeftRail';
 import KeyboardShortcutsHelp from '../components/Focus/KeyboardShortcutsHelp';
 import socket from '../services/socket';
+import { getAIHeaders } from '../utils/aiConfig';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import useFeatureFlags from '../hooks/useFeatureFlags';
@@ -19,6 +20,8 @@ const FocusMode = () => {
     const { videoId } = useParams();
     const [searchParams] = useSearchParams();
     const urlPlaylistId = searchParams.get('playlistId');
+    const partyCodeFromUrl = searchParams.get('party');
+    const partyCodeRef = useRef(partyCodeFromUrl);
     // Sticky context: save/load playlist context from session storage
     const sessionPlaylistId = sessionStorage.getItem('active_playlist_id');
     const effectivePlaylistId = urlPlaylistId || sessionPlaylistId;
@@ -273,6 +276,16 @@ const FocusMode = () => {
             );
         }
 
+        // Auto-join a watch party if ?party=CODE was in the URL
+        if (partyCodeRef.current && user) {
+            socket.emit('watch_party:join', {
+                roomCode: partyCodeRef.current,
+                userId: user._id || user.id,
+                videoId,
+            });
+            partyCodeRef.current = null; // only join once
+        }
+
         const t = event.target.getCurrentTime();
         lastTickTimeRef.current = t;
 
@@ -357,7 +370,7 @@ const FocusMode = () => {
         if (!videoId) return;
         setIsBrainstormLoading(true);
         try {
-            const res = await api.get(`/videos/${videoId}/brainstorm`);
+            const res = await api.get(`/videos/${videoId}/brainstorm`, { headers: getAIHeaders() });
             setBrainstormPlan(res.data.content);
         } catch (err) {
             console.error('Error fetching brainstorm:', err);
@@ -378,7 +391,7 @@ const FocusMode = () => {
             const res = await api.post(`/videos/${videoId}/chat`, {
                 message,
                 chatHistory: chatMessages
-            });
+            }, { headers: getAIHeaders() });
             setChatMessages(prev => [...prev, { role: 'assistant', content: res.data.content }]);
         } catch (err) {
             console.error('Chat Error:', err);

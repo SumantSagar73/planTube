@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LogOut, Youtube, User, ChevronDown, Users, Library, Target, Link as LinkIcon, Plus, Shield, AlertTriangle, Menu, X, MessageSquare, Trophy, Map, Lock } from 'lucide-react';
+import { LogOut, Youtube, User, ChevronDown, Users, Library, Target, Link as LinkIcon, Plus, Shield, AlertTriangle, Menu, X, MessageSquare, Trophy, Map, Lock, BookOpen } from 'lucide-react';
 import AlertModal from './AlertModal';
 import ThemeSwitcher from './ThemeSwitcher';
 import NotificationBell from './NotificationBell';
@@ -148,6 +148,11 @@ const Navbar = () => {
                         <span>Roadmap</span>
                     </Link>
                 )}
+
+                <a href="/docs/" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem', textDecoration: 'none' }} className="nav-link">
+                    <BookOpen size={18} />
+                    <span>Docs</span>
+                </a>
 
                 {user && (
                     <Link to="/feedback" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: '600', fontSize: '0.9rem' }} className="nav-link">
@@ -319,6 +324,7 @@ const Navbar = () => {
                     {user && !user?.isFrozen && <Link to="/social" className="btn-secondary" style={{ textAlign: 'center' }}>Social</Link>}
                     <Link to="/leaderboard" className="btn-secondary" style={{ textAlign: 'center' }}>Ranks</Link>
                     {user && <Link to="/roadmap" className="btn-secondary" style={{ textAlign: 'center' }}>Roadmap</Link>}
+                    <a href="/docs/" target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ textAlign: 'center', textDecoration: 'none' }}>Docs</a>
                     {user && <Link to="/feedback" className="btn-secondary" style={{ textAlign: 'center' }}>Feedback</Link>}
                     {user && <Link to="/profile" className="btn-secondary" style={{ textAlign: 'center' }}>Profile</Link>}
                 </div>

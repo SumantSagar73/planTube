@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
     Clock, Calendar, Award, AlertCircle,
-    BarChart3, TrendingUp, Play, CheckCircle, User, Edit2, Save, X, Lock, Trash2, Settings, Shield, Trophy, Layout, ArrowRight, Tag, Palette, Info, Check, Users, FileDown
+    BarChart3, TrendingUp, Play, CheckCircle, User, Edit2, Save, X, Lock, Trash2, Settings, Shield, Trophy, Layout, ArrowRight, Tag, Palette, Info, Check, Users, FileDown, Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingScreen from '../components/Shared/LoadingScreen';
@@ -13,6 +13,7 @@ import Modal from '../components/Shared/Modal';
 import StreakIcon from '../components/Shared/StreakIcon';
 import { formatDate } from '../utils/dateTime';
 import useFeatureFlags from '../hooks/useFeatureFlags';
+import { AI_PROVIDERS, getUserAIConfig, setUserAIConfig, clearUserAIConfig } from '../utils/aiConfig';
 
 const timezoneOptions = [
     'UTC',
@@ -36,6 +37,156 @@ const parseDurationToSeconds = (duration) => {
     if (parts.length === 3) return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
     if (parts.length === 2) return (parts[0] * 60) + parts[1];
     return 0;
+};
+
+// ── AI Settings Card ───────────────────────────────────────────────────────
+const AISettingsCard = () => {
+    const saved = getUserAIConfig();
+    const [cfg, setCfg] = useState({
+        provider: saved?.provider || 'groq',
+        apiKey:   saved?.apiKey  || '',
+        model:    saved?.model   || '',
+        baseUrl:  saved?.baseUrl || '',
+    });
+    const [status, setStatus] = useState(''); // '' | 'testing' | 'ok' | 'error'
+    const [statusMsg, setStatusMsg] = useState('');
+
+    const providerMeta = AI_PROVIDERS.find(p => p.id === cfg.provider) || AI_PROVIDERS[0];
+
+    const handleSave = () => {
+        if (cfg.apiKey.trim()) {
+            setUserAIConfig(cfg);
+            setStatus('ok'); setStatusMsg('Saved — your key lives only in this browser.');
+        } else {
+            clearUserAIConfig();
+            setStatus('ok'); setStatusMsg('Config cleared. System default will be used.');
+        }
+        setTimeout(() => setStatus(''), 3000);
+    };
+
+    const handleTest = async () => {
+        if (!cfg.apiKey.trim()) { setStatus('error'); setStatusMsg('Enter an API key first.'); return; }
+        setStatus('testing'); setStatusMsg('Sending test message…');
+        try {
+            // Use a video ID that's unlikely to fail for a quick test
+            const res = await api.post('/videos/test-ai', { message: 'Reply with: OK' }, {
+                headers: {
+                    'x-ai-provider': cfg.provider,
+                    'x-ai-key':      cfg.apiKey,
+                    'x-ai-model':    cfg.model || providerMeta.models[0] || '',
+                    'x-ai-url':      cfg.provider === 'custom' ? cfg.baseUrl : providerMeta.baseUrl,
+                }
+            });
+            setStatus('ok'); setStatusMsg(`Connected ✓  (${res.data?.content?.slice(0, 60) || 'OK'})`);
+        } catch (err) {
+            setStatus('error'); setStatusMsg(err.response?.data?.msg || err.message || 'Connection failed');
+        }
+    };
+
+    const statusColor = status === 'ok' ? '#4ade80' : status === 'error' ? '#f87171' : 'rgba(255,255,255,0.4)';
+
+    return (
+        <div className="glass" style={{ padding: '2.5rem', borderRadius: '35px', border: '1px solid rgba(99,102,241,0.2)' }}>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: '900', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <Zap size={22} style={{ color: '#818cf8' }} /> My AI Provider
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.75rem', lineHeight: 1.5 }}>
+                Use your own API key for AI features. It's stored only in this browser — never sent to our server or database.
+                When set, it overrides the system default for all AI calls.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {/* Provider */}
+                <div>
+                    <label className="input-label">Provider</label>
+                    <select
+                        value={cfg.provider}
+                        onChange={e => setCfg({ ...cfg, provider: e.target.value, model: '', baseUrl: '' })}
+                        className="styled-input" style={{ width: '100%' }}
+                    >
+                        {AI_PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                </div>
+
+                {/* API Key */}
+                <div>
+                    <label className="input-label">API Key</label>
+                    <input
+                        type="password"
+                        placeholder={providerMeta.placeholder || 'Paste your API key'}
+                        value={cfg.apiKey}
+                        onChange={e => setCfg({ ...cfg, apiKey: e.target.value })}
+                        className="styled-input" style={{ width: '100%', fontFamily: 'monospace' }}
+                    />
+                </div>
+
+                {/* Model */}
+                <div>
+                    <label className="input-label">Model <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(type any model name)</span></label>
+                    {providerMeta.models.length > 0 ? (
+                        <input
+                            list={`model-list-${cfg.provider}`}
+                            value={cfg.model}
+                            onChange={e => setCfg({ ...cfg, model: e.target.value })}
+                            placeholder={providerMeta.models[0] || 'e.g. gpt-4o-mini'}
+                            className="styled-input" style={{ width: '100%' }}
+                        />
+                    ) : (
+                        <input
+                            value={cfg.model}
+                            onChange={e => setCfg({ ...cfg, model: e.target.value })}
+                            placeholder="Enter model name"
+                            className="styled-input" style={{ width: '100%' }}
+                        />
+                    )}
+                    {providerMeta.models.length > 0 && (
+                        <datalist id={`model-list-${cfg.provider}`}>
+                            {providerMeta.models.map(m => <option key={m} value={m} />)}
+                        </datalist>
+                    )}
+                </div>
+
+                {/* Base URL — custom only */}
+                {cfg.provider === 'custom' && (
+                    <div>
+                        <label className="input-label">Base URL <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(OpenAI-compatible, without /chat/completions)</span></label>
+                        <input
+                            value={cfg.baseUrl}
+                            onChange={e => setCfg({ ...cfg, baseUrl: e.target.value })}
+                            placeholder="https://your-api.example.com/v1"
+                            className="styled-input" style={{ width: '100%' }}
+                        />
+                    </div>
+                )}
+
+                {/* Status message */}
+                {statusMsg && (
+                    <p style={{ fontSize: '0.8rem', color: statusColor, margin: 0 }}>{statusMsg}</p>
+                )}
+
+                {/* Buttons */}
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <button onClick={handleSave} className="btn-primary" style={{ flex: 1, justifyContent: 'center', minWidth: '100px' }}>
+                        <Save size={15} /> Save
+                    </button>
+                    <button onClick={handleTest} className="btn-secondary" style={{ flex: 1, justifyContent: 'center', minWidth: '100px' }} disabled={status === 'testing'}>
+                        {status === 'testing' ? 'Testing…' : 'Test Connection'}
+                    </button>
+                    {cfg.apiKey && (
+                        <button onClick={() => { clearUserAIConfig(); setCfg({ provider: 'groq', apiKey: '', model: '', baseUrl: '' }); setStatus('ok'); setStatusMsg('Cleared.'); }} className="btn-secondary" style={{ color: '#f87171', justifyContent: 'center' }}>
+                            Clear
+                        </button>
+                    )}
+                </div>
+
+                {saved?.apiKey && (
+                    <p style={{ fontSize: '0.75rem', color: '#4ade80', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Check size={13} /> Active — using your own key for all AI features
+                    </p>
+                )}
+            </div>
+        </div>
+    );
 };
 
 const Profile = () => {
@@ -724,6 +875,8 @@ const Profile = () => {
                                 <FileDown size={16} /> Generate Study Report
                             </button>
                         </div>
+
+                        <AISettingsCard />
 
                         <div className="glass" style={{ padding: '3rem', borderRadius: '35px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
                             <h3 style={{ fontSize: '1.3rem', fontWeight: '900', marginBottom: '1rem', color: '#ef4444' }}>Terminal Deletion</h3>

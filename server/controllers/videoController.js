@@ -6,6 +6,18 @@ const { parseDuration, formatDuration, parseChapters } = require('../utils/video
 const { fetchTranscriptFromYouTube } = require('../utils/youtubeTranscript');
 const { generateBrainstormNotes, chatWithVideo, callAI } = require('../utils/aiService');
 
+// Extract user-supplied AI config from request headers (set by frontend when user has their own key)
+const extractUserAIConfig = (req) => {
+    const apiKey = req.headers['x-ai-key'];
+    if (!apiKey) return null;
+    return {
+        provider: req.headers['x-ai-provider'] || 'groq',
+        apiKey,
+        model:    req.headers['x-ai-model'] || '',
+        baseUrl:  req.headers['x-ai-url'] || '',
+    };
+};
+
 // Helper to fetch single video data from YouTube
 const fetchYouTubeData = async (videoId) => {
     const apiKey = process.env.YOUTUBE_API_KEY;
@@ -113,8 +125,8 @@ exports.getBrainstorm = async (req, res) => {
             return res.status(400).json({ msg: 'Transcript not available for this video.', error: tErr.message });
         }
         
-        // 3. Generate with AI
-        const brainstormData = await generateBrainstormNotes(transcript, videoTitle);
+        // 3. Generate with AI (use user's own key if provided)
+        const brainstormData = await generateBrainstormNotes(transcript, videoTitle, extractUserAIConfig(req));
         
         // 4. Cache it in SharedVideo for next time
         if (sharedVideo) {
@@ -180,8 +192,8 @@ exports.chatWithVideo = async (req, res) => {
             return res.status(400).json({ msg: 'Transcript not available for chat.' });
         }
 
-        // 2. Chat with AI using the Roadmap as context to save tokens
-        const aiResponse = await chatWithVideo(videoTitle, transcript, message, chatHistory, brainstormPlan);
+        // 2. Chat with AI (use user's own key if provided)
+        const aiResponse = await chatWithVideo(videoTitle, transcript, message, chatHistory, brainstormPlan, extractUserAIConfig(req));
         
         res.json({ content: aiResponse });
     } catch (err) {
@@ -435,7 +447,7 @@ ${sourceText.slice(0, 8000)}`;
             aiResponseText = await callAI([
                 { role: 'system', content: 'You are a flashcard generator. Always respond with a pure JSON array, no markdown, no explanation.' },
                 { role: 'user', content: prompt }
-            ], { temperature: 0.5, max_tokens: 1500 });
+            ], { temperature: 0.5, max_tokens: 1500 }, extractUserAIConfig(req));
         } catch (aiErr) {
             const isAuthErr = aiErr.message?.includes('authentication failed') || aiErr.message?.includes('API key');
             return res.status(isAuthErr ? 503 : 500).json({ msg: aiErr.message || 'AI generation failed' });

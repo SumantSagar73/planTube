@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlanTube — User Manual</title>
+  <meta name="description" content="Complete user guide for PlanTube — YouTube playlists, spaced repetition, AI tutoring, watch parties, and gamification." />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg-subtle: #f5f5f5;
+      --bg-card: #fafafa;
+      --border: #e5e5e5;
+      --border-strong: #d4d4d4;
+      --text: #171717;
+      --text-2: #404040;
+      --text-3: #737373;
+      --text-4: #a3a3a3;
+      --accent: #171717;
+      --accent-fg: #ffffff;
+      --sidebar-w: 256px;
+      --tip-bg: #f0fdf4; --tip-border: #86efac; --tip-text: #166534;
+      --note-bg: #eff6ff; --note-border: #93c5fd; --note-text: #1e40af;
+      --warn-bg: #fffbeb; --warn-border: #fcd34d; --warn-text: #92400e;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0a0a0a;
+        --bg-subtle: #111111;
+        --bg-card: #161616;
+        --border: #262626;
+        --border-strong: #404040;
+        --text: #fafafa;
+        --text-2: #d4d4d4;
+        --text-3: #a3a3a3;
+        --text-4: #525252;
+        --accent: #fafafa;
+        --accent-fg: #0a0a0a;
+        --tip-bg: #052e16; --tip-border: #166534; --tip-text: #86efac;
+        --note-bg: #1e3a5f; --note-border: #1d4ed8; --note-text: #93c5fd;
+        --warn-bg: #451a03; --warn-border: #92400e; --warn-text: #fcd34d;
+      }
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ─── Sidebar ─────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      border-right: 1px solid var(--border);
+      padding: 32px 0;
+      flex-shrink: 0;
+    }
+    #sidebar::-webkit-scrollbar { width: 4px; }
+    #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .sidebar-brand {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 24px 28px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+      text-decoration: none;
+    }
+    .sidebar-brand-icon {
+      width: 28px; height: 28px; background: var(--text);
+      border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .sidebar-brand-icon svg { width: 16px; height: 16px; }
+    .sidebar-brand-text { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: -0.02em; }
+    .sidebar-brand-text span { color: var(--text-4); }
+    .sidebar-group-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--text-4);
+      padding: 0 24px; margin: 20px 0 6px;
+    }
+    .sidebar-link {
+      display: block; padding: 5px 24px;
+      font-size: 13.5px; font-weight: 500; color: var(--text-3);
+      text-decoration: none; transition: color 0.15s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sidebar-link:hover { color: var(--text); }
+    .sidebar-link.active { color: var(--text); font-weight: 600; }
+    .sidebar-sub { padding-left: 36px; }
+
+    /* ─── Main content ────────────────────────────────────────── */
+    #content {
+      flex: 1; min-width: 0;
+      padding: 64px 48px 120px;
+      max-width: 860px;
+    }
+    @media (max-width: 768px) {
+      #sidebar { display: none; }
+      #content { padding: 32px 20px 80px; }
+    }
+
+    /* ─── Typography ──────────────────────────────────────────── */
+    h1 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; color: var(--text); margin-bottom: 12px; }
+    h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); margin: 56px 0 12px; padding-top: 56px; border-top: 1px solid var(--border); }
+    h2:first-of-type { border-top: none; margin-top: 40px; padding-top: 0; }
+    h3 { font-size: 17px; font-weight: 700; color: var(--text); margin: 32px 0 8px; }
+    h4 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin: 24px 0 8px; }
+    p { color: var(--text-2); margin-bottom: 16px; font-size: 15px; }
+    p:last-child { margin-bottom: 0; }
+    a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+    a:hover { color: var(--text-3); }
+    strong { color: var(--text); font-weight: 600; }
+    code {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 12.5px; background: var(--bg-subtle);
+      border: 1px solid var(--border); border-radius: 5px;
+      padding: 1px 6px; color: var(--text);
+    }
+    pre {
+      background: var(--bg-subtle); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 24px; overflow-x: auto;
+      margin: 20px 0;
+    }
+    pre code { background: none; border: none; padding: 0; font-size: 13px; }
+
+    /* ─── Lead / intro text ───────────────────────────────────── */
+    .lead { font-size: 17px; color: var(--text-3); line-height: 1.7; margin-bottom: 40px; }
+    .page-meta {
+      font-size: 12px; font-weight: 500; color: var(--text-4);
+      margin-bottom: 40px; letter-spacing: 0.04em;
+    }
+
+    /* ─── Callout boxes ───────────────────────────────────────── */
+    .callout {
+      border-radius: 12px; padding: 14px 18px; margin: 24px 0;
+      border-left: 3px solid; font-size: 14px; line-height: 1.6;
+    }
+    .callout-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+    .callout.tip { background: var(--tip-bg); border-color: var(--tip-border); color: var(--tip-text); }
+    .callout.note { background: var(--note-bg); border-color: var(--note-border); color: var(--note-text); }
+    .callout.warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+
+    /* ─── Lists ───────────────────────────────────────────────── */
+    ul, ol { padding-left: 24px; margin-bottom: 16px; }
+    li { color: var(--text-2); font-size: 15px; margin-bottom: 5px; line-height: 1.6; }
+    li strong { color: var(--text); }
+    ul li::marker { color: var(--text-4); }
+
+    /* ─── Tables ──────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; margin: 20px 0; border-radius: 12px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      text-align: left; padding: 12px 16px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+      color: var(--text-4); background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border);
+    }
+    td { padding: 11px 16px; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg-subtle); }
+    td code { font-size: 12px; }
+
+    /* ─── Step cards ──────────────────────────────────────────── */
+    .steps { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+    .step {
+      display: flex; gap: 16px; align-items: flex-start;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px 18px;
+    }
+    .step-num {
+      flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+      background: var(--accent); color: var(--accent-fg);
+      font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+    }
+    .step-body { flex: 1; }
+    .step-body strong { display: block; font-size: 14px; margin-bottom: 4px; color: var(--text); }
+    .step-body span { font-size: 13.5px; color: var(--text-3); }
+
+    /* ─── Feature grid ────────────────────────────────────────── */
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 20px 0; }
+    .feature-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px;
+    }
+    .feature-card-icon { margin-bottom: 10px; color: var(--text-3); }
+    .feature-card-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .feature-card-desc { font-size: 13px; color: var(--text-3); line-height: 1.5; }
+
+    /* ─── Keyboard badge ──────────────────────────────────────── */
+    kbd {
+      display: inline-block; background: var(--bg-subtle);
+      border: 1px solid var(--border-strong); border-bottom-width: 2px;
+      border-radius: 5px; padding: 2px 8px; font-size: 12px;
+      font-family: inherit; font-weight: 600; color: var(--text);
+    }
+
+    /* ─── Divider ─────────────────────────────────────────────── */
+    hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+    /* ─── Mobile TOC toggle ───────────────────────────────────── */
+    #toc-toggle {
+      display: none; position: fixed; bottom: 24px; right: 24px; z-index: 100;
+      background: var(--accent); color: var(--accent-fg);
+      border: none; border-radius: 50%; width: 48px; height: 48px;
+      font-size: 20px; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    @media (max-width: 768px) {
+      #toc-toggle { display: flex; align-items: center; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Sidebar ──────────────────────────────────────────────────── -->
+<nav id="sidebar">
+  <a href="#top" class="sidebar-brand">
+    <div class="sidebar-brand-icon">
+      <svg viewBox="0 0 24 24" fill="white"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M10 8.5l6 3.5-6 3.5V8.5z" fill="#171717"/></svg>
+    </div>
+    <span class="sidebar-brand-text">PlanTube<span>.</span></span>
+  </a>
+
+  <div class="sidebar-group-label">Getting Started</div>
+  <a href="#introduction" class="sidebar-link">Introduction</a>
+  <a href="#quickstart" class="sidebar-link">Quick start</a>
+  <a href="#importing" class="sidebar-link">Importing playlists</a>
+
+  <div class="sidebar-group-label">Core Features</div>
+  <a href="#focus-mode" class="sidebar-link">Focus Mode</a>
+  <a href="#focus-controls" class="sidebar-link sidebar-sub">Controls &amp; layout</a>
+  <a href="#focus-mobile" class="sidebar-link sidebar-sub">Mobile controls</a>
+  <a href="#scheduling" class="sidebar-link">Scheduling</a>
+  <a href="#scheduling-sm2" class="sidebar-link sidebar-sub">SM-2 algorithm</a>
+  <a href="#scheduling-calendar" class="sidebar-link sidebar-sub">Calendar &amp; due dates</a>
+  <a href="#notes" class="sidebar-link">Notes</a>
+  <a href="#library" class="sidebar-link">Library &amp; heatmap</a>
+
+  <div class="sidebar-group-label">AI Tools</div>
+  <a href="#ai-overview" class="sidebar-link">Overview</a>
+  <a href="#ai-chat" class="sidebar-link sidebar-sub">AI Chat</a>
+  <a href="#ai-flashcards" class="sidebar-link sidebar-sub">Flashcards</a>
+  <a href="#ai-quiz" class="sidebar-link sidebar-sub">Quiz</a>
+  <a href="#ai-brainstorm" class="sidebar-link sidebar-sub">Brainstorm</a>
+
+  <div class="sidebar-group-label">Social</div>
+  <a href="#watch-party" class="sidebar-link">Watch Party</a>
+  <a href="#watch-party-host" class="sidebar-link sidebar-sub">Hosting a party</a>
+  <a href="#watch-party-join" class="sidebar-link sidebar-sub">Joining a party</a>
+  <a href="#groups" class="sidebar-link">Study Groups</a>
+
+  <div class="sidebar-group-label">Gamification</div>
+  <a href="#xp-levels" class="sidebar-link">XP &amp; Levels</a>
+  <a href="#streaks" class="sidebar-link">Streaks</a>
+  <a href="#achievements" class="sidebar-link">Achievements</a>
+  <a href="#leaderboard" class="sidebar-link">Leaderboard</a>
+
+  <div class="sidebar-group-label">Reference</div>
+  <a href="#shortcuts" class="sidebar-link">Keyboard shortcuts</a>
+  <a href="#notifications" class="sidebar-link">Notifications</a>
+  <a href="#settings" class="sidebar-link">Profile &amp; settings</a>
+  <a href="#admin" class="sidebar-link">Admin panel</a>
+  <a href="#troubleshooting" class="sidebar-link">Troubleshooting</a>
+</nav>
+
+<!-- ─── Content ──────────────────────────────────────────────────── -->
+<main id="content">
+
+  <!-- HEADER -->
+  <div id="top">
+    <div class="page-meta">PlanTube · User Manual · v1.0</div>
+    <h1>User Manual</h1>
+    <p class="lead">
+      Everything you need to import playlists, build a study schedule, use AI tutoring, host watch parties, and track your learning progress — all in one place.
+    </p>
+  </div>
+
+  <!-- ── INTRODUCTION ── -->
+  <h2 id="introduction">Introduction</h2>
+  <p>
+    <strong>PlanTube</strong> turns passive YouTube watching into active, structured learning.
+    You import any YouTube playlist, schedule its videos using a spaced repetition algorithm,
+    and study them inside a distraction-free Focus Mode packed with AI tools, notes, and collaboration features.
+  </p>
+  <p>
+    Progress is gamified with XP, daily streaks, and achievements. You can study alongside friends in
+    synchronized watch parties, form study groups to share progress on playlists, and compete on a
+    global leaderboard.
+  </p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-card-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M10 9l5 3-5 3V9z" fill="currentColor" stroke="none"/></svg>
+      </div>
+      <div class="feature-card-title">Focus Mode</div>
+      <div class="feature-card-desc">Distraction-free player with custom controls, chapters, notes, AI chat, and every study tool in one view.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </div>
+      <div class="feature-card-title">Spaced Repetition</div>
+      <div class="feature-card-desc">SM-2 algorithm (same as Anki) calculates optimal review dates so you revisit videos at exactly the right time.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="feature-card-title">AI Tutoring</div>
+      <div class="feature-card-desc">Chat, flashcards, quizzes, and brainstorming — all using the current video's transcript as context.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div class="feature-card-title">Watch Party</div>
+      <div class="feature-card-desc">Host a synchronized viewing session. Guests join with a code and are automatically taken to the right video.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <div class="feature-card-title">Gamification</div>
+      <div class="feature-card-desc">Earn XP, maintain daily streaks, unlock 15+ achievements, and climb the leaderboard.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      </div>
+      <div class="feature-card-title">Library &amp; Analytics</div>
+      <div class="feature-card-desc">Activity heatmap, watch history, completion rates, and a full library of every video you've touched.</div>
+    </div>
+  </div>
+
+  <!-- ── QUICK START ── -->
+  <h2 id="quickstart">Quick start</h2>
+  <p>You can be watching your first scheduled video in under three minutes:</p>
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Create an account</strong><span>Sign up with an email and password. Your progress, notes, and settings are tied to your account and sync across devices.</span></div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Import a playlist</strong><span>Go to <strong>Import</strong> in the nav. Paste any public YouTube playlist URL. PlanTube fetches all video metadata via the YouTube Data API.</span></div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Open Focus Mode</strong><span>Click any video thumbnail from your Dashboard or playlist page to open the distraction-free player.</span></div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-body"><strong>Mark it complete</strong><span>When you're done watching, press <kbd>C</kbd> or click the checkmark. Rate it Easy / Medium / Hard. PlanTube schedules your next review automatically.</span></div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-body"><strong>Come back tomorrow</strong><span>Your Dashboard shows exactly which videos are due today based on your spaced repetition schedule. Study consistently and your streaks build.</span></div></div>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-label">Tip</div>
+    You can also paste a single YouTube video URL into Import — PlanTube creates a single-video playlist for it. Great for one-off lectures or tutorials.
+  </div>
+
+  <!-- ── IMPORTING ── -->
+  <h2 id="importing">Importing playlists</h2>
+  <p>
+    PlanTube supports any <strong>public or unlisted</strong> YouTube playlist URL. Private playlists cannot
+    be imported — YouTube's API does not expose them to third-party apps.
+  </p>
+  <p>
+    During import, PlanTube stores the playlist metadata (title, thumbnail, video count) and fetches
+    each video's title, duration, and thumbnail from YouTube. This data is deduplicated — if two users
+    import the same video, only one copy of the metadata is stored on the server.
+  </p>
+
+  <div class="callout note">
+    <div class="callout-label">Note</div>
+    Import time depends on playlist length. A 10-video playlist imports in about 2 seconds. A 200-video course may take 10–15 seconds. The page shows a progress indicator while fetching.
+  </div>
+
+  <h3>After importing</h3>
+  <p>
+    The imported playlist appears on your Dashboard and in <strong>My Playlists</strong>.
+    From the playlist page you can:
+  </p>
+  <ul>
+    <li>Watch any video in Focus Mode by clicking its thumbnail.</li>
+    <li>Schedule the entire playlist with one click — PlanTube spreads videos across days using SM-2.</li>
+    <li>Share the playlist with a group or make it public for other users to discover.</li>
+    <li>Sync — re-fetch the playlist from YouTube to pick up newly added videos.</li>
+  </ul>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="focus-mode">Focus Mode</h2>
+  <p>
+    Focus Mode is the core of PlanTube. It opens when you click any video and gives you a
+    distraction-free player with every study tool within reach.
+  </p>
+
+  <h3 id="focus-controls">Controls &amp; layout</h3>
+  <p>The screen is divided into three areas:</p>
+  <ul>
+    <li><strong>Left rail</strong> — chapter list, playlist queue, AI tools, resources.</li>
+    <li><strong>Player</strong> — the YouTube embed with custom controls underneath.</li>
+    <li><strong>Right sidebar</strong> — notes, flashcards, watch party panel.</li>
+  </ul>
+  <p>
+    The top bar shows the video title, a progress indicator across the playlist, and quick-access
+    buttons for mark-complete, fullscreen, and the top-bar menu.
+  </p>
+
+  <h4>Playback persistence</h4>
+  <p>
+    PlanTube remembers your <strong>volume level</strong> and <strong>playback speed</strong> across sessions.
+    Set them once — they apply every time you open Focus Mode, even after closing the browser.
+  </p>
+  <p>
+    Your watch position is also saved every 10 seconds while playing. If you close a video mid-way and return later, you resume from where you left off.
+  </p>
+
+  <h4>Focus Lock</h4>
+  <p>
+    Press <kbd>L</kbd> to enable Focus Lock. This prevents accidental navigation away from the current video by intercepting browser back/forward and tab-close events. A padlock icon appears in the top bar while active.
+    Useful if you're easily distracted by other browser tabs.
+  </p>
+
+  <h4>Zen mode</h4>
+  <p>
+    Press <kbd>H</kbd> or click "Hide UI" to remove all overlays and watch in pure fullscreen.
+    Move the mouse to bring controls back. Press <kbd>H</kbd> again or move away to re-hide.
+  </p>
+
+  <h3 id="focus-mobile">Mobile controls</h3>
+  <p>
+    On phones and tablets, a full horizontal row of 13+ icons would be unreadable. Instead,
+    PlanTube shows <strong>4 compact action buttons</strong> at the bottom right. Tap <strong>⋯</strong>
+    to open a bottom sheet with all remaining tools arranged in a 4-column grid:
+    Notes, Chapters, Playlist, Watch Party, AI, Flashcards, Resources, About, YouTube, Hide UI.
+  </p>
+  <p>This keeps the player clean on small screens while keeping every tool one tap away.</p>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="scheduling">Scheduling</h2>
+  <p>
+    PlanTube uses the <strong>SM-2 spaced repetition algorithm</strong> — the same algorithm used by
+    Anki, SuperMemo, and most modern flashcard apps — to calculate optimal review dates for videos.
+  </p>
+
+  <h3 id="scheduling-sm2">SM-2 algorithm</h3>
+  <p>
+    After you finish a video, you rate it:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Rating</th><th>What it means</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Easy</strong></td><td>Fully understood, no effort</td><td>Long interval — you won't see it for weeks</td></tr>
+        <tr><td><strong>Medium</strong></td><td>Understood with some effort</td><td>Medium interval — review in a few days</td></tr>
+        <tr><td><strong>Hard</strong></td><td>Struggled or partially understood</td><td>Short interval — back in 1–2 days</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Each rating updates the video's <strong>easiness factor (EF)</strong> — a multiplier that adjusts
+    the next interval. Easy ratings increase the EF (future gaps grow faster), hard ratings decrease it
+    (you see the video more often until mastery is demonstrated).
+  </p>
+  <p>
+    The first time you complete a video, the interval is always short (1 day for Hard, 4 for Medium,
+    7 for Easy). After two or more completions, SM-2 uses the EF and previous interval to project further.
+  </p>
+
+  <h3 id="scheduling-calendar">Calendar &amp; due dates</h3>
+  <p>
+    The <strong>Dashboard calendar</strong> shows all scheduled videos per day. Each cell shows a count
+    of due items. Click a day to see which videos are due. Overdue items appear in red.
+  </p>
+  <p>
+    You can also manually schedule any video to any date by right-clicking its card and selecting
+    "Schedule for…". This overrides the SM-2 calculation for one cycle — the next review after
+    manual completion still uses SM-2.
+  </p>
+
+  <div class="callout tip">
+    <div class="callout-label">Tip</div>
+    Rate honestly. Marking everything "Easy" defeats the purpose — you'll see hard videos too rarely and forget them. Rate "Hard" whenever you had to rewatch a section or still feel uncertain.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="notes">Notes</h2>
+  <p>
+    The notes panel in Focus Mode's right sidebar lets you capture thoughts without leaving the video.
+  </p>
+
+  <h3>Timestamped notes</h3>
+  <p>
+    Click the timestamp badge (showing the current playback position) before typing to pin a note to
+    that moment. The saved note shows a clickable timestamp — click it later to jump back to exactly
+    that point in the video.
+  </p>
+  <p>Notes are saved automatically as you type. They're stored on the server and available across devices.</p>
+
+  <h3>Formatting</h3>
+  <ul>
+    <li>Use <code>``` code ```</code> for inline code blocks.</li>
+    <li>Bullet lists with a dash at the start of a line.</li>
+    <li>Plain text for everything else — notes aren't meant to be a full editor.</li>
+  </ul>
+
+  <h3>Exporting</h3>
+  <p>
+    Click the copy icon in the notes panel header to copy all notes for the current video as Markdown.
+    Paste into Obsidian, Notion, or any note-taking app that accepts Markdown.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="library">Library &amp; heatmap</h2>
+  <p>
+    The <strong>Library</strong> page shows every video you've interacted with — watched, scheduled,
+    bookmarked, or completed — with filtering by status, playlist, and date range.
+  </p>
+
+  <h3>Activity heatmap</h3>
+  <p>
+    A GitHub-style contribution graph shows your daily watch activity for the past year. Each square
+    is one day. Darker color = more videos watched that day.
+  </p>
+  <p>
+    Use this to spot your streaks, find days you fell off, and motivate consistency.
+    A long horizontal run of dark squares is your best progress indicator.
+  </p>
+
+  <h3>Continue Watching</h3>
+  <p>
+    The Dashboard shows a "Continue Watching" row of videos you started but haven't finished, sorted
+    by most recent. Click any card to return to Focus Mode — your position is restored automatically.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="ai-overview">AI Tools</h2>
+  <p>
+    All AI tools in PlanTube use the current video's <strong>transcript as context</strong>.
+    Every answer is specific to what's actually in the video — not generic internet knowledge.
+  </p>
+
+  <div class="callout note">
+    <div class="callout-label">Note</div>
+    AI tools require the video to have auto-generated captions available on YouTube.
+    Videos without any captions (some foreign-language or manually-uploaded videos) cannot use AI features.
+    A message will appear in the panel if no transcript is available.
+  </div>
+
+  <h3 id="ai-chat">AI Chat</h3>
+  <p>
+    Open the AI tab in the left rail of Focus Mode. Type any question and receive an answer grounded in
+    the video's transcript. Good prompts to try:
+  </p>
+  <ul>
+    <li><em>"Explain the concept at 5:30 like I'm a beginner."</em></li>
+    <li><em>"What are the three main takeaways from this video?"</em></li>
+    <li><em>"Give me two real-world examples of what was just explained."</em></li>
+    <li><em>"What questions would a professor ask about this content?"</em></li>
+  </ul>
+  <p>
+    The conversation is preserved per video — you can close the panel and come back to it later.
+  </p>
+
+  <h3 id="ai-flashcards">Flashcards</h3>
+  <p>
+    Click <strong>Generate Flashcards</strong> in the AI tab. PlanTube creates a deck of Q&amp;A cards
+    from the video content. Cards use a flip animation — see the question, think of the answer, then
+    flip to check.
+  </p>
+  <p>You can regenerate the deck at any time for a fresh set of questions.</p>
+
+  <h3 id="ai-quiz">Quiz</h3>
+  <p>
+    Generate a multiple-choice quiz about the current video. Each question shows 4 options.
+    Selecting a wrong answer reveals an explanation pulled from the transcript. A score summary
+    appears when you complete all questions.
+  </p>
+
+  <h3 id="ai-brainstorm">Brainstorm</h3>
+  <p>
+    Open-ended idea generation based on the video's topic. Useful for:
+    project ideas inspired by the content, essay outlines, study questions to test yourself,
+    or follow-up research directions. The output is a bulleted list you can copy.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="watch-party">Watch Party</h2>
+  <p>
+    Watch Party lets you watch a YouTube video in real-time sync with friends.
+    The host controls playback — play, pause, and seek events are broadcast to all guests instantly.
+  </p>
+
+  <h3 id="watch-party-host">Hosting a party</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Open a video</strong><span>Navigate to any video in Focus Mode. The video you're currently watching becomes the party's video.</span></div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Open Watch Party</strong><span>Click the Users icon in the sidebar or in the ⋯ sheet on mobile. The Watch Party panel opens.</span></div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Create Room</strong><span>Click <strong>Create Room (Host)</strong>. A 6-character room code is generated instantly.</span></div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-body"><strong>Share the invite link</strong><span>Click <strong>Copy invite link</strong> to copy a URL your friends can paste directly into their browser — no manual code needed.</span></div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-body"><strong>Use Sync Play / Sync Pause</strong><span>Only the host controls playback. Use the Sync Play and Sync Pause buttons in the panel to broadcast your position to all guests.</span></div></div>
+  </div>
+
+  <h3 id="watch-party-join">Joining a party</h3>
+  <p>
+    Guests no longer need to find the right video manually. Here's how it works:
+  </p>
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Open Watch Party panel</strong><span>Go to any page in Focus Mode (or the homepage). Open the Watch Party panel — it doesn't matter which video you're on.</span></div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Enter the room code</strong><span>Type the 6-character code from the host (or click the invite link). A preview card appears showing the video thumbnail, title, and number of people watching.</span></div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Click Go &amp; Join</strong><span>You're automatically navigated to the correct video and joined to the party. No manual searching required.</span></div></div>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-label">Tip</div>
+    If you're already on the same video as the party, clicking <strong>Join Party</strong> joins instantly without any navigation.
+  </div>
+
+  <h3>Reactions</h3>
+  <p>
+    Use the emoji reaction buttons (👍 🎉 🔥 💡 😮 ❤️) to send a reaction to everyone in the party.
+    Reactions float up on all participants' screens in real time.
+  </p>
+
+  <div class="callout note">
+    <div class="callout-label">Note</div>
+    The watch party room exists only while the host has Focus Mode open. If the host closes their
+    browser, the room is destroyed and guests are disconnected. The host must create a new room to restart.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="groups">Study Groups</h2>
+  <p>
+    Study Groups let you share playlists with friends and see each other's progress video-by-video.
+  </p>
+  <h3>Creating a group</h3>
+  <p>
+    Go to <strong>Groups</strong> in the nav. Click "Create Group", set a name and description.
+    You become the group admin. Share the invite code or link with your friends — they can join
+    from the Groups page.
+  </p>
+  <h3>Group playlists</h3>
+  <p>
+    Add any of your playlists to the group from the group page. Once added, all members can view
+    the playlist's progress grid: rows are videos, columns are members.
+    Green = complete, partial fill = in progress, grey = not started. This makes accountability visible at a glance.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="xp-levels">XP &amp; Levels</h2>
+  <p>
+    You earn XP (experience points) for learning actions across the app:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Action</th><th>XP reward</th></tr></thead>
+      <tbody>
+        <tr><td>Completing a video</td><td>+50 XP</td></tr>
+        <tr><td>Maintaining a daily streak</td><td>+10 XP per day</td></tr>
+        <tr><td>Unlocking an achievement</td><td>+25–100 XP (varies)</td></tr>
+        <tr><td>Hosting a watch party</td><td>+20 XP</td></tr>
+        <tr><td>AI chat session</td><td>+5 XP</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Your current level and XP bar appear on your profile and beside your name on the leaderboard.
+    Leveling up requires progressively more XP — each level threshold is higher than the last.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="streaks">Streaks</h2>
+  <p>
+    A streak is the number of consecutive days you've watched at least one video.
+    Streaks reset at midnight in your local time zone.
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Current streak</strong></td><td>Consecutive days with at least one video watched or completed, counting backward from today.</td></tr>
+        <tr><td><strong>Best streak</strong></td><td>Your longest consecutive run ever.</td></tr>
+        <tr><td><strong>Streak reset</strong></td><td>Occurs when a full calendar day passes without any video activity. The streak goes to 0 and rebuilds from the next active day.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-label">Important</div>
+    Streaks are based on your local browser clock. If you travel across time zones, activity is attributed to your device's local midnight. There is currently no manual day-credit feature — watch at least one video each calendar day to keep your streak alive.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="achievements">Achievements</h2>
+  <p>
+    PlanTube evaluates 15+ achievement criteria automatically on every relevant action.
+    There is no button to press — achievements unlock the moment you hit their threshold.
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Achievement</th><th>How to unlock</th></tr></thead>
+      <tbody>
+        <tr><td><strong>First Steps</strong></td><td>Watch your first video</td></tr>
+        <tr><td><strong>On a Roll</strong></td><td>7-day streak</td></tr>
+        <tr><td><strong>Centurion</strong></td><td>Complete 100 videos</td></tr>
+        <tr><td><strong>Party Host</strong></td><td>Host your first watch party</td></tr>
+        <tr><td><strong>AI Power User</strong></td><td>Send 100 AI chat messages</td></tr>
+        <tr><td><strong>Flashcard Master</strong></td><td>Generate 10 flashcard decks</td></tr>
+        <tr><td><strong>Night Owl</strong></td><td>Watch videos after midnight 5 times</td></tr>
+        <tr><td><strong>Speed Runner</strong></td><td>Watch 5 videos at 2× speed</td></tr>
+        <tr><td>… and more</td><td>Keep studying to discover them all</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Achievements are displayed on your public profile page with unlock dates.</p>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="leaderboard">Leaderboard</h2>
+  <p>
+    The leaderboard at <strong>/leaderboard</strong> ranks all users by total XP.
+    You can filter by <strong>weekly</strong> (XP earned this week) or <strong>all-time</strong>.
+    Click any username to view their public profile and achievements.
+  </p>
+  <p>
+    A <strong>My Rank</strong> badge in the navbar shows your current rank at a glance —
+    no need to scroll the full list.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="shortcuts">Keyboard shortcuts</h2>
+  <p>All shortcuts work in Focus Mode when no text input is focused:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Key</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>Space</kbd></td><td>Play / Pause</td></tr>
+        <tr><td><kbd>←</kbd></td><td>Seek back 5 seconds</td></tr>
+        <tr><td><kbd>→</kbd></td><td>Seek forward 5 seconds</td></tr>
+        <tr><td><kbd>[</kbd></td><td>Previous video in playlist</td></tr>
+        <tr><td><kbd>]</kbd></td><td>Next video in playlist</td></tr>
+        <tr><td><kbd>M</kbd></td><td>Toggle mute</td></tr>
+        <tr><td><kbd>F</kbd></td><td>Toggle fullscreen</td></tr>
+        <tr><td><kbd>S</kbd></td><td>Cycle playback speed (1× → 1.25× → 1.5× → 2×)</td></tr>
+        <tr><td><kbd>C</kbd></td><td>Mark current video complete</td></tr>
+        <tr><td><kbd>N</kbd></td><td>Focus the notes input</td></tr>
+        <tr><td><kbd>H</kbd></td><td>Hide / show UI (Zen mode)</td></tr>
+        <tr><td><kbd>L</kbd></td><td>Toggle Focus Lock</td></tr>
+        <tr><td><kbd>?</kbd></td><td>Open keyboard shortcuts help overlay</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Close any open modal or panel</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="notifications">Notifications</h2>
+  <p>
+    Click the bell icon in the navbar to open the Notification Center. Notifications arrive in real time
+    via Socket.io — no page refresh needed. Five categories:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Category</th><th>When it fires</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Achievement</strong></td><td>When you unlock a badge</td></tr>
+        <tr><td><strong>Social</strong></td><td>Group invites, watch party invitations</td></tr>
+        <tr><td><strong>Reminder</strong></td><td>A scheduled video is due today</td></tr>
+        <tr><td><strong>Admin</strong></td><td>System announcements from admins</td></tr>
+        <tr><td><strong>System</strong></td><td>Account events (password changed, etc.)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Mark individual notifications read by clicking them, or use <strong>Clear all</strong>
+    to dismiss everything at once.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="settings">Profile &amp; settings</h2>
+
+  <h3>Your profile</h3>
+  <p>
+    Your profile at <strong>/profile</strong> shows your level badge, XP bar, total watch time,
+    videos completed, current streak, and achievement showcase.
+    If public profiles are enabled, your page is accessible at <code>/profile/:username</code>
+    and can be linked in your portfolio or resume.
+  </p>
+
+  <h3>Theme</h3>
+  <p>
+    Toggle between dark and light mode using the sun/moon icon in the navbar.
+    Your preference is saved to your account and applies immediately.
+  </p>
+
+  <h3>Password</h3>
+  <p>
+    Change your password from the Profile page. Passwords are hashed with bcrypt —
+    they are never stored in plain text.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="admin">Admin panel</h2>
+  <p><em>This section is for users with the admin role only.</em></p>
+
+  <h3>Feature flags</h3>
+  <p>
+    The Admin Command Center at <strong>/admin</strong> gives global on/off control over 18 features
+    grouped into five categories:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Group</th><th>Flags</th></tr></thead>
+      <tbody>
+        <tr><td><strong>AI</strong></td><td>AI chat, brainstorm, quiz, flashcards</td></tr>
+        <tr><td><strong>Study</strong></td><td>Notes, heatmap, Focus Lock, spaced repetition, Pomodoro timer</td></tr>
+        <tr><td><strong>Social</strong></td><td>Watch party, groups, social feed, public profiles</td></tr>
+        <tr><td><strong>Gamification</strong></td><td>Achievements, leaderboard, streaks</td></tr>
+        <tr><td><strong>Content</strong></td><td>Custom playlists, playlist sync</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Turning off a flag hides the feature globally for all non-admin users.
+    Enabling <strong>maintenance_mode</strong> blocks all non-admin access with a maintenance screen.
+  </p>
+
+  <h3>Per-user overrides</h3>
+  <p>
+    Search any user from the admin panel. For each feature flag you can set a 3-way toggle:
+  </p>
+  <ul>
+    <li><strong>FORCED ON</strong> — always enabled for that user regardless of the global setting. Useful for beta access.</li>
+    <li><strong>GLOBAL</strong> — follows the global flag (default).</li>
+    <li><strong>FORCED OFF</strong> — always disabled for that user. Useful for support debugging or disciplinary restrictions.</li>
+  </ul>
+
+  <h3>Impersonation (Shadow Mode)</h3>
+  <p>
+    Click "Impersonate" on any user in the Users section to browse the site exactly as that user sees it.
+    A red banner is shown to you while in shadow mode — it is invisible to the impersonated user.
+    All shadow-mode actions are written to the audit log. Click "Exit Shadow" to return to your admin account.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <h2 id="troubleshooting">Troubleshooting</h2>
+
+  <h3>Video won't load</h3>
+  <p>
+    Try refreshing — YouTube embeds occasionally time out on first load.
+    If a playlist is private, it cannot be imported. PlanTube requires public or unlisted playlists.
+  </p>
+
+  <h3>AI tools return no response</h3>
+  <p>
+    The video may not have auto-generated captions on YouTube. Manually-uploaded caption files
+    are not supported. Check that the AI feature is enabled — an admin may have turned it off globally.
+  </p>
+
+  <h3>Watch party guests can't join</h3>
+  <p>
+    Make sure the host created the room first (it only exists while the host has Focus Mode open).
+    Codes are case-insensitive. If the preview card shows a different video than expected,
+    clicking "Go &amp; Join" takes the guest to the correct video automatically.
+  </p>
+
+  <div class="callout note">
+    <div class="callout-label">Note</div>
+    Rooms are stored in server memory — not in a database. If the server restarts, all active rooms are cleared. Guests will receive a "Room not found" error and the host will need to create a new room.
+  </div>
+
+  <h3>Progress not saving</h3>
+  <p>
+    Watch position syncs to the server every 10 seconds while playing. Closing the tab immediately
+    after pausing may lose the last few seconds. Make sure you're logged in — guest sessions
+    are not synced.
+  </p>
+
+  <h3>Notifications not appearing</h3>
+  <p>
+    If you've been on the same page for a long time, refresh to re-establish the socket connection.
+    The bell icon shows a pulsing indicator while the connection is live.
+  </p>
+
+  <h3>Contact &amp; feedback</h3>
+  <p>
+    Use the <a href="/feedback">Feedback</a> page in the navbar to report a bug or suggest a feature.
+    You can also open a GitHub issue at the project repository.
+  </p>
+
+  <hr />
+  <p style="font-size: 13px; color: var(--text-4); text-align: center;">
+    PlanTube · Built by Sumant Sagar ·
+    <a href="https://github.com/SumantSagar73/planTube" style="color: var(--text-4);">GitHub</a> ·
+    <a href="mailto:sumantsagar6073@gmail.com" style="color: var(--text-4);">Contact</a>
+  </p>
+
+</main>
+
+<button id="toc-toggle" onclick="document.getElementById('sidebar').style.display='block'; this.style.display='none';" aria-label="Open table of contents">≡</button>
+
+<script>
+  // Highlight active sidebar link on scroll
+  const links = document.querySelectorAll('.sidebar-link');
+  const sections = [...document.querySelectorAll('h2[id], h3[id]')];
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const match = document.querySelector(`.sidebar-link[href="#${e.target.id}"]`);
+        if (match) match.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => obs.observe(s));
+</script>
+</body>
+</html>

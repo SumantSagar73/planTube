@@ -198,8 +198,20 @@ io.use((socket, next) => {
 // Real-time Presence with Socket.io
 const activeUsers = new Map(); // videoId -> Set of socketId/userId
 
-// Watch Party rooms: roomCode -> { hostId, videoId, isPlaying, currentTime, members: Set }
+// Watch Party rooms: roomCode -> { hostId, videoId, videoTitle, thumbnail, isPlaying, currentTime, members: Set }
 const watchPartyRooms = new Map();
+
+// REST: look up a room before joining — returns enough info to redirect the guest to the right video
+app.get('/api/watchparty/:roomCode', (req, res) => {
+    const room = watchPartyRooms.get(req.params.roomCode.toUpperCase());
+    if (!room) return res.status(404).json({ msg: 'Room not found' });
+    res.json({
+        videoId: room.videoId,
+        videoTitle: room.videoTitle || null,
+        thumbnail: room.thumbnail || null,
+        memberCount: room.members.size,
+    });
+});
 
 io.on('connection', (socket) => {
     // console.log('\ud83d\udd17 Socket connected:', socket.id);
@@ -339,10 +351,13 @@ io.on('connection', (socket) => {
     });
 
     // ─── Watch Party — synchronized playback ──────────────────────────────────
-    socket.on('watch_party:create', ({ roomCode, videoId, userId }) => {
+    socket.on('watch_party:create', ({ roomCode, videoId, userId, videoTitle, thumbnail }) => {
         if (!userId || !videoId || !roomCode) return;
         watchPartyRooms.set(roomCode, {
-            hostId: userId, videoId, isPlaying: false, currentTime: 0,
+            hostId: userId, videoId,
+            videoTitle: videoTitle || null,
+            thumbnail: thumbnail || null,
+            isPlaying: false, currentTime: 0,
             members: new Set([userId])
         });
         socket.join(`wp_${roomCode}`);

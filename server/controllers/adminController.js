@@ -1122,6 +1122,74 @@ exports.setAIModel = async (req, res) => {
     }
 };
 
+// ── Admin AI Providers ─────────────────────────────────────────────────────
+
+// GET /admin/ai-providers
+exports.getAIProviders = async (req, res) => {
+    try {
+        const s = await SystemSettings.findOne({ key: 'ai_providers' });
+        const providers = s?.value ? JSON.parse(s.value) : [];
+        // Mask API keys before sending to client
+        const masked = providers.map(p => ({ ...p, apiKey: p.apiKey ? `${p.apiKey.slice(0, 6)}...${p.apiKey.slice(-4)}` : '' }));
+        res.json({ providers: masked });
+    } catch (err) {
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+// PUT /admin/ai-providers  — upsert a single provider (send full key only when creating/updating)
+exports.saveAIProvider = async (req, res) => {
+    try {
+        const { id, name, provider, apiKey, baseUrl, defaultModel, isActive } = req.body;
+        if (!name || !provider || !apiKey) return res.status(400).json({ msg: 'name, provider, and apiKey are required' });
+
+        const s = await SystemSettings.findOne({ key: 'ai_providers' });
+        let providers = s?.value ? JSON.parse(s.value) : [];
+
+        const existingIdx = providers.findIndex(p => p.id === id);
+        const entry = {
+            id: id || `provider_${Date.now()}`,
+            name, provider, apiKey, baseUrl: baseUrl || '', defaultModel: defaultModel || '', isActive: !!isActive,
+        };
+
+        if (isActive) providers = providers.map(p => ({ ...p, isActive: false })); // only one active
+
+        if (existingIdx >= 0) {
+            // Keep existing key if masked value sent (user didn't change it)
+            if (apiKey.includes('...')) entry.apiKey = providers[existingIdx].apiKey;
+            providers[existingIdx] = entry;
+        } else {
+            providers.push(entry);
+        }
+
+        await SystemSettings.findOneAndUpdate(
+            { key: 'ai_providers' },
+            { key: 'ai_providers', value: JSON.stringify(providers), category: 'ai', description: 'Admin-configured AI providers' },
+            { upsert: true }
+        );
+        res.json({ msg: 'Provider saved' });
+    } catch (err) {
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+// DELETE /admin/ai-providers/:id
+exports.deleteAIProvider = async (req, res) => {
+    try {
+        const s = await SystemSettings.findOne({ key: 'ai_providers' });
+        let providers = s?.value ? JSON.parse(s.value) : [];
+        providers = providers.filter(p => p.id !== req.params.id);
+        await SystemSettings.findOneAndUpdate(
+            { key: 'ai_providers' },
+            { key: 'ai_providers', value: JSON.stringify(providers), category: 'ai' },
+            { upsert: true }
+        );
+        res.json({ msg: 'Provider deleted' });
+    } catch (err) {
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
 // ── Per-User Feature Overrides ──────────────────────────────────────────────
 
 // GET /admin/users/:id/features

@@ -197,7 +197,6 @@ const AppRoutes = () => {
                                             }
                                         />
 
-
                                     </Routes>
                                 </div>
                             </>
