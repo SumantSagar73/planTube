@@ -163,6 +163,11 @@ const fetchWithRedirects = (url, res, depth = 0) => {
     }
 };
 
+// Public health check — no auth required, used by GitHub Actions workflow
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', ts: new Date().toISOString() });
+});
+
 app.get('/api/proxy-image', (req, res) => {
     const { url } = req.query;
     if (!url) return res.status(400).json({ error: 'url query param required' });
