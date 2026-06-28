@@ -139,5 +139,6 @@ router.put('/ai-model', adminController.setAIModel);
 router.get('/ai-providers', adminController.getAIProviders);
 router.put('/ai-providers', adminController.saveAIProvider);
 router.delete('/ai-providers/:id', adminController.deleteAIProvider);
+router.post('/ai-providers/test', adminController.testAIProvider);
 
 module.exports = router;

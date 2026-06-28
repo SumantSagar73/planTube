@@ -1173,6 +1173,54 @@ exports.saveAIProvider = async (req, res) => {
     }
 };
 
+// POST /admin/ai-providers/test — test a stored provider by id, or test form values if no id given
+exports.testAIProvider = async (req, res) => {
+    try {
+        const { callAI, PROVIDER_ENDPOINTS } = require('../utils/aiService');
+        const { id, provider, apiKey: bodyKey, baseUrl, defaultModel } = req.body;
+
+        let endpoint, apiKey, model;
+
+        if (id) {
+            const s = await SystemSettings.findOne({ key: 'ai_providers' });
+            const providers = s?.value ? JSON.parse(s.value) : [];
+            const p = providers.find(x => x.id === id);
+            if (!p) return res.status(404).json({ msg: 'Provider not found' });
+            const pType = p.provider || 'aichixia';
+            endpoint = pType === 'custom' && p.baseUrl
+                ? `${p.baseUrl.replace(/\/$/, '')}/chat/completions`
+                : PROVIDER_ENDPOINTS[pType] || PROVIDER_ENDPOINTS.aichixia;
+            apiKey = p.apiKey;
+            model = p.defaultModel || 'llama-3.3-70b-versatile';
+        } else {
+            if (!bodyKey) return res.status(400).json({ msg: 'apiKey is required' });
+            const pType = provider || 'aichixia';
+            endpoint = pType === 'custom' && baseUrl
+                ? `${baseUrl.replace(/\/$/, '')}/chat/completions`
+                : PROVIDER_ENDPOINTS[pType] || PROVIDER_ENDPOINTS.aichixia;
+            apiKey = bodyKey;
+            model = defaultModel || 'llama-3.3-70b-versatile';
+        }
+
+        const axios = require('axios');
+        const testRes = await axios.post(endpoint, {
+            model,
+            messages: [{ role: 'user', content: 'Reply with exactly: OK' }],
+            temperature: 0,
+            max_tokens: 10,
+        }, {
+            headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            timeout: 20000,
+        });
+        const content = testRes.data?.choices?.[0]?.message?.content || '';
+        res.json({ ok: true, response: content.trim() });
+    } catch (err) {
+        const status = err.response?.status;
+        const msg = err.response?.data?.error?.message || err.message || 'Test failed';
+        res.status(status === 401 ? 401 : 502).json({ ok: false, msg });
+    }
+};
+
 // DELETE /admin/ai-providers/:id
 exports.deleteAIProvider = async (req, res) => {
     try {

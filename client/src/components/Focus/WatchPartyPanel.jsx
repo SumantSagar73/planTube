@@ -258,10 +258,6 @@ const WatchPartyPanel = ({ videoId, userId, playerRef, isPlaying, setIsPlaying, 
 
                     {previewError && <p style={{ color: '#f87171', fontSize: '0.72rem', margin: '0 0 0.5rem' }}>{previewError}</p>}
                     {error && <p style={{ color: '#f87171', fontSize: '0.72rem', margin: '0 0 0.5rem' }}>{error}</p>}
-
-                    <p style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.25)', marginTop: '0.5rem', lineHeight: 1.5 }}>
-                        Guests are automatically taken to the correct video — no manual searching needed.
-                    </p>
                 </>
             ) : (
                 <>

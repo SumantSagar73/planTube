@@ -134,6 +134,8 @@ const AdminCommandCenter = ({ notify }) => {
     const [providerForm, setProviderForm] = useState({ id: '', name: '', provider: 'groq', apiKey: '', baseUrl: '', defaultModel: '', isActive: false });
     const [providerFormOpen, setProviderFormOpen] = useState(false);
     const [providerSaving, setProviderSaving] = useState(false);
+    const [providerTesting, setProviderTesting] = useState({}); // { [id]: 'testing'|'ok'|'error' }
+    const [providerTestMsg, setProviderTestMsg] = useState({});
 
     const PROVIDER_OPTIONS = [
         { id: 'groq',     label: 'Groq',               hint: 'gsk_...' },
@@ -176,6 +178,20 @@ const AdminCommandCenter = ({ notify }) => {
     const editProvider = (p) => {
         setProviderForm({ ...p, apiKey: '' }); // don't pre-fill masked key
         setProviderFormOpen(true);
+    };
+
+    const testProvider = async (p) => {
+        setProviderTesting(s => ({ ...s, [p.id]: 'testing' }));
+        setProviderTestMsg(s => ({ ...s, [p.id]: '' }));
+        try {
+            const r = await api.post('/admin/ai-providers/test', { id: p.id });
+            setProviderTesting(s => ({ ...s, [p.id]: 'ok' }));
+            setProviderTestMsg(s => ({ ...s, [p.id]: r.data.response || 'OK' }));
+        } catch (err) {
+            setProviderTesting(s => ({ ...s, [p.id]: 'error' }));
+            setProviderTestMsg(s => ({ ...s, [p.id]: err.response?.data?.msg || 'Test failed' }));
+        }
+        setTimeout(() => setProviderTesting(s => ({ ...s, [p.id]: '' })), 4000);
     };
 
     // ── Cache Flush ───────────────────────────────────────────────────────────
@@ -582,6 +598,14 @@ const AdminCommandCenter = ({ notify }) => {
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'monospace' }}>{p.apiKey}</div>
                                 {p.defaultModel && <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)', marginTop: '1px' }}>model: {p.defaultModel}</div>}
                             </div>
+                            <button
+                                onClick={() => testProvider(p)}
+                                disabled={providerTesting[p.id] === 'testing'}
+                                style={{ background: providerTesting[p.id] === 'ok' ? 'rgba(74,222,128,0.1)' : providerTesting[p.id] === 'error' ? 'rgba(239,68,68,0.08)' : 'rgba(99,102,241,0.08)', border: `1px solid ${providerTesting[p.id] === 'ok' ? 'rgba(74,222,128,0.3)' : providerTesting[p.id] === 'error' ? 'rgba(239,68,68,0.2)' : 'rgba(99,102,241,0.2)'}`, borderRadius: '8px', color: providerTesting[p.id] === 'ok' ? '#4ade80' : providerTesting[p.id] === 'error' ? '#f87171' : '#818cf8', padding: '4px 10px', cursor: 'pointer', fontSize: '0.75rem', minWidth: '52px' }}
+                                title={providerTestMsg[p.id] || ''}
+                            >
+                                {providerTesting[p.id] === 'testing' ? '…' : providerTesting[p.id] === 'ok' ? '✓ OK' : providerTesting[p.id] === 'error' ? '✗ Fail' : 'Test'}
+                            </button>
                             <button onClick={() => editProvider(p)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: 'rgba(255,255,255,0.5)', padding: '4px 10px', cursor: 'pointer', fontSize: '0.75rem' }}>Edit</button>
                             <button onClick={() => deleteProvider(p.id)} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: '#f87171', padding: '4px 10px', cursor: 'pointer', fontSize: '0.75rem' }}>Delete</button>
                         </div>

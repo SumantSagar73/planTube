@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
-import { Check } from 'lucide-react';
+import { Check, Users, X, Loader } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Shared/Modal';
@@ -19,6 +19,94 @@ import StreakIcon from '../components/Shared/StreakIcon';
 import AdSense from '../components/Shared/AdSense';
 import useFeatureFlags from '../hooks/useFeatureFlags';
 
+
+// ── Join Watch Party widget (dashboard header) ────────────────────────────────
+const JoinWatchPartyWidget = () => {
+    const navigate = useNavigate();
+    const [open, setOpen] = useState(false);
+    const [code, setCode] = useState('');
+    const [preview, setPreview] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const ref = useRef(null);
+
+    // Close on outside click
+    useEffect(() => {
+        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    // Auto-preview when 6 chars entered
+    useEffect(() => {
+        const c = code.trim().toUpperCase();
+        if (c.length < 6) { setPreview(null); setError(''); return; }
+        setLoading(true); setError('');
+        const controller = new AbortController();
+        api.get(`/watchparty/${c}`, { signal: controller.signal })
+            .then(r => { setPreview(r.data); setError(''); })
+            .catch(err => { if (err.name !== 'CanceledError' && err.name !== 'AbortError') { setPreview(null); setError('Room not found.'); } })
+            .finally(() => setLoading(false));
+        return () => controller.abort();
+    }, [code]);
+
+    const join = () => {
+        if (!preview) return;
+        setOpen(false);
+        setCode('');
+        setPreview(null);
+        navigate(`/focus/${preview.videoId}?party=${code.trim().toUpperCase()}`);
+    };
+
+    return (
+        <div ref={ref} style={{ position: 'relative' }}>
+            <button
+                onClick={() => setOpen(o => !o)}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text-muted)', padding: '0.4rem 0.9rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '700', transition: 'border-color 0.15s', whiteSpace: 'nowrap' }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+            >
+                <Users size={15} /> Join Watch Party
+            </button>
+
+            {open && (
+                <div style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, zIndex: 999, width: '280px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '1rem', boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                        <span style={{ fontWeight: '800', fontSize: '0.88rem', color: 'var(--text-main)' }}>Join a Watch Party</span>
+                        <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}><X size={15} /></button>
+                    </div>
+                    <input
+                        autoFocus
+                        value={code}
+                        onChange={e => setCode(e.target.value.toUpperCase())}
+                        placeholder="Enter room code (e.g. AB3X9K)"
+                        maxLength={8}
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text-main)', padding: '8px 12px', fontSize: '0.9rem', fontFamily: 'monospace', letterSpacing: '0.12em', marginBottom: '0.6rem' }}
+                    />
+                    {loading && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '0.5rem' }}>
+                            <Loader size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> Looking up room…
+                        </div>
+                    )}
+                    {preview && !loading && (
+                        <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '12px', padding: '0.65rem', marginBottom: '0.6rem', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                            {preview.thumbnail && <img src={preview.thumbnail} alt="" style={{ width: '52px', height: '30px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} />}
+                            <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-main)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{preview.videoTitle || 'Watch Party'}</div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--primary)', marginTop: '2px' }}>{preview.memberCount} watching</div>
+                            </div>
+                        </div>
+                    )}
+                    {error && <p style={{ color: 'var(--error, #f87171)', fontSize: '0.75rem', margin: '0 0 0.5rem' }}>{error}</p>}
+                    <button onClick={join} disabled={!preview} className="btn-primary" style={{ width: '100%', justifyContent: 'center', opacity: preview ? 1 : 0.4 }}>
+                        Go &amp; Join →
+                    </button>
+                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const Dashboard = () => {
     const { isEnabled } = useFeatureFlags();
@@ -176,6 +264,7 @@ const Dashboard = () => {
                                     </div>
                                 )}
                             </div>
+                            {user && <JoinWatchPartyWidget />}
                         </div>
                         <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem', fontWeight: '500' }}>Your learning velocity today.</p>
                     </div>
