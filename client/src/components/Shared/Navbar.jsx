@@ -35,7 +35,8 @@ const Navbar = () => {
         api.get('/leaderboard/my-rank')
             .then(res => setMyRankData(res.data))
             .catch(() => {});
-    }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?._id || user?.id]);
 
     const showAlert = (title, message, success = false) => {
         setAlertState({ isOpen: true, title, message, success });

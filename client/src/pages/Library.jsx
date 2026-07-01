@@ -37,7 +37,8 @@ const Library = () => {
 
     useEffect(() => {
         fetchLibrary();
-    }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?._id || user?.id]);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 820);

@@ -141,7 +141,10 @@ const callAI = async (messages, options = {}, userConfig = null) => {
 };
 
 const generateBrainstormNotes = async (transcript, videoTitle, userConfig = null) => {
-    const fullText = transcript.map(t => t.text).join(' ');
+    // transcript can be an array of segments OR a plain string (description fallback)
+    const fullText = Array.isArray(transcript)
+        ? transcript.map(t => t.text).join(' ')
+        : String(transcript || '');
     const prompt = `
 You are an expert learning assistant. I am watching a video titled: "${videoTitle}".
 

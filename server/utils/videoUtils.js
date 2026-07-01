@@ -30,9 +30,10 @@ const formatDuration = (isoDuration) => {
 const generateAutoMilestones = (totalSeconds) => {
     if (!totalSeconds || totalSeconds < 60) return [];
 
-    const hours = totalSeconds / 3600;
-    const intervalMins = hours > 2 ? 30 : 20;
-    const intervalSecs = intervalMins * 60;
+    // 1 part per 15 minutes: 30min→2, 1hr→4, 2hr→8, etc.
+    const INTERVAL = 15 * 60; // 15 minutes in seconds
+    const numParts = Math.round(totalSeconds / INTERVAL);
+    const intervalSecs = numParts > 0 ? Math.floor(totalSeconds / numParts) : INTERVAL;
 
     const milestones = [];
     let currentSecs = 0;
@@ -48,16 +49,14 @@ const generateAutoMilestones = (totalSeconds) => {
             : `${m}:${s.toString().padStart(2, '0')}`;
 
         milestones.push({
-            title: `Milestone ${count}`,
+            title: `Part ${count}`,
             timestamp,
             seconds: currentSecs
         });
 
         currentSecs += intervalSecs;
         count++;
-
-        // Safety break to prevent infinite loops if something goes wrong
-        if (count > 500) break;
+        if (count > 200) break;
     }
     return milestones;
 };

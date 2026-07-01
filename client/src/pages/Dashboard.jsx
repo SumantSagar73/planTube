@@ -124,10 +124,12 @@ const Dashboard = () => {
     const [syncResultModal, setSyncResultModal] = useState({ isOpen: false, message: '' });
 
     const { user } = useAuth();
+    const userId = user?._id || user?.id;
 
     useEffect(() => {
         fetchData();
-    }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId]);
 
     const fetchData = async () => {
         try {

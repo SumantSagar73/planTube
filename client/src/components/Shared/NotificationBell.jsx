@@ -43,10 +43,13 @@ const NotificationBell = () => {
         }
     };
 
+    const _userId = user?._id || user?.id;
+
     useEffect(() => {
         if (!user) return;
         loadUnreadCount();
-    }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [_userId]);
 
     useEffect(() => {
         if (!user) return undefined;
@@ -58,7 +61,8 @@ const NotificationBell = () => {
 
         socket.on('notification:new', handleNotification);
         return () => socket.off('notification:new', handleNotification);
-    }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [_userId]);
 
     useEffect(() => {
         if (open) loadItems();
