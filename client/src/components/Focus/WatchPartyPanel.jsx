@@ -11,6 +11,7 @@ const WatchPartyPanel = ({ videoId, userId, playerRef, isPlaying, setIsPlaying, 
     const navigate = useNavigate();
 
     const [open, setOpen] = useState(false);
+    const [socketReady, setSocketReady] = useState(socket.connected);
     const [inRoom, setInRoom] = useState(false);
     const [isHost, setIsHost] = useState(false);
     const [roomCode, setRoomCode] = useState('');
@@ -25,6 +26,20 @@ const WatchPartyPanel = ({ videoId, userId, playerRef, isPlaying, setIsPlaying, 
     const [preview, setPreview] = useState(null); // { videoId, videoTitle, thumbnail, memberCount }
     const [previewLoading, setPreviewLoading] = useState(false);
     const [previewError, setPreviewError] = useState('');
+
+    // ── Track socket connection state ─────────────────────────────────────────
+    useEffect(() => {
+        const onConnect = () => setSocketReady(true);
+        const onDisconnect = () => setSocketReady(false);
+        socket.on('connect', onConnect);
+        socket.on('disconnect', onDisconnect);
+        // Attempt connect if not already connected
+        if (!socket.connected) socket.connect();
+        return () => {
+            socket.off('connect', onConnect);
+            socket.off('disconnect', onDisconnect);
+        };
+    }, []);
 
     // ── Socket events ─────────────────────────────────────────────────────────
     useEffect(() => {
@@ -97,8 +112,15 @@ const WatchPartyPanel = ({ videoId, userId, playerRef, isPlaying, setIsPlaying, 
         return () => controller.abort();
     }, [inputCode, inRoom]);
 
+    // Ensure socket is connected before emitting — FocusMode connects it, but
+    // the Party tab may open before that useEffect fires.
+    const ensureConnected = () => {
+        if (!socket.connected) socket.connect();
+    };
+
     // ── Actions ───────────────────────────────────────────────────────────────
     const createRoom = () => {
+        ensureConnected();
         const code = genCode();
         let videoTitle = null, thumbnail = null;
         try {
@@ -113,6 +135,7 @@ const WatchPartyPanel = ({ videoId, userId, playerRef, isPlaying, setIsPlaying, 
     // 1. Already on the same video → join directly via socket
     // 2. Different video → navigate to correct Focus Mode page with ?party=CODE
     const joinRoom = () => {
+        ensureConnected();
         const code = inputCode.trim().toUpperCase();
         if (!code || !preview) return;
 
@@ -137,10 +160,10 @@ const WatchPartyPanel = ({ videoId, userId, playerRef, isPlaying, setIsPlaying, 
         const ct = playerRef.current.getCurrentTime?.() || 0;
         if (action === 'play') {
             playerRef.current.playVideo?.(); setIsPlaying(true);
-            socket.emit('watch_party:play', { roomCode, currentTime: ct });
+            socket.emit('watch_party:play', { roomCode, currentTime: ct, userId });
         } else {
             playerRef.current.pauseVideo?.(); setIsPlaying(false);
-            socket.emit('watch_party:pause', { roomCode, currentTime: ct });
+            socket.emit('watch_party:pause', { roomCode, currentTime: ct, userId });
         }
     };
 
@@ -195,10 +218,17 @@ const WatchPartyPanel = ({ videoId, userId, playerRef, isPlaying, setIsPlaying, 
                 </div>
             )}
 
+            {!socketReady && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '10px', padding: '7px 10px', marginBottom: '0.75rem', fontSize: '0.72rem', color: 'rgba(251,191,36,0.9)' }}>
+                    <Loader size={12} style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+                    Connecting to server…
+                </div>
+            )}
+
             {!inRoom ? (
                 <>
                     {/* Host: create room */}
-                    <button onClick={createRoom} className="btn-primary" style={{ width: '100%', justifyContent: 'center', marginBottom: '0.75rem', fontSize: '0.82rem' }}>
+                    <button onClick={createRoom} disabled={!socketReady} className="btn-primary" style={{ width: '100%', justifyContent: 'center', marginBottom: '0.75rem', fontSize: '0.82rem', opacity: socketReady ? 1 : 0.5 }}>
                         <Users size={14} style={{ marginRight: 6 }} /> Create Room (Host)
                     </button>
 

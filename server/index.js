@@ -357,14 +357,20 @@ io.on('connection', (socket) => {
 
     // ─── Watch Party — synchronized playback ──────────────────────────────────
     socket.on('watch_party:create', ({ roomCode, videoId, userId, videoTitle, thumbnail }) => {
-        if (!userId || !videoId || !roomCode) return;
+        if (!videoId || !roomCode) return;
+        // Prefer the JWT-authenticated userId; fall back to client-provided (for cases where
+        // socket.data.userId hasn't been set yet due to reconnect timing)
+        const hostId = socket.data.userId || userId;
+        if (!hostId) return;
         watchPartyRooms.set(roomCode, {
-            hostId: userId, videoId,
+            hostId, videoId,
             videoTitle: videoTitle || null,
             thumbnail: thumbnail || null,
             isPlaying: false, currentTime: 0,
-            members: new Set([userId])
+            members: new Set([hostId])
         });
+        // Also store on socket so play/pause checks always have the same source
+        socket.data.userId = socket.data.userId || hostId;
         socket.join(`wp_${roomCode}`);
         socket.data.watchPartyRoom = roomCode;
         socket.emit('watch_party:joined', { roomCode, isHost: true, videoId });
@@ -373,14 +379,14 @@ io.on('connection', (socket) => {
     socket.on('watch_party:join', ({ roomCode, userId, videoId }) => {
         const room = watchPartyRooms.get(roomCode);
         if (!room) return socket.emit('watch_party:error', { msg: 'Room not found. Check the code and try again.' });
-        // Enforce that the joining user is watching the exact same video as the host
         if (!videoId || videoId !== room.videoId) {
             return socket.emit('watch_party:error', {
                 msg: 'Video mismatch — this party is watching a different video. Open the correct video first.',
                 requiredVideoId: room.videoId
             });
         }
-        room.members.add(userId);
+        const memberId = socket.data.userId || userId;
+        if (memberId) room.members.add(memberId);
         socket.join(`wp_${roomCode}`);
         socket.data.watchPartyRoom = roomCode;
         socket.emit('watch_party:joined', {
@@ -390,25 +396,29 @@ io.on('connection', (socket) => {
         io.to(`wp_${roomCode}`).emit('watch_party:member_count', { count: room.members.size });
     });
 
-    socket.on('watch_party:play', ({ roomCode, currentTime }) => {
+    // Helper: check if this socket is the host, accepting userId from payload as fallback
+    const isHost = (room, payloadUserId) =>
+        room && (room.hostId === socket.data.userId || room.hostId === payloadUserId);
+
+    socket.on('watch_party:play', ({ roomCode, currentTime, userId }) => {
         const room = watchPartyRooms.get(roomCode);
-        if (!room || room.hostId !== socket.data.userId) return;
+        if (!isHost(room, userId)) return;
         room.isPlaying = true;
         room.currentTime = currentTime;
         socket.to(`wp_${roomCode}`).emit('watch_party:play', { currentTime });
     });
 
-    socket.on('watch_party:pause', ({ roomCode, currentTime }) => {
+    socket.on('watch_party:pause', ({ roomCode, currentTime, userId }) => {
         const room = watchPartyRooms.get(roomCode);
-        if (!room || room.hostId !== socket.data.userId) return;
+        if (!isHost(room, userId)) return;
         room.isPlaying = false;
         room.currentTime = currentTime;
         socket.to(`wp_${roomCode}`).emit('watch_party:pause', { currentTime });
     });
 
-    socket.on('watch_party:seek', ({ roomCode, currentTime }) => {
+    socket.on('watch_party:seek', ({ roomCode, currentTime, userId }) => {
         const room = watchPartyRooms.get(roomCode);
-        if (!room || room.hostId !== socket.data.userId) return;
+        if (!isHost(room, userId)) return;
         room.currentTime = currentTime;
         socket.to(`wp_${roomCode}`).emit('watch_party:seek', { currentTime });
     });
